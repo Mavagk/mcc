@@ -1,3 +1,5 @@
-pub trait ModuleElement {
+use std::fmt::Display;
+
+pub trait ModuleElement: Display {
 
 }
