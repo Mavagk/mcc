@@ -41,13 +41,9 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 					}
 					continue;
 				}
-				// Else it is a source filepath
-				let mut path = PathBuf::from(arg_slice);
-				// Convert the argument into a filepath, filepath without extension and a stem name.
-				let filepath = path.clone().into_boxed_path();
-				let name = path.file_stem().ok_or_else(|| Error::InvalidSourcePath(arg_str.into()))?.to_string_lossy().into();
-				path.set_extension("");
-				source_files.push(SourceFile { name, filepath, filepath_without_extension: path.into_boxed_path() });
+				// Else it is a source filepath to add to the list of module main file paths
+				let filepath = PathBuf::from(arg_slice).clone().into_boxed_path();
+				source_files.push(filepath);
 			}
 			ParseState::HomeDirectory => {
 				if home_directory.is_some() {
@@ -84,15 +80,8 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 }
 
 #[derive(Debug)]
-pub struct SourceFile {
-	pub name: Box<str>,
-	pub filepath: Box<Path>,
-	pub filepath_without_extension: Box<Path>,
-}
-
-#[derive(Debug)]
 pub struct Arguments {
-	pub source_files: Box<[SourceFile]>,
+	pub source_files: Box<[Box<Path>]>,
 	pub home_directory: Option<Box<Path>>,
 	pub source_directory: Option<Box<Path>>,
 	pub output_directory: Option<Box<Path>>,
