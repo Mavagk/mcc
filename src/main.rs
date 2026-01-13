@@ -5,6 +5,7 @@ use crate::arguments::{Arguments, parse_arguments};
 pub mod traits;
 pub mod arguments;
 pub mod error;
+pub mod source_file_reader;
 
 fn main() {
 	// Get and parse program arguments
@@ -38,6 +39,7 @@ fn main() {
 pub struct Main {
 	modules_to_compile: HashSet<Box<Path>>,
 	modules_compiled: HashSet<Box<Path>>,
+
 }
 
 impl Main {
