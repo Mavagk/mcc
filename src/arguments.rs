@@ -2,33 +2,109 @@ use std::{ffi::OsString, path::{Path, PathBuf}};
 
 use crate::error::Error;
 
-pub fn parse_arguments(args: &[OsString]) -> Result<Box<[Argument]>, Error> {
+pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 	let mut parse_state = ParseState::Normal;
-	let mut out = Vec::new();
+	let mut source_files = Vec::new();
+	let mut home_directory = None;
+	let mut source_directory = None;
+	let mut output_directory = None;
+	let mut output_file = None;
+	let mut print_help = false;
+	let mut print_version = false;
+	// Process each argument
 	for arg in args {
-		//if arg.is_empty() {
-		//	continue;
-		//}
 		match parse_state {
 			ParseState::Normal => {
 				let arg_str = arg.to_string_lossy();
 				let arg_slice = arg.as_os_str();
+				// If the argument starts with a dash
 				if arg_str.starts_with('-') {
-					todo!()
+					let arg_str = &arg_str[1..];
+					match arg_str {
+						"h" | "-home-dir" => parse_state = ParseState::HomeDirectory,
+						"O" | "-output-dir" => parse_state = ParseState::OutputDirectory,
+						"o" | "-output-file" => parse_state = ParseState::OutputFile,
+						"s" | "-source-dir" => parse_state = ParseState::SourceDirectory,
+						"-help" => {
+							if print_help {
+								return Err(Error::RepeatedArgument(arg_str.into()));
+							}
+							print_help = true;
+						}
+						"-version" => {
+							if print_version {
+								return Err(Error::RepeatedArgument(arg_str.into()));
+							}
+							print_version = true;
+						}
+						_ => return Err(Error::InvalidCommandLineArgument(arg_str.into()))
+					}
+					continue;
 				}
-				let path = PathBuf::from(arg_slice);
-				let stem = path.file_stem().ok_or(Error::InvalidSourcePath)?.to_str().ok_or(Error::InvalidSourcePath)?;
-				out.push(Argument::SourceFile { name: Box::, full_path: path.into_boxed_path(), full_path_without_extension: () });
+				// Else it is a source filepath
+				let mut path = PathBuf::from(arg_slice);
+				// Convert the argument into a filepath, filepath without extension and a stem name.
+				let filepath = path.clone().into_boxed_path();
+				let name = path.file_stem().ok_or_else(|| Error::InvalidSourcePath(arg_str.into()))?.to_string_lossy().into();
+				path.set_extension("");
+				source_files.push(SourceFile { name, filepath, filepath_without_extension: path.into_boxed_path() });
+			}
+			ParseState::HomeDirectory => {
+				if home_directory.is_some() {
+					return Err(Error::MultipleHomePaths);
+				}
+				home_directory = Some(PathBuf::from(arg).into_boxed_path());
+				parse_state = ParseState::Normal;
+			}
+			ParseState::OutputDirectory => {
+				if output_directory.is_some() {
+					return Err(Error::MultipleOutputPaths);
+				}
+				output_directory = Some(PathBuf::from(arg).into_boxed_path());
+				parse_state = ParseState::Normal;
+			}
+			ParseState::SourceDirectory => {
+				if source_directory.is_some() {
+					return Err(Error::MultipleSourcePaths);
+				}
+				source_directory = Some(PathBuf::from(arg).into_boxed_path());
+				parse_state = ParseState::Normal;
+			}
+			ParseState::OutputFile => {
+				if output_file.is_some() {
+					return Err(Error::MultipleOutputFiles);
+				}
+				output_file = Some(PathBuf::from(arg).into_boxed_path());
+				parse_state = ParseState::Normal;
 			}
 		}
 	}
-	Ok(out.into_boxed_slice())
+	// Assemble into arguments struct
+	Ok(Arguments { source_files: source_files.into_boxed_slice(), home_directory, output_directory, source_directory, output_file, print_help, print_version })
+}
+
+#[derive(Debug)]
+pub struct SourceFile {
+	pub name: Box<str>,
+	pub filepath: Box<Path>,
+	pub filepath_without_extension: Box<Path>,
+}
+
+#[derive(Debug)]
+pub struct Arguments {
+	pub source_files: Box<[SourceFile]>,
+	pub home_directory: Option<Box<Path>>,
+	pub source_directory: Option<Box<Path>>,
+	pub output_directory: Option<Box<Path>>,
+	pub output_file: Option<Box<Path>>,
+	pub print_help: bool,
+	pub print_version: bool,
 }
 
 enum ParseState {
 	Normal,
-}
-
-pub enum Argument {
-	SourceFile{ name: Box<str>, full_path: Box<Path>, full_path_without_extension: Box<Path> },
+	HomeDirectory,
+	SourceDirectory,
+	OutputDirectory,
+	OutputFile,
 }
