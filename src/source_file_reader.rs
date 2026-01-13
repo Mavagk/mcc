@@ -36,6 +36,6 @@ impl<'a> SourceFileReader<'a> {
 		}
 		// Convert bytes to char and return
 		let chr = buffer.utf8_chunks().next().ok_or_else(|| Error::InvalidUtf8(self.path.to_string_lossy().into(), self.line, self.column))?.valid();
-		Ok(Some(chr.chars().next().unwrap()))
+		Ok(Some(chr.chars().next().ok_or_else(|| Error::InvalidUtf8(self.path.to_string_lossy().into(), self.line, self.column))?))
 	}
 }
