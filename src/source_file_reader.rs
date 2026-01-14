@@ -4,7 +4,7 @@ use crate::error::Error;
 
 pub struct SourceFileReader<'a> {
 	reader: Peekable<Utf8Iter>,
-	path: &'a Path,
+	_path: &'a Path,
 	line: NonZeroUsize,
 	column: NonZeroUsize,
 }
@@ -20,7 +20,7 @@ impl<'a> SourceFileReader<'a> {
 		// Pack into struct
 		Ok(Self {
 			reader,
-			path,
+			_path: path,
 			line: 1.try_into().unwrap(),
 			column: 1.try_into().unwrap(),
 		})

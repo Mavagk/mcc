@@ -11,6 +11,7 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 	let mut output_file = None;
 	let mut print_help = false;
 	let mut print_version = false;
+	let mut print_source = false;
 	// Process each argument
 	for arg in args {
 		match parse_state {
@@ -36,6 +37,12 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 								return Err(Error::RepeatedArgument(arg_str.into()));
 							}
 							print_version = true;
+						}
+						"-print-source" => {
+							if print_source {
+								return Err(Error::RepeatedArgument(arg_str.into()));
+							}
+							print_source = true;
 						}
 						_ => return Err(Error::InvalidCommandLineArgument(arg_str.into()))
 					}
@@ -76,7 +83,7 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 		}
 	}
 	// Assemble into arguments struct
-	Ok(Arguments { source_files: source_files.into_boxed_slice(), home_directory, output_directory, source_directory, output_file, print_help, print_version })
+	Ok(Arguments { source_files: source_files.into_boxed_slice(), home_directory, output_directory, source_directory, output_file, print_help, print_version, print_source })
 }
 
 #[derive(Debug)]
@@ -88,6 +95,7 @@ pub struct Arguments {
 	pub output_file: Option<Box<Path>>,
 	pub print_help: bool,
 	pub print_version: bool,
+	pub print_source: bool,
 }
 
 enum ParseState {

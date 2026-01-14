@@ -1,6 +1,6 @@
-use std::{fmt::Display, io};
+use std::fmt::Display;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Error {
 	InvalidSourcePath(String),
 	InvalidCommandLineArgument(String),
@@ -14,6 +14,7 @@ pub enum Error {
 	UnableToOpenFile(String, String),
 	UnableToReadFile(String),
 	InvalidUtf8,
+	NoHomePath,
 }
 
 impl Display for Error {
@@ -31,6 +32,7 @@ impl Display for Error {
 			Self::UnableToOpenFile(path, error) => writeln!(f, "Unable to open file at \"{path}\": {error}"),
 			Self::UnableToReadFile(error) => writeln!(f, "Unable to read file: {error}"),
 			Self::InvalidUtf8 => writeln!(f, "Invalid UTF-8"),
+			Self::NoHomePath => writeln!(f, "No home directory specified and could not get the current working directory"),
 		}
 	}
 }
