@@ -37,7 +37,7 @@ fn main() {
 		println!("-s <directory path>, --source-dir <directory path>\tSets the source path.");
 		println!("-O <directory path>, --output-dir <directory path>\tSets the output path.");
 		println!("-o <filename>, --output-file <directory path>\t\tSets the filepath of the compiled binary, path will be <home path>/<output path>/<filename>.");
-		println!("-source-dir\t\tPrints out each processed source file.");
+		println!("-print-source\t\t\t\t\t\tPrints out each processed source file.");
 	}
 	// Process each module.
 	loop {
