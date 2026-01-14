@@ -1,5 +1,6 @@
-use std::{fmt::Display, io, num::NonZeroUsize};
+use std::{fmt::Display, io};
 
+#[derive(Clone)]
 pub enum Error {
 	InvalidSourcePath(String),
 	InvalidCommandLineArgument(String),
@@ -10,9 +11,9 @@ pub enum Error {
 	MultipleHomePaths,
 	MultipleOutputFiles,
 	RepeatedArgument(String),
-	UnableToOpenFile(String, io::Error),
-	UnableToReadFile(String, io::Error),
-	InvalidUtf8(String, NonZeroUsize, NonZeroUsize),
+	UnableToOpenFile(String, String),
+	UnableToReadFile(String),
+	InvalidUtf8,
 }
 
 impl Display for Error {
@@ -28,8 +29,8 @@ impl Display for Error {
 			Self::MultipleOutputFiles => writeln!(f, "Multiple output files"),
 			Self::RepeatedArgument(argument) => writeln!(f, "Repeated argument {argument}"),
 			Self::UnableToOpenFile(path, error) => writeln!(f, "Unable to open file at \"{path}\": {error}"),
-			Self::UnableToReadFile(path, error) => writeln!(f, "Unable to read file at \"{path}\": {error}"),
-			Self::InvalidUtf8(path, line, column) => writeln!(f, "Invalid UTF-8 at \"{path}\":{line}:{column}"),
+			Self::UnableToReadFile(error) => writeln!(f, "Unable to read file: {error}"),
+			Self::InvalidUtf8 => writeln!(f, "Invalid UTF-8"),
 		}
 	}
 }
