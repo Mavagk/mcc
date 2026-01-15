@@ -1,5 +1,5 @@
-use std::fmt::Display;
+use std::fmt::Debug;
 
-pub trait Token: Display {
+pub trait Token: Debug {
 
 }

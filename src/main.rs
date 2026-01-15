@@ -1,11 +1,15 @@
 use std::{collections::HashSet, env::{args_os, current_dir}, ffi::OsString, mem::take, path::{Path, PathBuf}};
 
-use crate::{arguments::{Arguments, parse_arguments}, error::Error, source_file_reader::SourceFileReader};
+use crate::{arguments::{Arguments, parse_arguments}, error::Error, programming_languages::branflakes::Branflakes, source_file_reader::SourceFileReader, traits::programming_language::ProgrammingLanguage};
 
 pub mod traits;
+pub mod programming_languages;
+
 pub mod arguments;
 pub mod error;
 pub mod source_file_reader;
+
+const PROGRAMMING_LANGUAGES: &[ProgrammingLanguage] = &[Branflakes::new()];
 
 fn main() {
 	// Get and parse program arguments

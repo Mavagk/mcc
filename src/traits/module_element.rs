@@ -1,5 +1,5 @@
-use std::fmt::Display;
+use std::fmt::Debug;
 
-pub trait ModuleElement: Display {
+pub trait ModuleElement: Debug {
 
 }

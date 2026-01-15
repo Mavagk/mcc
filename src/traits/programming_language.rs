@@ -1,5 +1,5 @@
-use std::fmt::Display;
+use std::fmt::Debug;
 
-pub trait ProgrammingLanguage: Display {
-	
+pub trait ProgrammingLanguage: Debug {
+	fn get_extensions() -> &'static [&'static str];
 }
