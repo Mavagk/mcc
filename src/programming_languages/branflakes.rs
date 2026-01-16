@@ -10,7 +10,7 @@ impl Branflakes {
 }
 
 impl ProgrammingLanguage for Branflakes {
-	fn get_extensions() -> &'static [&'static str] {
+	fn get_extensions(&self) -> &'static [&'static str] {
 		&["bf"]
 	}
 }

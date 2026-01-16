@@ -1,4 +1,4 @@
-use std::{collections::HashSet, env::{args_os, current_dir}, ffi::OsString, mem::take, path::{Path, PathBuf}};
+use std::{collections::{HashMap, HashSet}, env::{args_os, current_dir}, ffi::OsString, mem::take, path::{Path, PathBuf}};
 
 use crate::{arguments::{Arguments, parse_arguments}, error::Error, programming_languages::branflakes::Branflakes, source_file_reader::SourceFileReader, traits::programming_language::ProgrammingLanguage};
 
@@ -9,7 +9,8 @@ pub mod arguments;
 pub mod error;
 pub mod source_file_reader;
 
-const PROGRAMMING_LANGUAGES: &[ProgrammingLanguage] = &[Branflakes::new()];
+/// The list of programming languages.
+pub const PROGRAMMING_LANGUAGES: [&'static dyn ProgrammingLanguage; 1] = [&Branflakes::new()];
 
 fn main() {
 	// Get and parse program arguments
@@ -21,7 +22,7 @@ fn main() {
 			return;
 		}
 	};
-	//
+	// Convert the arguments to the main struct
 	let mut main_struct = match Main::new(&mut args) {
 		Err(error) => {
 			println!("Error while reading arguments: {error}.");
@@ -68,6 +69,8 @@ pub struct Main {
 	pub home_directory: Box<Path>,
 	pub source_directory: Box<Path>,
 	pub output_directory: Box<Path>,
+	/// Maps file extensions to indices into the `PROGRAMMING_LANGUAGES` struct.
+	pub programming_language_file_extension_to_index: HashMap<&'static str, usize>,
 }
 
 impl Main {
@@ -90,7 +93,14 @@ impl Main {
 			Some(output_directory_argument) => output_directory.push(output_directory_argument),
 			None => output_directory.push("bin"),
 		}
-
+		// Create list of programming language extensions
+		let mut programming_language_extension_to_index = HashMap::new();
+		for (index, programming_language) in PROGRAMMING_LANGUAGES.iter().enumerate() {
+			for extension in programming_language.get_extensions() {
+				programming_language_extension_to_index.insert(*extension, index);
+			}
+		}
+		// Pack into struct
 		Ok(Self {
 			modules_to_compile: arguments.source_files.iter().cloned().collect(),
 			modules_compiled: HashSet::new(),
@@ -98,6 +108,7 @@ impl Main {
 			home_directory,
 			source_directory: source_directory.into_boxed_path(),
 			output_directory: output_directory.into_boxed_path(),
+			programming_language_file_extension_to_index: programming_language_extension_to_index,
 		})
 	}
 
@@ -114,6 +125,18 @@ fn process_module(main: &mut Main, module_path: &Path) -> Result<(), Error> {
 	// Get source filepath
 	let mut filepath: PathBuf = main.source_directory.clone().into();
 	filepath.push(module_path);
+	// Get programming language
+	let extension = match module_path.extension() {
+		Some(extension) => match extension.to_str() {
+			Some(extension) => extension,
+			None => return Err(Error::InvalidFileExtension(filepath.to_string_lossy().into())),
+		},
+		None => return Err(Error::InvalidFileExtension(filepath.to_string_lossy().into())),
+	};
+	let _programming_language = match main.programming_language_file_extension_to_index.get(extension) {
+		Some(index) => PROGRAMMING_LANGUAGES[*index],
+		None => return Err(Error::InvalidFileExtension(filepath.to_string_lossy().into())),
+	};
 	// Open file
 	let _file = SourceFileReader::new(&filepath)?;
 	// TODO

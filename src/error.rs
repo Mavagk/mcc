@@ -15,6 +15,7 @@ pub enum Error {
 	UnableToReadFile(String),
 	InvalidUtf8,
 	NoHomePath,
+	InvalidFileExtension(String),
 }
 
 impl Display for Error {
@@ -33,6 +34,7 @@ impl Display for Error {
 			Self::UnableToReadFile(error) => writeln!(f, "Unable to read file: {error}"),
 			Self::InvalidUtf8 => writeln!(f, "Invalid UTF-8"),
 			Self::NoHomePath => writeln!(f, "No home directory specified and could not get the current working directory"),
+			Self::InvalidFileExtension(file_path) => writeln!(f, "File {file_path} has an invalid file extension."),
 		}
 	}
 }
