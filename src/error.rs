@@ -17,6 +17,8 @@ pub enum Error {
 	InvalidUtf8,
 	NoHomePath,
 	InvalidFileExtension(String),
+	MoreOpeningParenthesesThanClosingParentheses,
+	MoreClosingParenthesesThanOpeningParentheses,
 }
 
 impl Error {
@@ -28,20 +30,22 @@ impl Error {
 impl Display for Error {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Self::NotYetImplemented(feature) => writeln!(f, "{feature} not yet implemented"),
-			Self::Unimplemented(feature) => writeln!(f, "{feature} unimplemented"),
-			Self::InvalidSourcePath(path) => writeln!(f, "Invalid source path: {path}"),
-			Self::InvalidCommandLineArgument(argument) => writeln!(f, "Invalid command line argument: {argument}"),
-			Self::MultipleSourcePaths => writeln!(f, "Multiple source paths"),
-			Self::MultipleOutputPaths => writeln!(f, "Multiple output paths"),
-			Self::MultipleHomePaths => writeln!(f, "Multiple home paths"),
-			Self::MultipleOutputFiles => writeln!(f, "Multiple output files"),
-			Self::RepeatedArgument(argument) => writeln!(f, "Repeated argument {argument}"),
-			Self::UnableToOpenFile(path, error) => writeln!(f, "Unable to open file at \"{path}\": {error}"),
-			Self::UnableToReadFile(error) => writeln!(f, "Unable to read file: {error}"),
-			Self::InvalidUtf8 => writeln!(f, "Invalid UTF-8"),
-			Self::NoHomePath => writeln!(f, "No home directory specified and could not get the current working directory"),
-			Self::InvalidFileExtension(file_path) => writeln!(f, "File {file_path} has an invalid file extension."),
+			Self::NotYetImplemented(feature) => write!(f, "{feature} not yet implemented"),
+			Self::Unimplemented(feature) => write!(f, "{feature} unimplemented"),
+			Self::InvalidSourcePath(path) => write!(f, "Invalid source path: {path}"),
+			Self::InvalidCommandLineArgument(argument) => write!(f, "Invalid command line argument: {argument}"),
+			Self::MultipleSourcePaths => write!(f, "Multiple source paths"),
+			Self::MultipleOutputPaths => write!(f, "Multiple output paths"),
+			Self::MultipleHomePaths => write!(f, "Multiple home paths"),
+			Self::MultipleOutputFiles => write!(f, "Multiple output files"),
+			Self::RepeatedArgument(argument) => write!(f, "Repeated argument {argument}"),
+			Self::UnableToOpenFile(path, error) => write!(f, "Unable to open file at \"{path}\": {error}"),
+			Self::UnableToReadFile(error) => write!(f, "Unable to read file: {error}"),
+			Self::InvalidUtf8 => write!(f, "Invalid UTF-8"),
+			Self::NoHomePath => write!(f, "No home directory specified and could not get the current working directory"),
+			Self::InvalidFileExtension(file_path) => write!(f, "File {file_path} has an invalid file extension"),
+			Self::MoreClosingParenthesesThanOpeningParentheses => write!(f, "More closing parentheses than opening parentheses"),
+			Self::MoreOpeningParenthesesThanClosingParentheses => write!(f, "More opening parentheses than closing parentheses"),
 		}
 	}
 }
