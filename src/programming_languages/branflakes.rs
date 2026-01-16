@@ -1,4 +1,4 @@
-use crate::{error::ErrorAt, traits::{programming_language::ProgrammingLanguage, statement::Statement, token::Token}};
+use crate::{error::ErrorAt, traits::{programming_language::ProgrammingLanguage, token::Token}};
 
 #[derive(Debug)]
 pub struct Branflakes;
@@ -9,27 +9,30 @@ impl Branflakes {
 	}
 }
 
-impl ProgrammingLanguage<BrainFlakesStatement> for Branflakes {
+impl ProgrammingLanguage<BrainFlakesToken> for Branflakes {
 	//type TokenType = BrainFlakesStatement;
 
 	fn get_extensions(&self) -> &'static [&'static str] {
 		&["bf"]
 	}
 
-	fn parse_next_token(&self, main: &mut crate::Main, reader: &mut crate::source_file_reader::SourceFileReader) -> Result<ErrorAt, Option<BrainFlakesStatement>> {
+	fn tokenize_next_token(&self, main: &mut crate::Main, reader: &mut crate::source_file_reader::SourceFileReader) -> Result<Option<BrainFlakesToken>, ErrorAt> {
 		todo!()
 	}
 }
 
 #[derive(Debug)]
-pub enum BrainFlakesStatement {
-
+pub enum BrainFlakesToken {
+	Increment,
+	Decrement,
+	IncrementPointer,
+	DecrementPointer,
+	Print,
+	Input,
+	LoopStart,
+	LoopEnd,
 }
 
-impl Token for BrainFlakesStatement {
-
-}
-
-impl Statement for BrainFlakesStatement {
+impl Token for BrainFlakesToken {
 
 }

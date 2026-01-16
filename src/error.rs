@@ -46,6 +46,7 @@ impl Display for Error {
 	}
 }
 
+#[derive(Clone, Debug)]
 pub struct ErrorAt {
 	error: Error,
 	line: Option<NonZeroUsize>,

@@ -1,10 +1,10 @@
 use std::{fs::File, io::{BufReader, Bytes, Read}, iter::Peekable, num::NonZeroUsize, path::Path};
 
-use crate::error::Error;
+use crate::error::{Error, ErrorAt};
 
 pub struct SourceFileReader<'a> {
 	reader: Peekable<Utf8Iter>,
-	_path: &'a Path,
+	path: &'a Path,
 	line: NonZeroUsize,
 	column: NonZeroUsize,
 }
@@ -20,9 +20,9 @@ impl<'a> SourceFileReader<'a> {
 		// Pack into struct
 		Ok(Self {
 			reader,
-			_path: path,
-			line: 1.try_into().unwrap(),
-			column: 1.try_into().unwrap(),
+			path: path,
+			line: NonZeroUsize::new(1).unwrap(),
+			column: NonZeroUsize::new(1).unwrap(),
 		})
 	}
 
@@ -34,8 +34,28 @@ impl<'a> SourceFileReader<'a> {
 		self.column
 	}
 
-	pub fn peek_char(&mut self) -> Option<Result<char, Error>> {
-		self.reader.peek().cloned()
+	pub fn peek_char(&mut self) -> Result<Option<char>, ErrorAt> {
+		match self.reader.peek().cloned() {
+			None => Ok(None),
+			Some(Err(err)) => Err(Error::UnableToReadFile(err.to_string()).at(Some(self.line), Some(self.column), Some(self.path.as_os_str().to_string_lossy().into()))),
+			Some(Ok(chr)) => Ok(Some(chr)),
+		}
+	}
+
+	pub fn read_char(&mut self) -> Result<Option<char>, ErrorAt> {
+		let chr = match self.reader.next() {
+			None => return Ok(None),
+			Some(Err(err)) => return Err(Error::UnableToReadFile(err.to_string()).at(Some(self.line), Some(self.column), Some(self.path.as_os_str().to_string_lossy().into()))),
+			Some(Ok(chr)) => chr,
+		};
+		if chr == '\n' {
+			self.column = NonZeroUsize::new(1).unwrap();
+			self.line = self.line.checked_add(1).unwrap();
+		}
+		else {
+			self.column = self.column.checked_add(1).unwrap();
+		}
+		Ok(Some(chr))
 	}
 }
 

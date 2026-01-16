@@ -12,6 +12,7 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 	let mut print_help = false;
 	let mut print_version = false;
 	let mut print_source = false;
+	let mut print_tokens = false;
 	// Process each argument
 	for arg in args {
 		match parse_state {
@@ -43,6 +44,12 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 								return Err(Error::RepeatedArgument(arg_str.into()));
 							}
 							print_source = true;
+						}
+						"-print-tokens" => {
+							if print_tokens {
+								return Err(Error::RepeatedArgument(arg_str.into()));
+							}
+							print_tokens = true;
 						}
 						_ => return Err(Error::InvalidCommandLineArgument(arg_str.into()))
 					}
@@ -83,7 +90,7 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 		}
 	}
 	// Assemble into arguments struct
-	Ok(Arguments { source_files: source_files.into_boxed_slice(), home_directory, output_directory, source_directory, output_file, print_help, print_version, print_source })
+	Ok(Arguments { source_files: source_files.into_boxed_slice(), home_directory, output_directory, source_directory, output_file, print_help, print_version, print_source, print_tokens })
 }
 
 #[derive(Debug)]
@@ -96,6 +103,7 @@ pub struct Arguments {
 	pub print_help: bool,
 	pub print_version: bool,
 	pub print_source: bool,
+	pub print_tokens: bool,
 }
 
 enum ParseState {

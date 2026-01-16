@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet}, env::{args_os, current_dir}, ffi::OsString, mem::take, path::{Path, PathBuf}};
 
-use crate::{arguments::{Arguments, parse_arguments}, error::Error, programming_languages::branflakes::{BrainFlakesStatement, Branflakes}, source_file_reader::SourceFileReader, traits::programming_language::ProgrammingLanguage};
+use crate::{arguments::{Arguments, parse_arguments}, error::{Error, ErrorAt}, programming_languages::branflakes::{BrainFlakesToken, Branflakes}, source_file_reader::SourceFileReader, traits::programming_language::ProgrammingLanguage};
 
 pub mod traits;
 pub mod programming_languages;
@@ -10,7 +10,7 @@ pub mod error;
 pub mod source_file_reader;
 
 /// The list of programming languages.
-pub const PROGRAMMING_LANGUAGES: [&'static dyn ProgrammingLanguage<BrainFlakesStatement>; 1] = [&Branflakes::new()];
+pub const PROGRAMMING_LANGUAGES: [&'static dyn ProgrammingLanguage<BrainFlakesToken>; 1] = [&Branflakes::new()];
 
 fn main() {
 	// Get and parse program arguments
@@ -42,7 +42,8 @@ fn main() {
 		println!("-s <directory path>, --source-dir <directory path>\tSets the source path.");
 		println!("-O <directory path>, --output-dir <directory path>\tSets the output path.");
 		println!("-o <filename>, --output-file <directory path>\t\tSets the filepath of the compiled binary, path will be <home path>/<output path>/<filename>.");
-		println!("-print-source\t\t\t\t\t\tPrints out each processed source file.");
+		//println!("-print-source\t\t\t\t\t\tPrints out each processed source file.");
+		println!("-print-tokens\t\t\t\t\t\tPrints out the tokenized tokens.")
 	}
 	// Process each module.
 	loop {
@@ -54,7 +55,7 @@ fn main() {
 		main_struct.modules_to_compile.remove(&module_path);
 		main_struct.modules_compiled.insert(module_path.clone());
 		// Process
-		if let Err(error) = process_module(&mut main_struct, &module_path) {
+		if let Err(error) = process_module(&mut main_struct, &args, &module_path) {
 			println!("Error while compiling file \"{}\": {error}.", module_path.to_string_lossy());
 			return;
 		}
@@ -121,7 +122,7 @@ impl Main {
 	}
 }
 
-fn process_module(main: &mut Main, module_path: &Path) -> Result<(), Error> {
+fn process_module(main: &mut Main, args: &Arguments, module_path: &Path) -> Result<(), ErrorAt> {
 	// Get source filepath
 	let mut filepath: PathBuf = main.source_directory.clone().into();
 	filepath.push(module_path);
@@ -129,16 +130,24 @@ fn process_module(main: &mut Main, module_path: &Path) -> Result<(), Error> {
 	let extension = match module_path.extension() {
 		Some(extension) => match extension.to_str() {
 			Some(extension) => extension,
-			None => return Err(Error::InvalidFileExtension(filepath.to_string_lossy().into())),
+			None => return Err(Error::InvalidFileExtension(filepath.to_string_lossy().into()).at(None, None, None)),
 		},
-		None => return Err(Error::InvalidFileExtension(filepath.to_string_lossy().into())),
+		None => return Err(Error::InvalidFileExtension(filepath.to_string_lossy().into()).at(None, None, None)),
 	};
-	let _programming_language = match main.programming_language_file_extension_to_index.get(extension) {
+	let programming_language = match main.programming_language_file_extension_to_index.get(extension) {
 		Some(index) => PROGRAMMING_LANGUAGES[*index],
-		None => return Err(Error::InvalidFileExtension(filepath.to_string_lossy().into())),
+		None => return Err(Error::InvalidFileExtension(filepath.to_string_lossy().into()).at(None, None, None)),
 	};
 	// Open file
-	let _file = SourceFileReader::new(&filepath)?;
+	let mut source_file_reader = SourceFileReader::new(&filepath).map_err(|error| error.at(None, None, None))?;
+	// Parse
+	let tokens = programming_language.tokenize(main, &mut source_file_reader)?;
+	if args.print_tokens {
+		println!("Tokens of {}", filepath.as_os_str().to_string_lossy());
+		for token in tokens {
+			println!("{token:?}");
+		}
+	}
 	// TODO
 	Ok(())
 }

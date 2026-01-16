@@ -14,7 +14,7 @@
 					"--bin=mcc"
 				]
 			},
-			"args": ["--version", "--help"]
+			"args": ["--version", "--help", "-print-tokens", "-source-dir", "mmcsrc"]
 		},
 		{
 			"name": "Debug unit tests in executable 'mcc'",
