@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet}, env::{args_os, current_dir}, ffi::OsString, mem::take, path::{Path, PathBuf}};
 
-use crate::{arguments::{Arguments, parse_arguments}, error::{Error, ErrorAt}, programming_languages::branflakes::{BrainFlakesToken, Branflakes}, source_file_reader::SourceFileReader, traits::programming_language::ProgrammingLanguage};
+use crate::{arguments::{Arguments, parse_arguments}, error::{Error, ErrorAt}, programming_languages::branflakes::{BranFlakesToken, Branflakes}, source_file_reader::SourceFileReader, traits::programming_language::ProgrammingLanguage};
 
 pub mod traits;
 pub mod programming_languages;
@@ -10,7 +10,7 @@ pub mod error;
 pub mod source_file_reader;
 
 /// The list of programming languages.
-pub const PROGRAMMING_LANGUAGES: [&'static dyn ProgrammingLanguage<BrainFlakesToken>; 1] = [&Branflakes::new()];
+pub const PROGRAMMING_LANGUAGES: [&'static dyn ProgrammingLanguage<BranFlakesToken>; 1] = [&Branflakes::new()];
 
 fn main() {
 	// Get and parse program arguments
@@ -43,7 +43,7 @@ fn main() {
 		println!("-O <directory path>, --output-dir <directory path>\tSets the output path.");
 		println!("-o <filename>, --output-file <directory path>\t\tSets the filepath of the compiled binary, path will be <home path>/<output path>/<filename>.");
 		//println!("-print-source\t\t\t\t\t\tPrints out each processed source file.");
-		println!("-print-tokens\t\t\t\t\t\tPrints out the tokenized tokens.")
+		println!("--print-tokens\t\t\t\t\t\tPrints out the tokenized tokens.")
 	}
 	// Process each module.
 	loop {

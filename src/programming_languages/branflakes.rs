@@ -1,4 +1,4 @@
-use crate::{error::ErrorAt, traits::{programming_language::ProgrammingLanguage, token::Token}};
+use crate::{error::ErrorAt, source_file_reader::SourceFileReader, traits::{programming_language::ProgrammingLanguage, token::Token}};
 
 #[derive(Debug)]
 pub struct Branflakes;
@@ -9,20 +9,41 @@ impl Branflakes {
 	}
 }
 
-impl ProgrammingLanguage<BrainFlakesToken> for Branflakes {
-	//type TokenType = BrainFlakesStatement;
-
+impl ProgrammingLanguage<BranFlakesToken> for Branflakes {
 	fn get_extensions(&self) -> &'static [&'static str] {
 		&["bf"]
 	}
 
-	fn tokenize_next_token(&self, main: &mut crate::Main, reader: &mut crate::source_file_reader::SourceFileReader) -> Result<Option<BrainFlakesToken>, ErrorAt> {
-		todo!()
+	fn tokenize_next_token(&self, _main: &mut crate::Main, reader: &mut SourceFileReader) -> Result<Option<BranFlakesToken>, ErrorAt> {
+		loop {
+			match reader.peek_char()? {
+				Some('+' | '-' | '>' | '<' | '.' | ',' | '[' | ']') => {},
+				Some(_) => {
+					reader.read_char()?;
+					continue;
+				}
+				None => return Ok(None),
+			}
+			match reader.read_char()? {
+				Some(chr) => return Ok(Some(match chr {
+					'+' => BranFlakesToken::Increment,
+					'-' => BranFlakesToken::Decrement,
+					'>' => BranFlakesToken::IncrementPointer,
+					'<' => BranFlakesToken::DecrementPointer,
+					'.' => BranFlakesToken::Print,
+					',' => BranFlakesToken::Input,
+					'[' => BranFlakesToken::LoopStart,
+					']' => BranFlakesToken::LoopEnd,
+					_ => unreachable!(),
+				})),
+				None => return Ok(None),
+			}
+		}
 	}
 }
 
 #[derive(Debug)]
-pub enum BrainFlakesToken {
+pub enum BranFlakesToken {
 	Increment,
 	Decrement,
 	IncrementPointer,
@@ -33,6 +54,6 @@ pub enum BrainFlakesToken {
 	LoopEnd,
 }
 
-impl Token for BrainFlakesToken {
+impl Token for BranFlakesToken {
 
 }
