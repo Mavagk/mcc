@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet}, env::{args_os, current_dir}, ffi::OsString, mem::take, path::{Path, PathBuf}};
 
-use crate::{arguments::{Arguments, parse_arguments}, error::Error, programming_languages::branflakes::Branflakes, source_file_reader::SourceFileReader, traits::programming_language::ProgrammingLanguage};
+use crate::{arguments::{Arguments, parse_arguments}, error::Error, programming_languages::branflakes::{BrainFlakesStatement, Branflakes}, source_file_reader::SourceFileReader, traits::programming_language::ProgrammingLanguage};
 
 pub mod traits;
 pub mod programming_languages;
@@ -10,7 +10,7 @@ pub mod error;
 pub mod source_file_reader;
 
 /// The list of programming languages.
-pub const PROGRAMMING_LANGUAGES: [&'static dyn ProgrammingLanguage; 1] = [&Branflakes::new()];
+pub const PROGRAMMING_LANGUAGES: [&'static dyn ProgrammingLanguage<BrainFlakesStatement>; 1] = [&Branflakes::new()];
 
 fn main() {
 	// Get and parse program arguments
@@ -96,7 +96,7 @@ impl Main {
 		// Create list of programming language extensions
 		let mut programming_language_extension_to_index = HashMap::new();
 		for (index, programming_language) in PROGRAMMING_LANGUAGES.iter().enumerate() {
-			for extension in programming_language.get_extensions() {
+			for extension in (*programming_language).get_extensions() {
 				programming_language_extension_to_index.insert(*extension, index);
 			}
 		}

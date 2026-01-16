@@ -1,4 +1,5 @@
-use std::fmt::Display;
+use core::fmt;
+use std::{fmt::{Display, Formatter}, num::NonZeroUsize};
 
 #[derive(Clone, Debug)]
 pub enum Error {
@@ -16,6 +17,12 @@ pub enum Error {
 	InvalidUtf8,
 	NoHomePath,
 	InvalidFileExtension(String),
+}
+
+impl Error {
+	pub fn at(self, line: Option<NonZeroUsize>, column: Option<NonZeroUsize>, file: Option<String>) -> ErrorAt {
+		ErrorAt { error: self, line, column, file }
+	}
 }
 
 impl Display for Error {
@@ -36,5 +43,29 @@ impl Display for Error {
 			Self::NoHomePath => writeln!(f, "No home directory specified and could not get the current working directory"),
 			Self::InvalidFileExtension(file_path) => writeln!(f, "File {file_path} has an invalid file extension."),
 		}
+	}
+}
+
+pub struct ErrorAt {
+	error: Error,
+	line: Option<NonZeroUsize>,
+	column: Option<NonZeroUsize>,
+	file: Option<String>,
+}
+
+impl Display for ErrorAt {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", self.error)?;
+		match (self.line, self.column, self.file.clone()) {
+			(Some(line), Some(column), Some(file)) => write!(f, " at \"{file}\":{line}:{column}")?,
+			(Some(line), None,                         Some(file)) => write!(f, " in \"{file}\" on line {line}")?,
+			(None,                       None,                         Some(file)) => write!(f, " in \"{file}\"")?,
+			(Some(line), Some(column), None              ) => write!(f, " at {line}:{column}")?,
+			(Some(line), None,                         None              ) => write!(f, " on line {line}")?,
+			(None,                       None,                         None              ) => write!(f, "")?,
+			(None,                       Some(column), Some(file)) => write!(f, " in \"{file}\" in column {column}")?,
+			(None,                       Some(column), None              ) => write!(f, " in column {column}")?,
+		}
+		Ok(())
 	}
 }
