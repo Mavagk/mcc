@@ -14,6 +14,8 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 	let mut print_source = false;
 	let mut print_tokens = false;
 	let mut print_ast = false;
+	let mut execute_interpreted = false;
+	let mut is_entrypoint_module = false;
 	// Process each argument
 	for arg in args {
 		match parse_state {
@@ -58,13 +60,26 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 							}
 							print_ast = true;
 						}
+						"-execute-interpreted" => {
+							if execute_interpreted {
+								return Err(Error::RepeatedArgument(arg_str.into()));
+							}
+							execute_interpreted = true;
+						}
+						"-entrypoint-module" => {
+							if is_entrypoint_module {
+								return Err(Error::RepeatedArgument(arg_str.into()));
+							}
+							is_entrypoint_module = true;
+						}
 						_ => return Err(Error::InvalidCommandLineArgument(arg_str.into()))
 					}
 					continue;
 				}
 				// Else it is a source filepath to add to the list of module main file paths
 				let filepath = PathBuf::from(arg_slice).clone().into_boxed_path();
-				source_files.push(filepath);
+				source_files.push((filepath, is_entrypoint_module));
+				is_entrypoint_module = false;
 			}
 			ParseState::HomeDirectory => {
 				if home_directory.is_some() {
@@ -97,12 +112,16 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 		}
 	}
 	// Assemble into arguments struct
-	Ok(Arguments { source_files: source_files.into_boxed_slice(), home_directory, output_directory, source_directory, output_file, print_help, print_version, print_source, print_tokens, print_ast })
+	Ok(Arguments {
+		source_files: source_files.into_boxed_slice(), home_directory, output_directory, source_directory, output_file,
+		print_help, print_version, print_source, print_tokens, print_ast, execute_interpreted,
+	})
 }
 
 #[derive(Debug)]
 pub struct Arguments {
-	pub source_files: Box<[Box<Path>]>,
+	/// The filepaths for each module and if it is a entrypoint module.
+	pub source_files: Box<[(Box<Path>, bool)]>,
 	pub home_directory: Option<Box<Path>>,
 	pub source_directory: Option<Box<Path>>,
 	pub output_directory: Option<Box<Path>>,
@@ -112,6 +131,7 @@ pub struct Arguments {
 	pub print_source: bool,
 	pub print_tokens: bool,
 	pub print_ast: bool,
+	pub execute_interpreted: bool,
 }
 
 enum ParseState {

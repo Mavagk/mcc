@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet}, env::{args_os, current_dir}, ffi::OsString, mem::take, path::{Path, PathBuf}};
 
-use crate::{arguments::{Arguments, parse_arguments}, error::{Error, ErrorAt}, programming_languages::branflakes::{BranflakesModule, BranflakesToken, Branflakes}, source_file_reader::SourceFileReader, traits::programming_language::ProgrammingLanguage};
+use crate::{arguments::{Arguments, parse_arguments}, error::{Error, ErrorAt}, programming_languages::branflakes::{Branflakes, BranflakesModule, BranflakesToken}, source_file_reader::SourceFileReader, traits::{module::Module, programming_language::ProgrammingLanguage}};
 
 pub mod traits;
 pub mod programming_languages;
@@ -45,8 +45,11 @@ fn main() {
 		//println!("-print-source\t\t\t\t\t\tPrints out each processed source file.");
 		println!("--print-tokens\t\t\t\t\t\tPrints out the tokenized tokens.");
 		println!("--print-ast\t\t\t\t\t\tPrints out the parsed module ASTs.");
+		println!("--execute-interpreted\t\t\t\t\tExecute entrypoint modules and do not compile.");
+		println!("--entrypoint-module\t\t\t\t\tThe module is an entrypoint module.");
 	}
-	// Process each module.
+	// Parse each module to an AST.
+	let mut parsed_modules = HashMap::new();
 	loop {
 		// Remove module from "to process" and add it to "processed".
 		let module_path = match main_struct.modules_to_compile.iter().next() {
@@ -54,17 +57,36 @@ fn main() {
 			None => break,
 		}.clone();
 		main_struct.modules_to_compile.remove(&module_path);
-		main_struct.modules_compiled.insert(module_path.clone());
+		main_struct.modules_compiled.insert(module_path.0.clone());
 		// Process
-		if let Err(error) = process_module(&mut main_struct, &args, &module_path) {
-			println!("Error while compiling file \"{}\": {error}.", module_path.to_string_lossy());
-			return;
+		let module = match parse_module_to_ast(&mut main_struct, &args, &module_path.0) {
+			Err(error) => {
+				println!("Error while tokenizing or parsing file \"{}\": {error}.", module_path.0.to_string_lossy());
+				return;
+			}
+			Ok(module) => module,
+		};
+		// Insert into parsed module list
+		parsed_modules.insert(module_path, module);
+	}
+	// Execute entrypoint modules if --execute-interpreted" is set
+	if args.execute_interpreted {
+		for ((path, is_entrypoint), module) in parsed_modules.iter() {
+			if *is_entrypoint {
+				match module.execute_interpreted(&mut main_struct) {
+					Err(error) => {
+						println!("Error while executing interpreted file \"{}\": {error}.", path.to_string_lossy());
+						return;
+					}
+					Ok(()) => {}
+				}
+			}
 		}
 	}
 }
 
 pub struct Main {
-	modules_to_compile: HashSet<Box<Path>>,
+	modules_to_compile: HashSet<(Box<Path>, bool)>,
 	/// Modules that have been compiled or are being compiled right now.
 	modules_compiled: HashSet<Box<Path>>,
 	pub print_source: bool,
@@ -115,15 +137,15 @@ impl Main {
 	}
 
 	/// Adds a module to be compiled if it has not already been added to the list or has been compiled.
-	pub fn add_module_to_compile(&mut self, module_file_path: Box<Path>) {
-		if self.modules_compiled.contains(&module_file_path) {
+	pub fn add_module_to_compile(&mut self, module_file_path: (Box<Path>, bool)) {
+		if self.modules_compiled.contains(&module_file_path.0) {
 			return;
 		}
 		self.modules_to_compile.insert(module_file_path);
 	}
 }
 
-fn process_module(main: &mut Main, args: &Arguments, module_path: &Path) -> Result<(), ErrorAt> {
+fn parse_module_to_ast(main: &mut Main, args: &Arguments, module_path: &Path) -> Result<Box<dyn Module>, ErrorAt> {
 	// Get source filepath
 	let mut filepath: PathBuf = main.source_directory.clone().into();
 	filepath.push(module_path);
@@ -154,6 +176,6 @@ fn process_module(main: &mut Main, args: &Arguments, module_path: &Path) -> Resu
 	if args.print_ast {
 		println!("{module:?}");
 	}
-	// TODO
-	Ok(())
+	// Return
+	Ok(Box::new(module))
 }

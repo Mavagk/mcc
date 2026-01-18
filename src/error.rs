@@ -19,6 +19,9 @@ pub enum Error {
 	InvalidFileExtension(String),
 	MoreOpeningParenthesesThanClosingParentheses,
 	MoreClosingParenthesesThanOpeningParentheses,
+	IntegerOverflow,
+	IntegerUnderflow,
+	InvalidAsciiValue,
 }
 
 impl Error {
@@ -46,6 +49,9 @@ impl Display for Error {
 			Self::InvalidFileExtension(file_path) => write!(f, "File {file_path} has an invalid file extension"),
 			Self::MoreClosingParenthesesThanOpeningParentheses => write!(f, "More closing parentheses than opening parentheses"),
 			Self::MoreOpeningParenthesesThanClosingParentheses => write!(f, "More opening parentheses than closing parentheses"),
+			Self::IntegerOverflow => write!(f, "Integer overflow"),
+			Self::IntegerUnderflow => write!(f, "Integer underflow"),
+			Self::InvalidAsciiValue => write!(f, "Invalid ASCII value"),
 		}
 	}
 }

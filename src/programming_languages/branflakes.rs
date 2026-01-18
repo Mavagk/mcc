@@ -1,6 +1,6 @@
-use std::{fmt::{self, Debug, Formatter}, num::NonZeroUsize};
+use std::{fmt::{self, Debug, Formatter}, io::{self, Write}, num::NonZeroUsize};
 
-use crate::{Main, error::{Error, ErrorAt}, source_file_reader::SourceFileReader, traits::{module::Module, programming_language::ProgrammingLanguage, statement::Statement, token::Token}};
+use crate::{Main, error::{Error, ErrorAt}, source_file_reader::SourceFileReader, traits::{module::Module, programming_language::ProgrammingLanguage, statement::Statement, token::Token, virtual_machine::VirtualMachine}};
 
 #[derive(Debug)]
 pub struct Branflakes;
@@ -126,7 +126,7 @@ impl Debug for BranflakesToken {
 
 impl Token for BranflakesToken {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BranflakesStatementVariant {
 	Increment,
 	Decrement,
@@ -137,10 +137,45 @@ pub enum BranflakesStatementVariant {
 	Loop(Box<[BranflakesStatement]>),
 }
 
+#[derive(Clone)]
 pub struct BranflakesStatement {
 	variant: BranflakesStatementVariant,
 	line: NonZeroUsize,
 	column: NonZeroUsize,
+}
+
+impl BranflakesStatement {
+	fn execute_interpreted(&self, virtual_machine: &mut BranflakesVirtualMachine) -> Result<(), ErrorAt> {
+		match self.variant.clone() {
+			BranflakesStatementVariant::IncrementPointer => virtual_machine.data_pointer += virtual_machine.data_pointer.checked_add(1)
+				.ok_or_else(|| Error::IntegerOverflow.at(Some(self.line), Some(self.column), None))?,
+			BranflakesStatementVariant::DecrementPointer => virtual_machine.data_pointer = virtual_machine.data_pointer.checked_sub(1)
+				.ok_or_else(|| Error::IntegerUnderflow.at(Some(self.line), Some(self.column), None))?,
+			BranflakesStatementVariant::Increment => virtual_machine.write(virtual_machine.read().wrapping_add(1)),
+			BranflakesStatementVariant::Decrement => virtual_machine.write(virtual_machine.read().wrapping_sub(1)),
+			BranflakesStatementVariant::Print => {
+				let value = virtual_machine.read();
+				if value > 127 {
+					return Err(Error::InvalidAsciiValue.at(Some(self.line), Some(self.column), None));
+				}
+				print!("{}", value as char);
+				io::stdout().flush().unwrap();
+			}
+			BranflakesStatementVariant::Loop(sub_expressions) => {
+				println!("A");
+				while virtual_machine.read() != 0 {
+					println!("B");
+					for sub_expression in sub_expressions.iter() {
+						//println!("C");
+						sub_expression.execute_interpreted(virtual_machine)?;
+					}
+				}
+			}
+			_ => todo!(),
+		}
+		//println!("{self:?}");
+		Ok(())
+	}
 }
 
 impl Debug for BranflakesStatement {
@@ -156,4 +191,39 @@ pub struct BranflakesModule {
 	statements: Box<[BranflakesStatement]>,
 }
 
-impl Module for BranflakesModule {}
+impl Module for BranflakesModule {
+	fn execute_interpreted(&self, main: &mut Main) -> Result<(), ErrorAt> {
+		let mut virtual_machine = BranflakesVirtualMachine::new(main);
+		for statement in self.statements.iter() {
+			statement.execute_interpreted(&mut virtual_machine)?;
+		}
+		Ok(())
+	}
+}
+
+struct BranflakesVirtualMachine {
+	memory: Vec<u8>,
+	data_pointer: usize,
+}
+
+impl BranflakesVirtualMachine {
+	pub fn read(&self) -> u8 {
+		self.memory.get(self.data_pointer).map(|value| *value).unwrap_or(0)
+	}
+
+	pub fn write(&mut self, value: u8) {
+		if self.memory.len() <= self.data_pointer {
+			self.memory.resize(self.data_pointer + 1, 0);
+		}
+		self.memory[self.data_pointer] = value;
+	}
+}
+
+impl VirtualMachine for BranflakesVirtualMachine {
+	fn new(_main: &mut Main) -> Self {
+		Self {
+			memory: Vec::new(),
+			data_pointer: 0,
+		}
+	}
+}

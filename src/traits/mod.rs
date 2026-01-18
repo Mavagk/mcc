@@ -5,3 +5,4 @@ pub mod expression;
 pub mod types;
 pub mod token;
 pub mod programming_language;
+pub mod virtual_machine;
