@@ -147,7 +147,7 @@ pub struct BranflakesStatement {
 impl BranflakesStatement {
 	fn execute_interpreted(&self, virtual_machine: &mut BranflakesVirtualMachine) -> Result<(), ErrorAt> {
 		match self.variant.clone() {
-			BranflakesStatementVariant::IncrementPointer => virtual_machine.data_pointer += virtual_machine.data_pointer.checked_add(1)
+			BranflakesStatementVariant::IncrementPointer => virtual_machine.data_pointer = virtual_machine.data_pointer.checked_add(1)
 				.ok_or_else(|| Error::IntegerOverflow.at(Some(self.line), Some(self.column), None))?,
 			BranflakesStatementVariant::DecrementPointer => virtual_machine.data_pointer = virtual_machine.data_pointer.checked_sub(1)
 				.ok_or_else(|| Error::IntegerUnderflow.at(Some(self.line), Some(self.column), None))?,
@@ -162,11 +162,8 @@ impl BranflakesStatement {
 				io::stdout().flush().unwrap();
 			}
 			BranflakesStatementVariant::Loop(sub_expressions) => {
-				println!("A");
 				while virtual_machine.read() != 0 {
-					println!("B");
 					for sub_expression in sub_expressions.iter() {
-						//println!("C");
 						sub_expression.execute_interpreted(virtual_machine)?;
 					}
 				}
