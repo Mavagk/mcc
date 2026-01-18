@@ -168,7 +168,33 @@ impl BranflakesStatement {
 					}
 				}
 			}
-			_ => todo!(),
+			BranflakesStatementVariant::Input => {
+				if virtual_machine.input.is_none() {
+					let mut buffer = String::new();
+					io::stdin().read_line(&mut buffer).unwrap();
+					virtual_machine.input = Some(buffer.chars().rev().collect());
+				}
+				let chr = match &mut virtual_machine.input {
+					Some(chr) => chr.pop(),
+					None => panic!(),
+				};
+				let result = match chr {
+					None => {
+						virtual_machine.input = None;
+						0xFF
+					}
+					Some(chr) => {
+						if chr as u32 > 127 {
+							0x01
+						}
+						else {
+							chr as u8
+						}
+					}
+				};
+				virtual_machine.write(result);
+
+			}
 		}
 		//println!("{self:?}");
 		Ok(())
@@ -201,6 +227,7 @@ impl Module for BranflakesModule {
 struct BranflakesVirtualMachine {
 	memory: Vec<u8>,
 	data_pointer: usize,
+	input: Option<String>,
 }
 
 impl BranflakesVirtualMachine {
@@ -221,6 +248,7 @@ impl VirtualMachine for BranflakesVirtualMachine {
 		Self {
 			memory: Vec::new(),
 			data_pointer: 0,
+			input: None,
 		}
 	}
 }
