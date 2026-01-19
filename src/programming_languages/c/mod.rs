@@ -1,4 +1,4 @@
-use crate::{Main, error::ErrorAt, source_file_reader::SourceFileReader, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage, token::Token}};
+use crate::{Main, error::ErrorAt, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage, token::Token}};
 
 #[derive(Debug)]
 pub struct C {
@@ -16,7 +16,7 @@ impl ProgrammingLanguage<CToken, CModule> for C {
 		unimplemented!()
 	}
 
-	fn parse_tokens(_main: &mut Main, _tokens: &[CToken]) -> Result<CModule, ErrorAt> {
+	fn parse_tokens(_main: &mut Main, _token_reader: TokenReader<CToken>) -> Result<CModule, ErrorAt> {
 		unimplemented!()
 	}
 }
@@ -27,11 +27,19 @@ pub struct CToken {
 }
 
 impl Token for CToken {
-	fn get_line(&self) -> std::num::NonZeroUsize {
+	fn get_start_line(&self) -> std::num::NonZeroUsize {
 		todo!()
 	}
 
-	fn get_column(&self) -> std::num::NonZeroUsize {
+	fn get_end_column(&self) -> std::num::NonZeroUsize {
+		todo!()
+	}
+
+	fn get_start_column(&self) -> std::num::NonZeroUsize {
+		todo!()
+	}
+
+	fn get_end_line(&self) -> std::num::NonZeroUsize {
 		todo!()
 	}
 
@@ -52,11 +60,19 @@ impl Module for CModule {
 }
 
 impl AstNode for CModule {
-	fn get_line(&self) -> std::num::NonZeroUsize {
+	fn get_start_line(&self) -> std::num::NonZeroUsize {
 		todo!()
 	}
 
-	fn get_column(&self) -> std::num::NonZeroUsize {
+	fn get_end_line(&self) -> std::num::NonZeroUsize {
+		todo!()
+	}
+
+	fn get_start_column(&self) -> std::num::NonZeroUsize {
+		todo!()
+	}
+
+	fn get_end_column(&self) -> std::num::NonZeroUsize {
 		todo!()
 	}
 

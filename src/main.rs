@@ -8,6 +8,7 @@ pub mod programming_languages;
 pub mod arguments;
 pub mod error;
 pub mod source_file_reader;
+pub mod token_reader;
 
 fn main() {
 	// Get and parse program arguments

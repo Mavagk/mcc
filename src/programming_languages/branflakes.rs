@@ -1,15 +1,15 @@
 use std::{fmt::{self, Debug, Formatter}, io::{self, Write}, num::NonZeroUsize};
 
-use crate::{Main, error::{Error, ErrorAt}, source_file_reader::SourceFileReader, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage, statement::Statement, token::Token, virtual_machine::VirtualMachine}};
+use crate::{Main, error::{Error, ErrorAt}, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage, statement::Statement, token::Token, virtual_machine::VirtualMachine}};
 
 #[derive(Debug)]
 pub struct Branflakes;
 
 impl Branflakes {
 	/// Parses a single statement from tokens including a loop containing other statements.
-	fn parse_statement(tokens: &mut &[BranflakesToken]) -> Result<Option<BranflakesStatement>, ErrorAt> {
+	fn parse_statement(token_reader: &mut TokenReader<BranflakesToken>) -> Result<Option<BranflakesStatement>, ErrorAt> {
 		// Read the token or return if it is a loop end or the end of the tokens
-		let token = match tokens.get(0) {
+		let token = match token_reader.next().cloned() {
 			None | Some(BranflakesToken { variant: BranflakesTokenVariant::LoopEnd, .. }) => return Ok(None),
 			Some(token) => token,
 		};
@@ -23,8 +23,7 @@ impl Branflakes {
 			BranflakesTokenVariant::Print => BranflakesStatementVariant::Print,
 			BranflakesTokenVariant::Input => BranflakesStatementVariant::Input,
 			BranflakesTokenVariant::LoopStart => {
-				*tokens = &tokens[1..];
-				BranflakesStatementVariant::Loop(Self::parse_statements(tokens, true)?)
+				BranflakesStatementVariant::Loop(Self::parse_statements(token_reader, true)?)
 			},
 			BranflakesTokenVariant::LoopEnd => unreachable!(),
 		};
@@ -33,25 +32,23 @@ impl Branflakes {
 			line: token.line,
 			column: token.column,
 		};
-		// Take the converted token from the token buffer.
-		*tokens = &tokens[1..];
 		// Return
 		Ok(Some(statement))
 	}
 
 	/// Parses statements from tokens until a loop end token is found or the token buffer end is reached.
-	fn parse_statements(tokens: &mut &[BranflakesToken], is_parenthesised: bool) -> Result<Box<[BranflakesStatement]>, ErrorAt> {
+	fn parse_statements(token_reader: &mut TokenReader<BranflakesToken>, is_parenthesised: bool) -> Result<Box<[BranflakesStatement]>, ErrorAt> {
 		// Parse single statements until the end is reached
 		let mut statements = Vec::new();
 		loop {
-			match Self::parse_statement(tokens)? {
+			match Self::parse_statement(token_reader)? {
 				None => break,
 				Some(statement) => statements.push(statement),
 			};
 		}
 		// Throw an error if there were un-equal amounts of opening and closing parentheses
-		match tokens.get(0) {
-			None if is_parenthesised => return Err(Error::MoreOpeningParenthesesThanClosingParentheses.at(None, None, None)),
+		match token_reader.peek() {
+			None if is_parenthesised => return Err(Error::MoreOpeningParenthesesThanClosingParentheses.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None)),
 			Some(BranflakesToken { line, column, .. }) if !is_parenthesised =>
 				return Err(Error::MoreClosingParenthesesThanOpeningParentheses.at(Some(*line), Some(*column), None)),
 			_ => {}
@@ -90,13 +87,13 @@ impl ProgrammingLanguage<BranflakesToken, BranflakesModule> for Branflakes {
 		}
 	}
 
-	fn parse_tokens(_main: &mut Main, mut tokens: &[BranflakesToken]) -> Result<BranflakesModule, ErrorAt> {
-		let statements = Self::parse_statements(&mut tokens, false)?;
+	fn parse_tokens(_main: &mut Main, mut tokens_reader: TokenReader<BranflakesToken>) -> Result<BranflakesModule, ErrorAt> {
+		let statements = Self::parse_statements(&mut tokens_reader, false)?;
 		Ok(BranflakesModule { statements })
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BranflakesTokenVariant {
 	/// Wrapping increment the byte pointed to by the data pointer.
 	Increment,
@@ -117,6 +114,7 @@ pub enum BranflakesTokenVariant {
 }
 
 /// A single BF token parsed from a single source char.
+#[derive(Clone)]
 pub struct BranflakesToken {
 	variant: BranflakesTokenVariant,
 	line: NonZeroUsize,
@@ -130,15 +128,23 @@ impl Debug for BranflakesToken {
 }
 
 impl Token for BranflakesToken {
-	fn get_line(&self) -> NonZeroUsize {
+	fn get_start_line(&self) -> NonZeroUsize {
 		self.line
 	}
 
-	fn get_column(&self) -> NonZeroUsize {
+	fn get_end_line(&self) -> NonZeroUsize {
+		self.line
+	}
+
+	fn get_start_column(&self) -> NonZeroUsize {
 		self.column
 	}
 
-	fn print_name(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+	fn get_end_column(&self) -> NonZeroUsize {
+		self.column.saturating_add(1)
+	}
+
+	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self.variant {
 			BranflakesTokenVariant::Increment        => write!(f, "Increment"),
 			BranflakesTokenVariant::Decrement        => write!(f, "Decrement"),
@@ -238,11 +244,19 @@ impl BranflakesStatement {
 impl Statement for BranflakesStatement {}
 
 impl AstNode for BranflakesStatement {
-	fn get_line(&self) -> NonZeroUsize {
+	fn get_start_line(&self) -> NonZeroUsize {
 		self.line
 	}
 
-	fn get_column(&self) -> NonZeroUsize {
+	fn get_end_line(&self) -> NonZeroUsize {
+		self.line.saturating_add(1)
+	}
+
+	fn get_start_column(&self) -> NonZeroUsize {
+		self.column
+	}
+
+	fn get_end_column(&self) -> NonZeroUsize {
 		self.column
 	}
 
@@ -289,19 +303,39 @@ impl Module for BranflakesModule {
 }
 
 impl AstNode for BranflakesModule {
-	fn get_line(&self) -> NonZeroUsize {
-		NonZeroUsize::new(1).unwrap()
+	fn get_start_line(&self) -> NonZeroUsize {
+		match self.statements.first() {
+			Some(last_statement) => last_statement.get_start_line(),
+			None => NonZeroUsize::new(1).unwrap(),
+		}
 	}
 
-	fn get_column(&self) -> NonZeroUsize {
-		NonZeroUsize::new(1).unwrap()
+	fn get_end_line(&self) -> NonZeroUsize {
+		match self.statements.last() {
+			Some(last_statement) => last_statement.get_end_line(),
+			None => NonZeroUsize::new(1).unwrap(),
+		}
 	}
 
-	fn print_name(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+	fn get_start_column(&self) -> NonZeroUsize {
+		match self.statements.last() {
+			Some(last_statement) => last_statement.get_start_column(),
+			None => NonZeroUsize::new(1).unwrap(),
+		}
+	}
+
+	fn get_end_column(&self) -> NonZeroUsize {
+		match self.statements.last() {
+			Some(last_statement) => last_statement.get_end_column(),
+			None => NonZeroUsize::new(1).unwrap(),
+		}
+	}
+
+	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		write!(f, "BF Module")
 	}
 
-	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> core::fmt::Result {
+	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
 		for statement in &self.statements {
 			statement.print(level, f)?;
 		}

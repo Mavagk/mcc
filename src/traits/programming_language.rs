@@ -1,12 +1,12 @@
 use std::{fmt::Debug, path::Path};
 
-use crate::{Main, arguments::Arguments, error::ErrorAt, source_file_reader::SourceFileReader, traits::{module::Module, token::Token}};
+use crate::{Main, arguments::Arguments, error::ErrorAt, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::{module::Module, token::Token}};
 
 pub trait ProgrammingLanguage<T, M>: Debug where T: Token, M: Module {
 	/// takes chars from the file reader and returns the next token if it exists.
 	fn tokenize_next_token(main: &mut Main, reader: &mut SourceFileReader) -> Result<Option<T>, ErrorAt>;
 	/// Parses tokens into a module with its abstract syntax tree.
-	fn parse_tokens(main: &mut Main, tokens: &[T]) -> Result<M, ErrorAt>;
+	fn parse_tokens(main: &mut Main, token_reader: TokenReader<T>) -> Result<M, ErrorAt>;
 
 	/// Reads from a file reader and tokenizes it to tokens.
 	fn tokenize(main: &mut Main, reader: &mut SourceFileReader) -> Result<Box<[T]>, ErrorAt> {
@@ -32,7 +32,8 @@ pub trait ProgrammingLanguage<T, M>: Debug where T: Token, M: Module {
 			}
 		}
 		// Parse
-		let module = Self::parse_tokens(main, &tokens)?;
+		let token_reader = TokenReader::new(&tokens);
+		let module = Self::parse_tokens(main, token_reader)?;
 		if args.print_ast {
 			println!("{module:?}");
 		}
