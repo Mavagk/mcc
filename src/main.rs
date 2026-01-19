@@ -70,7 +70,7 @@ fn main() {
 	if args.execute_interpreted {
 		for ((path, is_entrypoint), module) in parsed_modules.iter() {
 			if *is_entrypoint {
-				match module.execute_interpreted(&mut main_struct) {
+				match module.interpreted_execute_entrypoint(&mut main_struct) {
 					Err(error) => {
 						println!("Error while executing interpreted file \"{}\": {error}.", path.to_string_lossy());
 						return;

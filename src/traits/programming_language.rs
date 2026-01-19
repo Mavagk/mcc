@@ -3,9 +3,12 @@ use std::{fmt::Debug, path::Path};
 use crate::{Main, arguments::Arguments, error::ErrorAt, source_file_reader::SourceFileReader, traits::{module::Module, token::Token}};
 
 pub trait ProgrammingLanguage<T, M>: Debug where T: Token, M: Module {
+	/// takes chars from the file reader and returns the next token if it exists.
 	fn tokenize_next_token(main: &mut Main, reader: &mut SourceFileReader) -> Result<Option<T>, ErrorAt>;
+	/// Parses tokens into a module with its abstract syntax tree.
 	fn parse_tokens(main: &mut Main, tokens: &[T]) -> Result<M, ErrorAt>;
 
+	/// Reads from a file reader and tokenizes it to tokens.
 	fn tokenize(main: &mut Main, reader: &mut SourceFileReader) -> Result<Box<[T]>, ErrorAt> {
 		let mut tokens = Vec::new();
 		loop {
@@ -16,6 +19,7 @@ pub trait ProgrammingLanguage<T, M>: Debug where T: Token, M: Module {
 		}
 	}
 
+	/// Takes in a filepath, opens it, parses its chars to tokens which are then parsed into a module.
 	fn tokenize_parse(main: &mut Main, args: &Arguments, filepath: &Path) -> Result<M, ErrorAt> {
 		// Open file
 		let mut source_file_reader = SourceFileReader::new(&filepath).map_err(|error| error.at(None, None, None))?;

@@ -6,15 +6,15 @@ use crate::{Main, error::{Error, ErrorAt}, source_file_reader::SourceFileReader,
 pub struct Branflakes;
 
 impl Branflakes {
-	pub const fn new() -> Self {
-		Self
-	}
-
+	/// Parses a single statement from tokens including a loop containing other statements.
 	fn parse_statement(tokens: &mut &[BranflakesToken]) -> Result<Option<BranflakesStatement>, ErrorAt> {
+		// Read the token or return if it is a loop end or the end of the tokens
 		let token = match tokens.get(0) {
 			None | Some(BranflakesToken { variant: BranflakesTokenVariant::LoopEnd, .. }) => return Ok(None),
 			Some(token) => token,
 		};
+		// Convert the token to a statement if it is not a loop start
+		// If it is a loop start, parse the content tokens to statements and wrap them up in a loop statement
 		let statement_variant = match token.variant {
 			BranflakesTokenVariant::Increment => BranflakesStatementVariant::Increment,
 			BranflakesTokenVariant::Decrement => BranflakesStatementVariant::Decrement,
@@ -33,44 +33,44 @@ impl Branflakes {
 			line: token.line,
 			column: token.column,
 		};
+		// Take the converted token from the token buffer.
 		*tokens = &tokens[1..];
+		// Return
 		Ok(Some(statement))
 	}
 
+	/// Parses statements from tokens until a loop end token is found or the token buffer end is reached.
 	fn parse_statements(tokens: &mut &[BranflakesToken], is_parenthesised: bool) -> Result<Box<[BranflakesStatement]>, ErrorAt> {
+		// Parse single statements until the end is reached
 		let mut statements = Vec::new();
 		loop {
-			let statement = match Self::parse_statement(tokens)? {
+			match Self::parse_statement(tokens)? {
 				None => break,
-				Some(statement) => statement,
+				Some(statement) => statements.push(statement),
 			};
-			statements.push(statement);
 		}
+		// Throw an error if there were un-equal amounts of opening and closing parentheses
 		match tokens.get(0) {
 			None if is_parenthesised => return Err(Error::MoreOpeningParenthesesThanClosingParentheses.at(None, None, None)),
 			Some(BranflakesToken { line, column, .. }) if !is_parenthesised =>
 				return Err(Error::MoreClosingParenthesesThanOpeningParentheses.at(Some(*line), Some(*column), None)),
 			_ => {}
 		}
+		// Return parsed statements
 		Ok(statements.into())
 	}
 }
 
 impl ProgrammingLanguage<BranflakesToken, BranflakesModule> for Branflakes {
 	fn tokenize_next_token(_main: &mut Main, reader: &mut SourceFileReader) -> Result<Option<BranflakesToken>, ErrorAt> {
+		// Read chars until we get a valid BF one
 		loop {
-			match reader.peek_char()? {
-				Some('+' | '-' | '>' | '<' | '.' | ',' | '[' | ']') => {},
-				Some(_) => {
-					reader.read_char()?;
-					continue;
-				}
-				None => return Ok(None),
-			}
+			// Get token position in file
 			let line = reader.get_line();
 			let column = reader.get_column();
-			match reader.read_char()? {
-				Some(chr) => return Ok(Some(BranflakesToken {
+			// Read a char, convert it to a token and return it if it is a BF token, else skip it and go to the next char.
+			return match reader.read_char()? {
+				Some(chr) => Ok(Some(BranflakesToken {
 					variant: match chr {
 						'+' => BranflakesTokenVariant::Increment,
 						'-' => BranflakesTokenVariant::Decrement,
@@ -80,12 +80,12 @@ impl ProgrammingLanguage<BranflakesToken, BranflakesModule> for Branflakes {
 						',' => BranflakesTokenVariant::Input,
 						'[' => BranflakesTokenVariant::LoopStart,
 						']' => BranflakesTokenVariant::LoopEnd,
-						_ => unreachable!(),
+						_ => continue,
 					},
 					line,
 					column,
 				})),
-				None => return Ok(None),
+				None => Ok(None),
 			}
 		}
 	}
@@ -98,16 +98,25 @@ impl ProgrammingLanguage<BranflakesToken, BranflakesModule> for Branflakes {
 
 #[derive(Debug)]
 pub enum BranflakesTokenVariant {
+	/// Wrapping increment the byte pointed to by the data pointer.
 	Increment,
+	/// Wrapping decrement the byte pointed to by the data pointer.
 	Decrement,
+	/// Increment the data pointer.
 	IncrementPointer,
+	/// Decrement the data pointer.
 	DecrementPointer,
+	/// Print out the byte pointed to by the data pointer.
 	Print,
+	/// Get a single char from the input buffer, write it to the byte pointed to by the data pointer.
 	Input,
+	/// The start of a loop. Will jump to the matching loop end if the byte pointed to by the data pointer is zero.
 	LoopStart,
+	/// The end of a loop. Will jump to the matching loop start if the byte pointed to by the data pointer is non-zero.
 	LoopEnd,
 }
 
+/// A single BF token parsed from a single source char.
 pub struct BranflakesToken {
 	variant: BranflakesTokenVariant,
 	line: NonZeroUsize,
@@ -124,15 +133,23 @@ impl Token for BranflakesToken {}
 
 #[derive(Debug, Clone)]
 pub enum BranflakesStatementVariant {
+	/// Wrapping increment the byte pointed to by the data pointer.
 	Increment,
+	/// Wrapping decrement the byte pointed to by the data pointer.
 	Decrement,
+	/// Increment the data pointer.
 	IncrementPointer,
+	/// Decrement the data pointer.
 	DecrementPointer,
+	/// Print out the byte pointed to by the data pointer.
 	Print,
+	/// Get a single char from the input buffer, write it to the byte pointed to by the data pointer.
 	Input,
+	/// A loop. The loop's content will be executed repeatedly until the byte pointed to by the data pointer is zero.
 	Loop(Box<[BranflakesStatement]>),
 }
 
+/// A BF statement.
 #[derive(Clone)]
 pub struct BranflakesStatement {
 	variant: BranflakesStatementVariant,
@@ -165,34 +182,34 @@ impl BranflakesStatement {
 				}
 			}
 			BranflakesStatementVariant::Input => {
+				// Request user input if there is no stored input string. Store it in the input string with its chars reversed
 				if virtual_machine.input.is_none() {
 					let mut buffer = String::new();
 					io::stdin().read_line(&mut buffer).unwrap();
 					virtual_machine.input = Some(buffer.chars().rev().collect());
 				}
+				// Pop the last char off the input string
 				let chr = match &mut virtual_machine.input {
 					Some(chr) => chr.pop(),
 					None => panic!(),
 				};
 				let result = match chr {
+					// If we have popped off the last char, read value is 0xFF and the input string is deleted
 					None => {
 						virtual_machine.input = None;
 						0xFF
 					}
-					Some(chr) => {
-						if chr as u32 > 127 {
-							0x01
-						}
-						else {
-							chr as u8
-						}
+					// Else it is the popped char or 0x01 if it is non-ASCII
+					Some(chr) => match chr {
+						'\u{0080}'.. => 0x01,
+						ascii_char => ascii_char as u8,
 					}
 				};
+				// Store the read char at the byte pointed to by the data pointer
 				virtual_machine.write(result);
 
 			}
 		}
-		//println!("{self:?}");
 		Ok(())
 	}
 }
@@ -205,14 +222,17 @@ impl Debug for BranflakesStatement {
 
 impl Statement for BranflakesStatement {}
 
+/// An entire parsed file
 #[derive(Debug)]
 pub struct BranflakesModule {
 	statements: Box<[BranflakesStatement]>,
 }
 
 impl Module for BranflakesModule {
-	fn execute_interpreted(&self, main: &mut Main) -> Result<(), ErrorAt> {
+	fn interpreted_execute_entrypoint(&self, main: &mut Main) -> Result<(), ErrorAt> {
+		// Create the BF VM
 		let mut virtual_machine = BranflakesVirtualMachine::new(main);
+		// Execute all statements
 		for statement in self.statements.iter() {
 			statement.execute_interpreted(&mut virtual_machine)?;
 		}
@@ -220,17 +240,23 @@ impl Module for BranflakesModule {
 	}
 }
 
+/// The virtual machine that will execute BF code in interpreted mode.
 struct BranflakesVirtualMachine {
+	/// The array of cells.
 	memory: Vec<u8>,
+	/// The data pointer, is an index for `memory`.
 	data_pointer: usize,
+	/// The input string. Chars are reversed from what is entered.
 	input: Option<String>,
 }
 
 impl BranflakesVirtualMachine {
+	/// Reads the byte pointed to by the data pointer if it exists. Else return 0 if the data buffer is too small.
 	pub fn read(&self) -> u8 {
 		self.memory.get(self.data_pointer).map(|value| *value).unwrap_or(0)
 	}
 
+	/// Writes to the byte pointed to by the data pointer. Will expand the data buffer first with zero bytes if the buffer is too small.
 	pub fn write(&mut self, value: u8) {
 		if self.memory.len() <= self.data_pointer {
 			self.memory.resize(self.data_pointer + 1, 0);

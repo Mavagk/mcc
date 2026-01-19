@@ -36,7 +36,7 @@ pub struct CModule {
 }
 
 impl Module for CModule {
-	fn execute_interpreted(&self, _main: &mut crate::Main) -> Result<(), ErrorAt> {
+	fn interpreted_execute_entrypoint(&self, _main: &mut crate::Main) -> Result<(), ErrorAt> {
 		unimplemented!()
 	}
 }
