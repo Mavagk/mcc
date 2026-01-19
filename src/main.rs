@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet}, env::{args_os, current_dir}, ffi::OsString, mem::take, path::{Path, PathBuf}};
 
-use crate::{arguments::{Arguments, parse_arguments}, error::{Error, ErrorAt}, programming_languages::branflakes::{Branflakes, BranflakesModule, BranflakesToken}, source_file_reader::SourceFileReader, traits::{module::Module, programming_language::ProgrammingLanguage}};
+use crate::{arguments::{Arguments, parse_arguments}, error::{Error, ErrorAt}, programming_languages::branflakes::Branflakes, traits::{module::Module, programming_language::ProgrammingLanguage}};
 
 pub mod traits;
 pub mod programming_languages;
@@ -8,9 +8,6 @@ pub mod programming_languages;
 pub mod arguments;
 pub mod error;
 pub mod source_file_reader;
-
-/// The list of programming languages.
-pub const PROGRAMMING_LANGUAGES: [&'static dyn ProgrammingLanguage<BranflakesToken, BranflakesModule>; 1] = [&Branflakes::new()];
 
 fn main() {
 	// Get and parse program arguments
@@ -93,8 +90,6 @@ pub struct Main {
 	pub home_directory: Box<Path>,
 	pub source_directory: Box<Path>,
 	pub output_directory: Box<Path>,
-	/// Maps file extensions to indices into the `PROGRAMMING_LANGUAGES` struct.
-	pub programming_language_file_extension_to_index: HashMap<&'static str, usize>,
 }
 
 impl Main {
@@ -117,13 +112,6 @@ impl Main {
 			Some(output_directory_argument) => output_directory.push(output_directory_argument),
 			None => output_directory.push("bin"),
 		}
-		// Create list of programming language extensions
-		let mut programming_language_extension_to_index = HashMap::new();
-		for (index, programming_language) in PROGRAMMING_LANGUAGES.iter().enumerate() {
-			for extension in (*programming_language).get_extensions() {
-				programming_language_extension_to_index.insert(*extension, index);
-			}
-		}
 		// Pack into struct
 		Ok(Self {
 			modules_to_compile: arguments.source_files.iter().cloned().collect(),
@@ -132,7 +120,6 @@ impl Main {
 			home_directory,
 			source_directory: source_directory.into_boxed_path(),
 			output_directory: output_directory.into_boxed_path(),
-			programming_language_file_extension_to_index: programming_language_extension_to_index,
 		})
 	}
 
@@ -157,25 +144,11 @@ fn parse_module_to_ast(main: &mut Main, args: &Arguments, module_path: &Path) ->
 		},
 		None => return Err(Error::InvalidFileExtension(filepath.to_string_lossy().into()).at(None, None, None)),
 	};
-	let programming_language = match main.programming_language_file_extension_to_index.get(extension) {
-		Some(index) => PROGRAMMING_LANGUAGES[*index],
-		None => return Err(Error::InvalidFileExtension(filepath.to_string_lossy().into()).at(None, None, None)),
-	};
-	// Open file
-	let mut source_file_reader = SourceFileReader::new(&filepath).map_err(|error| error.at(None, None, None))?;
-	// Tokenize
-	let tokens = programming_language.tokenize(main, &mut source_file_reader)?;
-	if args.print_tokens {
-		println!("Tokens of {}", filepath.as_os_str().to_string_lossy());
-		for token in tokens.iter() {
-			println!("{token:?}");
-		}
-	}
-	// Parse
-	let module = programming_language.parse_tokens(main, &tokens)?;
-	if args.print_ast {
-		println!("{module:?}");
-	}
+	// Tokenize and parse
+	let module = match extension {
+		"bf" => Branflakes::tokenize_parse(main, args, &filepath),
+		_ => return Err(Error::InvalidFileExtension(filepath.to_string_lossy().into()).at(None, None, None)),
+	}?;
 	// Return
 	Ok(Box::new(module))
 }

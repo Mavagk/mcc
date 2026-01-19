@@ -57,11 +57,7 @@ impl Branflakes {
 }
 
 impl ProgrammingLanguage<BranflakesToken, BranflakesModule> for Branflakes {
-	fn get_extensions(&self) -> &'static [&'static str] {
-		&["bf"]
-	}
-
-	fn tokenize_next_token(&self, _main: &mut Main, reader: &mut SourceFileReader) -> Result<Option<BranflakesToken>, ErrorAt> {
+	fn tokenize_next_token(_main: &mut Main, reader: &mut SourceFileReader) -> Result<Option<BranflakesToken>, ErrorAt> {
 		loop {
 			match reader.peek_char()? {
 				Some('+' | '-' | '>' | '<' | '.' | ',' | '[' | ']') => {},
@@ -94,7 +90,7 @@ impl ProgrammingLanguage<BranflakesToken, BranflakesModule> for Branflakes {
 		}
 	}
 
-	fn parse_tokens(&self, _main: &mut Main, mut tokens: &[BranflakesToken]) -> Result<BranflakesModule, ErrorAt> {
+	fn parse_tokens(_main: &mut Main, mut tokens: &[BranflakesToken]) -> Result<BranflakesModule, ErrorAt> {
 		let statements = Self::parse_statements(&mut tokens, false)?;
 		Ok(BranflakesModule { statements })
 	}
