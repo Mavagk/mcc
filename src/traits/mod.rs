@@ -6,3 +6,4 @@ pub mod types;
 pub mod token;
 pub mod programming_language;
 pub mod virtual_machine;
+pub mod ast_node;

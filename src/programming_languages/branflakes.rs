@@ -1,6 +1,6 @@
 use std::{fmt::{self, Debug, Formatter}, io::{self, Write}, num::NonZeroUsize};
 
-use crate::{Main, error::{Error, ErrorAt}, source_file_reader::SourceFileReader, traits::{module::Module, programming_language::ProgrammingLanguage, statement::Statement, token::Token, virtual_machine::VirtualMachine}};
+use crate::{Main, error::{Error, ErrorAt}, source_file_reader::SourceFileReader, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage, statement::Statement, token::Token, virtual_machine::VirtualMachine}};
 
 #[derive(Debug)]
 pub struct Branflakes;
@@ -129,9 +129,30 @@ impl Debug for BranflakesToken {
 	}
 }
 
-impl Token for BranflakesToken {}
+impl Token for BranflakesToken {
+	fn get_line(&self) -> NonZeroUsize {
+		self.line
+	}
 
-#[derive(Debug, Clone)]
+	fn get_column(&self) -> NonZeroUsize {
+		self.column
+	}
+
+	fn print_name(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+		match self.variant {
+			BranflakesTokenVariant::Increment        => write!(f, "Increment"),
+			BranflakesTokenVariant::Decrement        => write!(f, "Decrement"),
+			BranflakesTokenVariant::IncrementPointer => write!(f, "Increment Pointer"),
+			BranflakesTokenVariant::DecrementPointer => write!(f, "Decrement Pointer"),
+			BranflakesTokenVariant::Print            => write!(f, "Print"),
+			BranflakesTokenVariant::Input            => write!(f, "Input"),
+			BranflakesTokenVariant::LoopStart        => write!(f, "Loop Start"),
+			BranflakesTokenVariant::LoopEnd          => write!(f, "Loop End"),
+		}
+	}
+}
+
+#[derive(Clone)]
 pub enum BranflakesStatementVariant {
 	/// Wrapping increment the byte pointed to by the data pointer.
 	Increment,
@@ -214,16 +235,43 @@ impl BranflakesStatement {
 	}
 }
 
-impl Debug for BranflakesStatement {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		write!(f, "{}:{}: {:?}", self.line, self.column, self.variant)
+impl Statement for BranflakesStatement {}
+
+impl AstNode for BranflakesStatement {
+	fn get_line(&self) -> NonZeroUsize {
+		self.line
+	}
+
+	fn get_column(&self) -> NonZeroUsize {
+		self.column
+	}
+
+	fn print_name(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+		match self.variant {
+			BranflakesStatementVariant::Increment        => write!(f, "Increment"),
+			BranflakesStatementVariant::Decrement        => write!(f, "Decrement"),
+			BranflakesStatementVariant::IncrementPointer => write!(f, "Increment Pointer"),
+			BranflakesStatementVariant::DecrementPointer => write!(f, "Decrement Pointer"),
+			BranflakesStatementVariant::Print            => write!(f, "Print"),
+			BranflakesStatementVariant::Input            => write!(f, "Input"),
+			BranflakesStatementVariant::Loop(_)          => write!(f, "Loop"),
+		}
+	}
+
+	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+		match &self.variant {
+			BranflakesStatementVariant::Loop(sub_nodes) => {
+				for sub_node in sub_nodes {
+					sub_node.print(level, f)?;
+				}
+			}
+			_ => {}
+		}
+		Ok(())
 	}
 }
 
-impl Statement for BranflakesStatement {}
-
 /// An entire parsed file
-#[derive(Debug)]
 pub struct BranflakesModule {
 	statements: Box<[BranflakesStatement]>,
 }
@@ -237,6 +285,33 @@ impl Module for BranflakesModule {
 			statement.execute_interpreted(&mut virtual_machine)?;
 		}
 		Ok(())
+	}
+}
+
+impl AstNode for BranflakesModule {
+	fn get_line(&self) -> NonZeroUsize {
+		NonZeroUsize::new(1).unwrap()
+	}
+
+	fn get_column(&self) -> NonZeroUsize {
+		NonZeroUsize::new(1).unwrap()
+	}
+
+	fn print_name(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+		write!(f, "BF Module")
+	}
+
+	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> core::fmt::Result {
+		for statement in &self.statements {
+			statement.print(level, f)?;
+		}
+		Ok(())
+	}
+}
+
+impl Debug for BranflakesModule {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		self.print(0, f)
 	}
 }
 
