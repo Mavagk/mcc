@@ -1,5 +1,4 @@
-use core::fmt;
-use std::{fmt::Formatter, num::NonZeroUsize};
+use std::{fmt::{self, Formatter}, num::NonZeroUsize};
 
 pub trait AstNode {
 	fn get_start_line(&self) -> NonZeroUsize;

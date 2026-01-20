@@ -1,4 +1,9 @@
-use crate::{Main, error::ErrorAt, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage, token::Token}};
+pub mod module;
+pub mod module_element;
+pub mod statement;
+pub mod types;
+
+use crate::{Main, error::ErrorAt, programming_languages::c::module::CModule, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::{programming_language::ProgrammingLanguage, token::Token}};
 
 #[derive(Debug)]
 pub struct C {
@@ -44,43 +49,6 @@ impl Token for CToken {
 	}
 
 	fn print_name(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		todo!()
-	}
-}
-
-#[derive(Debug)]
-pub struct CModule {
-
-}
-
-impl Module for CModule {
-	fn interpreted_execute_entrypoint(&self, _main: &mut crate::Main) -> Result<(), ErrorAt> {
-		unimplemented!()
-	}
-}
-
-impl AstNode for CModule {
-	fn get_start_line(&self) -> std::num::NonZeroUsize {
-		todo!()
-	}
-
-	fn get_end_line(&self) -> std::num::NonZeroUsize {
-		todo!()
-	}
-
-	fn get_start_column(&self) -> std::num::NonZeroUsize {
-		todo!()
-	}
-
-	fn get_end_column(&self) -> std::num::NonZeroUsize {
-		todo!()
-	}
-
-	fn print_name(&self, _f: &mut std::fmt::Formatter<'_>) -> core::fmt::Result {
-		todo!()
-	}
-
-	fn print_sub_nodes(&self, _level: usize, _f: &mut std::fmt::Formatter<'_>) -> core::fmt::Result {
 		todo!()
 	}
 }
