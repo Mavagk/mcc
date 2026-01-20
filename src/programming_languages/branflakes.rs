@@ -29,8 +29,10 @@ impl Branflakes {
 		};
 		let statement = BranflakesStatement {
 			variant: statement_variant,
-			line: token.line,
-			column: token.column,
+			start_line: token.line,
+			start_column: token.column,
+			end_line: token_reader.last_token_end_line(),
+			end_column: token_reader.last_token_end_column(),
 		};
 		// Return
 		Ok(Some(statement))
@@ -128,19 +130,19 @@ impl Debug for BranflakesToken {
 }
 
 impl Token for BranflakesToken {
-	fn get_start_line(&self) -> NonZeroUsize {
+	fn start_line(&self) -> NonZeroUsize {
 		self.line
 	}
 
-	fn get_end_line(&self) -> NonZeroUsize {
+	fn end_line(&self) -> NonZeroUsize {
 		self.line
 	}
 
-	fn get_start_column(&self) -> NonZeroUsize {
+	fn start_column(&self) -> NonZeroUsize {
 		self.column
 	}
 
-	fn get_end_column(&self) -> NonZeroUsize {
+	fn end_column(&self) -> NonZeroUsize {
 		self.column.saturating_add(1)
 	}
 
@@ -180,23 +182,25 @@ pub enum BranflakesStatementVariant {
 #[derive(Clone)]
 pub struct BranflakesStatement {
 	variant: BranflakesStatementVariant,
-	line: NonZeroUsize,
-	column: NonZeroUsize,
+	start_line: NonZeroUsize,
+	start_column: NonZeroUsize,
+	end_line: NonZeroUsize,
+	end_column: NonZeroUsize,
 }
 
 impl BranflakesStatement {
 	fn execute_interpreted(&self, virtual_machine: &mut BranflakesVirtualMachine) -> Result<(), ErrorAt> {
 		match self.variant.clone() {
 			BranflakesStatementVariant::IncrementPointer => virtual_machine.data_pointer = virtual_machine.data_pointer.checked_add(1)
-				.ok_or_else(|| Error::IntegerOverflow.at(Some(self.line), Some(self.column), None))?,
+				.ok_or_else(|| Error::IntegerOverflow.at(Some(self.start_line), Some(self.start_column), None))?,
 			BranflakesStatementVariant::DecrementPointer => virtual_machine.data_pointer = virtual_machine.data_pointer.checked_sub(1)
-				.ok_or_else(|| Error::IntegerUnderflow.at(Some(self.line), Some(self.column), None))?,
+				.ok_or_else(|| Error::IntegerUnderflow.at(Some(self.start_line), Some(self.start_column), None))?,
 			BranflakesStatementVariant::Increment => virtual_machine.write(virtual_machine.read().wrapping_add(1)),
 			BranflakesStatementVariant::Decrement => virtual_machine.write(virtual_machine.read().wrapping_sub(1)),
 			BranflakesStatementVariant::Print => {
 				let value = virtual_machine.read();
 				if value > 127 {
-					return Err(Error::InvalidAsciiValue.at(Some(self.line), Some(self.column), None));
+					return Err(Error::InvalidAsciiValue.at(Some(self.start_line), Some(self.start_column), None));
 				}
 				print!("{}", value as char);
 				io::stdout().flush().unwrap();
@@ -244,20 +248,20 @@ impl BranflakesStatement {
 impl Statement for BranflakesStatement {}
 
 impl AstNode for BranflakesStatement {
-	fn get_start_line(&self) -> NonZeroUsize {
-		self.line
+	fn start_line(&self) -> Option<NonZeroUsize> {
+		Some(self.start_line)
 	}
 
-	fn get_end_line(&self) -> NonZeroUsize {
-		self.line.saturating_add(1)
+	fn end_line(&self) -> Option<NonZeroUsize> {
+		Some(self.end_line)
 	}
 
-	fn get_start_column(&self) -> NonZeroUsize {
-		self.column
+	fn start_column(&self) -> Option<NonZeroUsize> {
+		Some(self.start_column)
 	}
 
-	fn get_end_column(&self) -> NonZeroUsize {
-		self.column
+	fn end_column(&self) -> Option<NonZeroUsize> {
+		Some(self.end_column)
 	}
 
 	fn print_name(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
@@ -303,31 +307,31 @@ impl Module for BranflakesModule {
 }
 
 impl AstNode for BranflakesModule {
-	fn get_start_line(&self) -> NonZeroUsize {
+	fn start_line(&self) -> Option<NonZeroUsize> {
 		match self.statements.first() {
-			Some(last_statement) => last_statement.get_start_line(),
-			None => NonZeroUsize::new(1).unwrap(),
+			Some(first_statement) => first_statement.start_line(),
+			None => Some(NonZeroUsize::new(1).unwrap()),
 		}
 	}
 
-	fn get_end_line(&self) -> NonZeroUsize {
+	fn end_line(&self) -> Option<NonZeroUsize> {
 		match self.statements.last() {
-			Some(last_statement) => last_statement.get_end_line(),
-			None => NonZeroUsize::new(1).unwrap(),
+			Some(last_statement) => last_statement.end_line(),
+			None => Some(NonZeroUsize::new(1).unwrap()),
 		}
 	}
 
-	fn get_start_column(&self) -> NonZeroUsize {
-		match self.statements.last() {
-			Some(last_statement) => last_statement.get_start_column(),
-			None => NonZeroUsize::new(1).unwrap(),
+	fn start_column(&self) -> Option<NonZeroUsize> {
+		match self.statements.first() {
+			Some(first_statement) => first_statement.start_column(),
+			None => Some(NonZeroUsize::new(1).unwrap()),
 		}
 	}
 
-	fn get_end_column(&self) -> NonZeroUsize {
+	fn end_column(&self) -> Option<NonZeroUsize> {
 		match self.statements.last() {
-			Some(last_statement) => last_statement.get_end_column(),
-			None => NonZeroUsize::new(1).unwrap(),
+			Some(last_statement) => last_statement.end_column(),
+			None => Some(NonZeroUsize::new(1).unwrap()),
 		}
 	}
 

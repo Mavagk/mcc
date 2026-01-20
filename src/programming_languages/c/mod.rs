@@ -32,19 +32,19 @@ pub struct CToken {
 }
 
 impl Token for CToken {
-	fn get_start_line(&self) -> std::num::NonZeroUsize {
+	fn start_line(&self) -> std::num::NonZeroUsize {
 		todo!()
 	}
 
-	fn get_end_column(&self) -> std::num::NonZeroUsize {
+	fn end_column(&self) -> std::num::NonZeroUsize {
 		todo!()
 	}
 
-	fn get_start_column(&self) -> std::num::NonZeroUsize {
+	fn start_column(&self) -> std::num::NonZeroUsize {
 		todo!()
 	}
 
-	fn get_end_line(&self) -> std::num::NonZeroUsize {
+	fn end_line(&self) -> std::num::NonZeroUsize {
 		todo!()
 	}
 

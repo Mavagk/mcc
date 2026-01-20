@@ -22,20 +22,20 @@ impl Module for CModule {
 }
 
 impl AstNode for CModule {
-	fn get_start_line(&self) -> NonZeroUsize {
-		todo!()
+	fn start_line(&self) -> Option<NonZeroUsize> {
+		None
 	}
 
-	fn get_end_line(&self) -> NonZeroUsize {
-		todo!()
+	fn end_line(&self) -> Option<NonZeroUsize> {
+		None
 	}
 
-	fn get_start_column(&self) -> NonZeroUsize {
-		todo!()
+	fn start_column(&self) -> Option<NonZeroUsize> {
+		None
 	}
 
-	fn get_end_column(&self) -> NonZeroUsize {
-		todo!()
+	fn end_column(&self) -> Option<NonZeroUsize> {
+		None
 	}
 
 	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {

@@ -24,8 +24,8 @@ impl<'a, T: Token> TokenReader<'a, T> {
 
 	pub fn next(&mut self) -> Option<&T> {
 		let out = self.tokens.get(0)?;
-		self.last_taken_token_end_line = out.get_end_line();
-		self.last_taken_token_end_column = out.get_end_line();
+		self.last_taken_token_end_line = out.end_line();
+		self.last_taken_token_end_column = out.end_column();
 		self.tokens = &self.tokens[1..];
 		Some(out)
 	}

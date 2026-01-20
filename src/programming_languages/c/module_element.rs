@@ -12,27 +12,27 @@ impl ModuleElement for CModuleElement {
 }
 
 impl AstNode for CModuleElement {
-	fn get_start_line(&self) -> NonZeroUsize {
-		unimplemented!()
+	fn start_line(&self) -> Option<NonZeroUsize> {
+		None
 	}
 
-	fn get_end_line(&self) -> NonZeroUsize {
-		unimplemented!()
+	fn end_line(&self) -> Option<NonZeroUsize> {
+		None
 	}
 
-	fn get_start_column(&self) -> NonZeroUsize {
-		unimplemented!()
+	fn start_column(&self) -> Option<NonZeroUsize> {
+		None
 	}
 
-	fn get_end_column(&self) -> NonZeroUsize {
-		unimplemented!()
+	fn end_column(&self) -> Option<NonZeroUsize> {
+		None
 	}
 
 	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
-		unimplemented!()
+		todo!()
 	}
 
 	fn print_sub_nodes(&self, _level: usize, _f: &mut Formatter<'_>) -> fmt::Result {
-		unimplemented!()
+		todo!()
 	}
 }
