@@ -1,10 +1,18 @@
 use std::{fmt::{self, Formatter}, num::NonZeroUsize};
 
 pub trait AstNode {
-	fn start_line(&self) -> Option<NonZeroUsize>;
-	fn end_line(&self) -> Option<NonZeroUsize>;
-	fn start_column(&self) -> Option<NonZeroUsize>;
-	fn end_column(&self) -> Option<NonZeroUsize>;
+	fn start_line(&self) -> Option<NonZeroUsize> {
+		None
+	}
+	fn end_line(&self) -> Option<NonZeroUsize> {
+		None
+	}
+	fn start_column(&self) -> Option<NonZeroUsize> {
+		None
+	}
+	fn end_column(&self) -> Option<NonZeroUsize> {
+		None
+	}
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result;
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result;
 

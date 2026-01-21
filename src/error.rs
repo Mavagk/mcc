@@ -61,7 +61,7 @@ pub struct ErrorAt {
 	error: Error,
 	line: Option<NonZeroUsize>,
 	column: Option<NonZeroUsize>,
-	file: Option<String>,
+	pub file: Option<String>,
 }
 
 impl Display for ErrorAt {

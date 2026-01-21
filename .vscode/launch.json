@@ -14,7 +14,7 @@
 					"--bin=mcc"
 				]
 			},
-			"args": ["--version", "--help", "--print-tokens", "--print-ast", "--source-dir", "mmcsrc", "--entrypoint-module", "hello_world.bf", "--execute-interpreted"]
+			"args": ["--version", "--help", "--print-tokens", "--print-ast", "--source-dir", "mmcsrc", "--entrypoint-module", "hello_world.bf", "--print-c"]
 		},
 		{
 			"name": "Debug unit tests in executable 'mcc'",

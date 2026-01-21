@@ -1,6 +1,6 @@
 use std::{fmt::{self, Debug, Formatter}, io::{self, Write}, num::NonZeroUsize};
 
-use crate::{Main, error::{Error, ErrorAt}, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage, statement::Statement, token::Token, virtual_machine::VirtualMachine}};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::c::{module::CModule, module_element::CModuleElement, statement::CCompoundStatement, types::CType}, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage, statement::Statement, token::Token, virtual_machine::VirtualMachine}};
 
 #[derive(Debug)]
 pub struct Branflakes;
@@ -303,6 +303,17 @@ impl Module for BranflakesModule {
 			statement.execute_interpreted(&mut virtual_machine)?;
 		}
 		Ok(())
+	}
+
+	fn to_c_module(&self, _main: &mut Main, is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
+		if !is_entrypoint {
+			return Err(Error::NotYetImplemented("BF to C not entrypoint".into()).at(None, None, None));
+		}
+		let mut c_module = CModule::new();
+		let main_function_body = CCompoundStatement::new();
+		let main_function = CModuleElement::FunctionDefinition { return_type: CType::Void, name: "main".into(), parameters: Default::default(), body: Box::new(main_function_body) };
+		c_module.push_element(main_function);
+		Ok(Some(c_module))
 	}
 }
 

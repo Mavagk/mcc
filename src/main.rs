@@ -44,7 +44,7 @@ fn main() {
 		println!("--print-tokens\t\t\t\t\t\tPrints out the tokenized tokens.");
 		println!("--print-ast\t\t\t\t\t\tPrints out the parsed module ASTs.");
 		println!("--execute-interpreted\t\t\t\t\tExecute entrypoint modules and do not compile.");
-		println!("--entrypoint-module\t\t\t\t\tThe module is an entrypoint module.");
+		println!("--print-c\t\t\t\t\t\tPrint out modules once they have been source to source compiled to C.");
 	}
 	// Parse each module to an AST.
 	let mut parsed_modules = HashMap::new();
@@ -58,7 +58,10 @@ fn main() {
 		main_struct.modules_compiled.insert(module_path.0.clone());
 		// Process
 		let module = match parse_module_to_ast(&mut main_struct, &args, &module_path.0) {
-			Err(error) => {
+			Err(mut error) => {
+				if error.file.is_none() {
+					error.file = Some(module_path.0.to_string_lossy().into())
+				}
 				println!("Error while tokenizing or parsing file \"{}\": {error}.", module_path.0.to_string_lossy());
 				return;
 			}
@@ -67,17 +70,39 @@ fn main() {
 		// Insert into parsed module list
 		parsed_modules.insert(module_path, module);
 	}
-	// Execute entrypoint modules if --execute-interpreted" is set
+	// Execute entrypoint modules if "--execute-interpreted" is set
 	if args.execute_interpreted {
 		for ((path, is_entrypoint), module) in parsed_modules.iter() {
 			if *is_entrypoint {
 				match module.interpreted_execute_entrypoint(&mut main_struct) {
-					Err(error) => {
+					Err(mut error) => {
+						if error.file.is_none() {
+							error.file = Some(path.to_string_lossy().into())
+						}
 						println!("Error while executing interpreted file \"{}\": {error}.", path.to_string_lossy());
 						return;
 					}
 					Ok(()) => {}
 				}
+			}
+		}
+	}
+	// Source to source compile to C if "--execute-interpreted" is not set
+	if !args.execute_interpreted {
+		for ((path, is_entrypoint), module) in parsed_modules.iter() {
+			let c_module = match module.to_c_module(&mut main_struct, *is_entrypoint) {
+				Err(mut error) => {
+					if error.file.is_none() {
+						error.file = Some(path.to_string_lossy().into())
+					}
+					println!("Error while executing interpreted file \"{}\": {error}.", path.to_string_lossy());
+					return;
+				}
+				Ok(None) => continue,
+				Ok(Some(c_module)) => c_module,
+			};
+			if args.print_source_to_source_c {
+				println!("{c_module:?}");
 			}
 		}
 	}

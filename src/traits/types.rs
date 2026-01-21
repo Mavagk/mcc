@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
-pub trait Type: Debug {
+use crate::traits::ast_node::AstNode;
+
+pub trait Type: Debug + AstNode {
 	
 }
