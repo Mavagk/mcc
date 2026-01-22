@@ -33,14 +33,15 @@ impl AstNode for CType {
 		}
 	}
 
-	fn write_to_file(&self, writer: &mut BufWriter<File>) -> Result<(), ErrorAt> {
+	fn write_to_file(&self, writer: &mut BufWriter<File>, indentation_level: usize) -> Result<(), ErrorAt> {
 		match self {
 			Self::Void => writer.write_all(b"void").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None)),
 			Self::Int => writer.write_all(b"int").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None)),
 			Self::U8 => writer.write_all(b"uint8_t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None)),
 			Self::PointerTo(pointee) => {
-				writer.write_all(b"*").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
-				pointee.write_to_file(writer)
+				//writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				pointee.write_to_file(writer, indentation_level)?;
+				writer.write_all(b"*").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
 		}
 	}

@@ -1,6 +1,6 @@
-use std::{fmt::{self, Formatter}, fs::File, io::BufWriter};
+use std::{fmt::{self, Formatter}, fs::File, io::{BufWriter, Write}};
 
-use crate::{error::ErrorAt, programming_languages::c::{l_value::LValue, types::CType}, traits::{ast_node::AstNode, expression::Expression}};
+use crate::{error::{Error, ErrorAt}, programming_languages::c::{l_value::LValue, types::CType}, traits::{ast_node::AstNode, expression::Expression}};
 
 #[derive(Debug)]
 pub enum CExpression {
@@ -44,25 +44,35 @@ impl AstNode for CExpression {
 		}
 	}
 
-	fn write_to_file(&self, _writer: &mut BufWriter<File>) -> Result<(), ErrorAt> {
-		Ok(())
-		//match self {
-		//	Self::FunctionDefinition { return_type, name, parameters, body } => {
-		//		return_type.write_to_file(writer)?;
-		//		writer.write_all(b" ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
-		//		writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
-		//		writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
-		//		let mut is_first_parameter = true;
-		//		for parameter in parameters {
-		//			if !is_first_parameter {
-		//				writer.write_all(b", ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
-		//			}
-		//			parameter.write_to_file(writer)?;
-		//			is_first_parameter = false;
-		//		}
-		//		writer.write_all(b") ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
-		//		body.write_to_file(writer)
-		//	}
-		//}
+	fn write_to_file(&self, writer: &mut BufWriter<File>, indentation_level: usize) -> Result<(), ErrorAt> {
+		match self {
+			Self::Assignment(l_value, r_value) => {
+				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				l_value.write_to_file(writer, indentation_level)?;
+				writer.write_all(b" = ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				r_value.write_to_file(writer, indentation_level)
+			}
+			Self::LValueRead(l_value) => l_value.write_to_file(writer, indentation_level),
+			Self::FunctionCall(name, arguments) => {
+				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				let mut is_first_argument = true;
+				for argument in arguments {
+					if !is_first_argument {
+						writer.write_all(b", ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					}
+					argument.write_to_file(writer, indentation_level)?;
+					is_first_argument = false;
+				}
+				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+			Self::IntConstant(value) => writer.write_all(format!("{value}").as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None)),
+			Self::Sizeof(sub_type) => {
+				writer.write_all(b"sizeof(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				sub_type.write_to_file(writer, indentation_level)?;
+				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+		}
 	}
 }

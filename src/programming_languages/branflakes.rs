@@ -311,12 +311,16 @@ impl Module for BranflakesModule {
 		}
 		// Create main function body
 		let mut main_function_body = CCompoundStatement::new();
+		// Create module
+		let mut c_module = CModule::new();
+		// Add includes
+		c_module.push_element(CModuleElement::AngleInclude("stdint.h".into()));
+		c_module.push_element(CModuleElement::AngleInclude("stdlib.h".into()));
 		// Add memory allocation for memory buffer
 		let function_call = CInitializer::Expression(CExpression::FunctionCall("calloc".into(), [CExpression::IntConstant(30000), CExpression::Sizeof(CType::U8)].into()));
 		main_function_body.push_statement(CStatement::VariableDeclaration(CType::PointerTo(CType::U8.into()), "memory".into(), Some(function_call.into())));
-		// Create main function and a C module to add it to
+		// Create main function and add to the module
 		let main_function = CModuleElement::FunctionDefinition { return_type: CType::Int, name: "main".into(), parameters: Default::default(), body: Box::new(main_function_body) };
-		let mut c_module = CModule::new();
 		c_module.push_element(main_function);
 		Ok(Some(c_module))
 	}

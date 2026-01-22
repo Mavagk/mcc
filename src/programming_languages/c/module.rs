@@ -1,6 +1,6 @@
-use std::{fmt::{self, Debug, Formatter}, fs::File, io::BufWriter};
+use std::{fmt::{self, Debug, Formatter}, fs::File, io::{BufWriter, Write}};
 
-use crate::{Main, error::ErrorAt, programming_languages::c::module_element::CModuleElement, traits::{ast_node::AstNode, module::Module}};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::c::module_element::CModuleElement, traits::{ast_node::AstNode, module::Module}};
 
 pub struct CModule {
 	elements: Vec<CModuleElement>,
@@ -40,9 +40,14 @@ impl AstNode for CModule {
 		Ok(())
 	}
 
-	fn write_to_file(&self, writer: &mut BufWriter<File>) -> Result<(), ErrorAt> {
+	fn write_to_file(&self, writer: &mut BufWriter<File>, indentation_level: usize) -> Result<(), ErrorAt> {
+		let mut is_first_element = true;
 		for module_element in self.elements.iter() {
-			module_element.write_to_file(writer)?;
+			if !is_first_element {
+				writer.write_all(b"\n\n").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+			}
+			module_element.write_to_file(writer, indentation_level)?;
+			is_first_element = false;
 		}
 		Ok(())
 	}

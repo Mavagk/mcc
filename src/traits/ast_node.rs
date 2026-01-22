@@ -45,7 +45,7 @@ pub trait AstNode {
 		self.print_sub_nodes(level + 1, f)
 	}
 
-	fn write_to_file(&self, _writer: &mut BufWriter<File>) -> Result<(), ErrorAt> {
+	fn write_to_file(&self, _writer: &mut BufWriter<File>, _indentation_level: usize) -> Result<(), ErrorAt> {
 		unimplemented!()
 	}
 }

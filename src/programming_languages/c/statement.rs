@@ -36,19 +36,20 @@ impl AstNode for CStatement {
 		}
 	}
 
-	fn write_to_file(&self, writer: &mut BufWriter<File>) -> Result<(), ErrorAt> {
+	fn write_to_file(&self, writer: &mut BufWriter<File>, indentation_level: usize) -> Result<(), ErrorAt> {
 		match self {
-			Self::CompoundStatement(compound_statement) => compound_statement.write_to_file(writer),
+			Self::CompoundStatement(compound_statement) => compound_statement.write_to_file(writer, indentation_level),
 			Self::Expression(expression) => {
-				expression.write_to_file(writer)?;
+				expression.write_to_file(writer, indentation_level)?;
 				writer.write_all(b";").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
 			Self::VariableDeclaration(variable_type, name, initializer) => {
-				variable_type.write_to_file(writer)?;
+				variable_type.write_to_file(writer, indentation_level)?;
 				writer.write_all(b" ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				if let Some(initializer) = initializer {
-					initializer.write_to_file(writer)?;
+					writer.write_all(b" = ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					initializer.write_to_file(writer, indentation_level)?;
 				}
 				writer.write_all(b";").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
@@ -85,10 +86,22 @@ impl AstNode for CCompoundStatement {
 		Ok(())
 	}
 
-	fn write_to_file(&self, writer: &mut BufWriter<File>) -> Result<(), ErrorAt> {
+	fn write_to_file(&self, writer: &mut BufWriter<File>, indentation_level: usize) -> Result<(), ErrorAt> {
 		writer.write_all(b"{").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+		if !self.sub_statements.is_empty() {
+			writer.write_all(b"\n").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+		}
 		for sub_statement in self.sub_statements.iter() {
-			sub_statement.write_to_file(writer)?;
+			for _ in 0..indentation_level + 1 {
+				writer.write_all(b"\t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+			}
+			sub_statement.write_to_file(writer, indentation_level)?;
+		}
+		if !self.sub_statements.is_empty() {
+			writer.write_all(b"\n").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+			for _ in 0..indentation_level {
+				writer.write_all(b"\t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+			}
 		}
 		writer.write_all(b"}").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 	}
@@ -112,9 +125,9 @@ impl AstNode for CInitializer {
 		}
 	}
 
-	fn write_to_file(&self, writer: &mut BufWriter<File>) -> Result<(), ErrorAt> {
+	fn write_to_file(&self, writer: &mut BufWriter<File>, indentation_level: usize) -> Result<(), ErrorAt> {
 		match self {
-			Self::Expression(expression) => expression.write_to_file(writer)
+			Self::Expression(expression) => expression.write_to_file(writer, indentation_level)
 		}
 	}
 }

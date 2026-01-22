@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet}, env::{args_os, current_dir}, ffi::OsString, fs::{File, remove_file}, io::{BufWriter, Write}, mem::take, path::{Path, PathBuf}};
+use std::{collections::{HashMap, HashSet}, env::{args_os, current_dir}, ffi::OsString, fs::{File, create_dir_all, remove_file}, hash::{DefaultHasher, Hash, Hasher}, io::{BufWriter, Write}, mem::take, path::{Path, PathBuf}};
 
 use crate::{arguments::{Arguments, parse_arguments}, error::{Error, ErrorAt}, programming_languages::branflakes::Branflakes, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage}};
 
@@ -89,6 +89,7 @@ fn main() {
 	}
 	// Source to source compile to C if "--execute-interpreted" is not set
 	if !args.execute_interpreted {
+		_ = create_dir_all(&main_struct.output_directory);
 		for ((path, is_entrypoint), module) in parsed_modules.iter() {
 			// Source to source compile module to C module
 			let c_module = match module.to_c_module(&mut main_struct, *is_entrypoint) {
@@ -107,8 +108,11 @@ fn main() {
 			}
 			// Get output filepath
 			let mut filepath: PathBuf = main_struct.output_directory.clone().into();
-			filepath.push(path);
-			filepath.add_extension("c");
+			let mut hasher = DefaultHasher::new();
+			path.hash(&mut hasher);
+			let hash = hasher.finish();
+			let path_end: String = path.file_name().unwrap().to_string_lossy().into();
+			filepath.push(format!("{hash:016X}_{path_end}.c"));
 			// Delete the file if it already exists
 			_ = remove_file(&filepath);
 			// Create file
@@ -121,7 +125,7 @@ fn main() {
 			};
 			// Write C module to C source
 			let mut writer = BufWriter::new(file);
-			if let Err(error) = c_module.write_to_file(&mut writer) {
+			if let Err(error) = c_module.write_to_file(&mut writer, 0) {
 				println!("Error while writing C module to disk \"{}\": {error}.", path.to_string_lossy());
 				return;
 			}
