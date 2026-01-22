@@ -1,5 +1,7 @@
 use std::{fmt::{self, Formatter}, fs::File, io::BufWriter, num::NonZeroUsize};
 
+use crate::error::ErrorAt;
+
 pub trait AstNode {
 	fn start_line(&self) -> Option<NonZeroUsize> {
 		None
@@ -43,7 +45,7 @@ pub trait AstNode {
 		self.print_sub_nodes(level + 1, f)
 	}
 
-	fn write_to_file(&self, writer: BufWriter<File>) {
+	fn write_to_file(&self, _writer: &mut BufWriter<File>) -> Result<(), ErrorAt> {
 		unimplemented!()
 	}
 }

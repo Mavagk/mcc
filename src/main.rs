@@ -1,6 +1,6 @@
-use std::{collections::{HashMap, HashSet}, env::{args_os, current_dir}, ffi::OsString, mem::take, path::{Path, PathBuf}};
+use std::{collections::{HashMap, HashSet}, env::{args_os, current_dir}, ffi::OsString, fs::{File, remove_file}, io::{BufWriter, Write}, mem::take, path::{Path, PathBuf}};
 
-use crate::{arguments::{Arguments, parse_arguments}, error::{Error, ErrorAt}, programming_languages::branflakes::Branflakes, traits::{module::Module, programming_language::ProgrammingLanguage}};
+use crate::{arguments::{Arguments, parse_arguments}, error::{Error, ErrorAt}, programming_languages::branflakes::Branflakes, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage}};
 
 pub mod traits;
 pub mod programming_languages;
@@ -90,6 +90,7 @@ fn main() {
 	// Source to source compile to C if "--execute-interpreted" is not set
 	if !args.execute_interpreted {
 		for ((path, is_entrypoint), module) in parsed_modules.iter() {
+			// Source to source compile module to C module
 			let c_module = match module.to_c_module(&mut main_struct, *is_entrypoint) {
 				Err(mut error) => {
 					if error.file.is_none() {
@@ -103,6 +104,30 @@ fn main() {
 			};
 			if args.print_source_to_source_c {
 				println!("{c_module:?}");
+			}
+			// Get output filepath
+			let mut filepath: PathBuf = main_struct.output_directory.clone().into();
+			filepath.push(path);
+			filepath.add_extension("c");
+			// Delete the file if it already exists
+			_ = remove_file(&filepath);
+			// Create file
+			let file = match File::create(&filepath) {
+				Ok(file) => file,
+				Err(error) => {
+					println!("Error while writing file \"{}\": {error}.", path.to_string_lossy());
+					return;
+				}
+			};
+			// Write C module to C source
+			let mut writer = BufWriter::new(file);
+			if let Err(error) = c_module.write_to_file(&mut writer) {
+				println!("Error while writing C module to disk \"{}\": {error}.", path.to_string_lossy());
+				return;
+			}
+			if let Err(error) = writer.flush() {
+				println!("Error while writing C module to disk \"{}\": {error}.", path.to_string_lossy());
+				return;
 			}
 		}
 	}

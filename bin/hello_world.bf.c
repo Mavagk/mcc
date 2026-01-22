@@ -1,0 +1,1 @@
+int main() {*uint8_t memory;}

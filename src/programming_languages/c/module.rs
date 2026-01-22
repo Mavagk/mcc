@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug, Formatter};
+use std::{fmt::{self, Debug, Formatter}, fs::File, io::BufWriter};
 
 use crate::{Main, error::ErrorAt, programming_languages::c::module_element::CModuleElement, traits::{ast_node::AstNode, module::Module}};
 
@@ -36,6 +36,13 @@ impl AstNode for CModule {
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
 		for sub_element in self.elements.iter() {
 			sub_element.print(level, f)?;
+		}
+		Ok(())
+	}
+
+	fn write_to_file(&self, writer: &mut BufWriter<File>) -> Result<(), ErrorAt> {
+		for module_element in self.elements.iter() {
+			module_element.write_to_file(writer)?;
 		}
 		Ok(())
 	}
