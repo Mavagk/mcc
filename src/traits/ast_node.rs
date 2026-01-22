@@ -1,4 +1,4 @@
-use std::{fmt::{self, Formatter}, num::NonZeroUsize};
+use std::{fmt::{self, Formatter}, fs::File, io::BufWriter, num::NonZeroUsize};
 
 pub trait AstNode {
 	fn start_line(&self) -> Option<NonZeroUsize> {
@@ -41,5 +41,9 @@ pub trait AstNode {
 		self.print_name(f)?;
 		writeln!(f)?;
 		self.print_sub_nodes(level + 1, f)
+	}
+
+	fn write_to_file(&self, writer: BufWriter<File>) {
+		unimplemented!()
 	}
 }

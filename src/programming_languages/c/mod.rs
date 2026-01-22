@@ -3,6 +3,7 @@ pub mod module_element;
 pub mod statement;
 pub mod types;
 pub mod expression;
+pub mod l_value;
 
 use std::{fmt::{self, Formatter}, num::NonZeroUsize};
 

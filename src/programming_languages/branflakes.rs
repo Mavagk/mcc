@@ -1,6 +1,6 @@
 use std::{fmt::{self, Debug, Formatter}, io::{self, Write}, num::NonZeroUsize};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::c::{module::CModule, module_element::CModuleElement, statement::CCompoundStatement, types::CType}, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage, statement::Statement, token::Token, virtual_machine::VirtualMachine}};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::c::{expression::CExpression, module::CModule, module_element::CModuleElement, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage, statement::Statement, token::Token, virtual_machine::VirtualMachine}};
 
 #[derive(Debug)]
 pub struct Branflakes;
@@ -309,9 +309,14 @@ impl Module for BranflakesModule {
 		if !is_entrypoint {
 			return Err(Error::NotYetImplemented("BF to C not entrypoint".into()).at(None, None, None));
 		}
+		// Create main function body
+		let mut main_function_body = CCompoundStatement::new();
+		// Add memory allocation for memory buffer
+		let function_call = CInitializer::Expression(CExpression::FunctionCall("calloc".into(), [CExpression::IntConstant(30000), CExpression::Sizeof(CType::U8)].into()));
+		main_function_body.push_statement(CStatement::VariableDeclaration(CType::PointerTo(CType::U8.into()), "memory".into(), Some(function_call.into())));
+		// Create main function and a C module to add it to
+		let main_function = CModuleElement::FunctionDefinition { return_type: CType::Int, name: "main".into(), parameters: Default::default(), body: Box::new(main_function_body) };
 		let mut c_module = CModule::new();
-		let main_function_body = CCompoundStatement::new();
-		let main_function = CModuleElement::FunctionDefinition { return_type: CType::Void, name: "main".into(), parameters: Default::default(), body: Box::new(main_function_body) };
 		c_module.push_element(main_function);
 		Ok(Some(c_module))
 	}

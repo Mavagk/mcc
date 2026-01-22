@@ -5,7 +5,8 @@ use crate::{programming_languages::c::{expression::CExpression, types::CType}, t
 #[derive(Debug)]
 pub enum CStatement {
 	CompoundStatement(CCompoundStatement),
-	VariableDeclaration(CType, Box<str>, Option<Box<CInitializer>>)
+	VariableDeclaration(CType, Box<str>, Option<Box<CInitializer>>),
+	Expression(CExpression),
 }
 
 impl Statement for CStatement {
@@ -17,6 +18,7 @@ impl AstNode for CStatement {
 		match self {
 			Self::CompoundStatement(_) => write!(f, "Compound Statement"),
 			Self::VariableDeclaration(_, name, _) => write!(f, "Variable Declaration \"{name}\""),
+			Self::Expression(_) => write!(f, "Expression"),
 		}
 	}
 
@@ -30,6 +32,7 @@ impl AstNode for CStatement {
 				}
 				Ok(())
 			}
+			Self::Expression(expression) => expression.print(level, f),
 		}
 	}
 }
