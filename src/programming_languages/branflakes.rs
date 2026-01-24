@@ -1,6 +1,6 @@
 use std::{fmt::{self, Debug, Formatter}, io::{self, Write}, num::NonZeroUsize};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::c::{expression::CExpression, module::CModule, module_element::CModuleElement, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage, statement::Statement, token::Token, virtual_machine::VirtualMachine}};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage, statement::Statement, token::Token, virtual_machine::VirtualMachine}};
 
 #[derive(Debug)]
 pub struct Branflakes;
@@ -309,18 +309,40 @@ impl Module for BranflakesModule {
 		if !is_entrypoint {
 			return Err(Error::NotYetImplemented("BF to C not entrypoint".into()).at(None, None, None));
 		}
-		// Create main function body
-		let mut main_function_body = CCompoundStatement::new();
 		// Create module
 		let mut c_module = CModule::new();
 		// Add includes
 		c_module.push_element(CModuleElement::AngleInclude("stdint.h".into()));
 		c_module.push_element(CModuleElement::AngleInclude("stdlib.h".into()));
-		// Add memory allocation for memory buffer
-		let function_call = CInitializer::Expression(CExpression::FunctionCall("calloc".into(), [CExpression::IntConstant(30000), CExpression::Sizeof(CType::U8)].into()));
-		main_function_body.push_statement(CStatement::VariableDeclaration(CType::PointerTo(CType::U8.into()), "memory".into(), Some(function_call.into())));
+		// Add a function the expands the memory buffer so that it has at least X cells
+		let mut expand_memory_function_body = CCompoundStatement::new();
+		expand_memory_function_body.push_statement(CStatement::If(
+			CExpression::GreaterThanOrEqual(
+				CExpression::LValueRead(CLValue::Variable("resize_to_at_least".into()).into()).into(),
+				CExpression::LValueRead(CLValue::Dereference(CExpression::LValueRead(CLValue::Variable("memory_buffer_size".into()).into()).into()).into()).into()
+			).into(),
+			CStatement::Return(None).into()
+		));
+		let expand_memory_function = CModuleElement::FunctionDefinition {
+			return_type: CType::Void, name: "expand_memory".into(),
+			parameters: [
+				CFunctionParameter::new(CType::PointerTo(CType::PointerTo(CType::U8.into()).into()), "memory_buffer".into()),
+				CFunctionParameter::new(CType::PointerTo(CType::USize.into()), "memory_buffer_size".into()),
+				CFunctionParameter::new(CType::USize, "resize_to_at_least".into())
+			].into(),
+			body: expand_memory_function_body.into()
+		};
+		c_module.push_element(expand_memory_function);
+		// Create main function body
+		let mut main_function_body = CCompoundStatement::new();
+		// Add memory buffer variables
+		main_function_body.push_statement(CStatement::Comment("The BF memory state".into()));
+		let memory_buffer_init = CInitializer::Expression(CExpression::LValueRead(CLValue::Variable("NULL".into()).into()));
+		main_function_body.push_statement(CStatement::VariableDeclaration(CType::PointerTo(CType::U8.into()), "memory_buffer".into(), Some(memory_buffer_init.into())));
+		main_function_body.push_statement(CStatement::VariableDeclaration(CType::USize, "memory_buffer_size".into(), Some(CInitializer::Expression(CExpression::IntConstant(0)).into())));
+		main_function_body.push_statement(CStatement::VariableDeclaration(CType::USize, "data_pointer".into(), Some(CInitializer::Expression(CExpression::IntConstant(0)).into())));
 		// Create main function and add to the module
-		let main_function = CModuleElement::FunctionDefinition { return_type: CType::Int, name: "main".into(), parameters: Default::default(), body: Box::new(main_function_body) };
+		let main_function = CModuleElement::FunctionDefinition { return_type: CType::Int, name: "main".into(), parameters: Default::default(), body: main_function_body.into() };
 		c_module.push_element(main_function);
 		Ok(Some(c_module))
 	}

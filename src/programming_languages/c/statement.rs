@@ -7,6 +7,9 @@ pub enum CStatement {
 	CompoundStatement(CCompoundStatement),
 	VariableDeclaration(CType, Box<str>, Option<Box<CInitializer>>),
 	Expression(CExpression),
+	Comment(Box<str>),
+	If(Box<CExpression>, Box<CStatement>),
+	Return(Option<Box<CExpression>>),
 }
 
 impl Statement for CStatement {
@@ -19,6 +22,9 @@ impl AstNode for CStatement {
 			Self::CompoundStatement(_) => write!(f, "Compound Statement"),
 			Self::VariableDeclaration(_, name, _) => write!(f, "Variable Declaration \"{name}\""),
 			Self::Expression(_) => write!(f, "Expression"),
+			Self::Comment(comment) => write!(f, "Comment \"{comment}\""),
+			Self::If(_, _) => write!(f, "If"),
+			Self::Return(_) => write!(f, "Return"),
 		}
 	}
 
@@ -33,6 +39,17 @@ impl AstNode for CStatement {
 				Ok(())
 			}
 			Self::Expression(expression) => expression.print(level, f),
+			Self::Comment(_) => Ok(()),
+			Self::If(condition_expression, sub_statement) => {
+				condition_expression.print(level, f)?;
+				sub_statement.print(level, f)
+			}
+			Self::Return(return_value) => {
+				if let Some(return_value) = return_value {
+					return_value.print(level, f)?;
+				}
+				Ok(())
+			}
 		}
 	}
 
@@ -50,6 +67,24 @@ impl AstNode for CStatement {
 				if let Some(initializer) = initializer {
 					writer.write_all(b" = ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 					initializer.write_to_file(writer, indentation_level)?;
+				}
+				writer.write_all(b";").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+			Self::Comment(comment) => {
+				writer.write_all(b"// ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(comment.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+			Self::If(condition_expression, sub_statement) => {
+				writer.write_all(b"if (").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				condition_expression.write_to_file(writer, indentation_level)?;
+				writer.write_all(b") ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				sub_statement.write_to_file(writer, indentation_level)
+			}
+			Self::Return(return_value) => {
+				writer.write_all(b"return").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				if let Some(return_value) = return_value {
+					writer.write_all(b" ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					return_value.write_to_file(writer, indentation_level)?;
 				}
 				writer.write_all(b";").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
@@ -96,9 +131,9 @@ impl AstNode for CCompoundStatement {
 				writer.write_all(b"\t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 			}
 			sub_statement.write_to_file(writer, indentation_level)?;
+			writer.write_all(b"\n").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 		}
 		if !self.sub_statements.is_empty() {
-			writer.write_all(b"\n").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 			for _ in 0..indentation_level {
 				writer.write_all(b"\t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 			}

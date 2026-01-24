@@ -7,6 +7,7 @@ pub enum CType {
 	Void,
 	Int,
 	U8,
+	USize,
 	PointerTo(Box<CType>),
 }
 
@@ -20,6 +21,7 @@ impl AstNode for CType {
 			Self::Void => write!(f, "Void"),
 			Self::Int => write!(f, "Int"),
 			Self::U8 => write!(f, "U8"),
+			Self::USize => write!(f, "USize"),
 			CType::PointerTo(_) => write!(f, "Pointer To"),
 		}
 	}
@@ -29,6 +31,7 @@ impl AstNode for CType {
 			Self::Void => Ok(()),
 			Self::Int => Ok(()),
 			Self::U8 => Ok(()),
+			Self::USize => Ok(()),
 			Self::PointerTo(pointee_type) => pointee_type.print(level, f),
 		}
 	}
@@ -38,6 +41,7 @@ impl AstNode for CType {
 			Self::Void => writer.write_all(b"void").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None)),
 			Self::Int => writer.write_all(b"int").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None)),
 			Self::U8 => writer.write_all(b"uint8_t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None)),
+			Self::USize => writer.write_all(b"size_t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None)),
 			Self::PointerTo(pointee) => {
 				//writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				pointee.write_to_file(writer, indentation_level)?;

@@ -1,14 +1,15 @@
 use std::{fmt::{self, Formatter}, fs::File, io::{BufWriter, Write}};
 
-use crate::{error::{Error, ErrorAt}, programming_languages::c::{l_value::LValue, types::CType}, traits::{ast_node::AstNode, expression::Expression}};
+use crate::{error::{Error, ErrorAt}, programming_languages::c::{l_value::CLValue, types::CType}, traits::{ast_node::AstNode, expression::Expression}};
 
 #[derive(Debug)]
 pub enum CExpression {
-	Assignment(Box<LValue>, Box<CExpression>),
-	LValueRead(Box<LValue>),
+	Assignment(Box<CLValue>, Box<CExpression>),
+	LValueRead(Box<CLValue>),
 	FunctionCall(Box<str>, Box<[CExpression]>),
 	IntConstant(i128),
 	Sizeof(CType),
+	GreaterThanOrEqual(Box<CExpression>, Box<CExpression>),
 }
 
 impl Expression for CExpression {
@@ -23,6 +24,7 @@ impl AstNode for CExpression {
 			Self::FunctionCall(name, _) => write!(f, "Function Call \"{name}\""),
 			Self::IntConstant(value) => write!(f, "Int Constant {value}"),
 			Self::Sizeof(_) => write!(f, "Sizeof"),
+			Self::GreaterThanOrEqual(_, _) => write!(f, "Greater than or Equal"),
 		}
 	}
 
@@ -41,6 +43,10 @@ impl AstNode for CExpression {
 			}
 			Self::IntConstant(_) => Ok(()),
 			Self::Sizeof(sub_type) => sub_type.print(level, f),
+			Self::GreaterThanOrEqual(lhs, rhs) => {
+				lhs.print(level, f)?;
+				rhs.print(level, f)
+			}
 		}
 	}
 
@@ -71,6 +77,13 @@ impl AstNode for CExpression {
 			Self::Sizeof(sub_type) => {
 				writer.write_all(b"sizeof(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				sub_type.write_to_file(writer, indentation_level)?;
+				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+			Self::GreaterThanOrEqual(lhs, rhs) => {
+				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				lhs.write_to_file(writer, indentation_level)?;
+				writer.write_all(b" >= ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				rhs.write_to_file(writer, indentation_level)?;
 				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
 		}
