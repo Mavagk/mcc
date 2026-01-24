@@ -314,25 +314,57 @@ impl Module for BranflakesModule {
 		// Add includes
 		c_module.push_element(CModuleElement::AngleInclude("stdint.h".into()));
 		c_module.push_element(CModuleElement::AngleInclude("stdlib.h".into()));
-		// Add a function the expands the memory buffer so that it has at least X cells
+		c_module.push_element(CModuleElement::AngleInclude("stdio.h".into()));
+		// Add a function the expands the memory buffer that makes it have at least X cells
 		let mut expand_memory_function_body = CCompoundStatement::new();
 		expand_memory_function_body.push_statement(CStatement::If(
 			CExpression::GreaterThanOrEqual(
 				CExpression::LValueRead(CLValue::Variable("resize_to_at_least".into()).into()).into(),
 				CExpression::LValueRead(CLValue::Dereference(CExpression::LValueRead(CLValue::Variable("memory_buffer_size".into()).into()).into()).into()).into()
-			).into(),
-			CStatement::Return(None).into()
+			).into(), CStatement::Return(None).into()
 		));
-		let expand_memory_function = CModuleElement::FunctionDefinition {
-			return_type: CType::Void, name: "expand_memory".into(),
-			parameters: [
+		expand_memory_function_body.push_statement(CStatement::VariableDeclaration(CType::USize.into(), "old_size".into(), Some(
+			CInitializer::Expression(CExpression::LValueRead(CLValue::Dereference(CExpression::LValueRead(CLValue::Variable("memory_buffer_size".into()).into()).into()).into()).into()).into()
+		)).into());
+		expand_memory_function_body.push_statement(CStatement::Expression(CExpression::Assignment(
+			CLValue::Dereference(CExpression::LValueRead(CLValue::Variable("memory_buffer_size".into()).into()).into()).into(),
+			CExpression::Multiply(CExpression::LValueRead(CLValue::Variable("resize_to_at_least".into()).into()).into(), CExpression::IntConstant(2).into()).into()
+		).into()));
+		expand_memory_function_body.push_statement(CStatement::Expression(CExpression::Assignment(
+			CLValue::Dereference(CExpression::LValueRead(CLValue::Variable("memory_buffer".into()).into()).into()).into(),
+			CExpression::FunctionCall("realloc".into(), [
+				CExpression::LValueRead(CLValue::Dereference(CExpression::LValueRead(CLValue::Variable("memory_buffer".into()).into()).into()).into()),
+				CExpression::LValueRead(CLValue::Dereference(CExpression::LValueRead(CLValue::Variable("memory_buffer_size".into()).into()).into()).into())
+			].into()).into()
+		).into()));
+
+		let mut allocation_error_compound_statement = CCompoundStatement::new();
+		allocation_error_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("puts".into(), [CExpression::StringConstant("Error: Out of memory.".into())].into())));
+		allocation_error_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("exit".into(), [CExpression::IntConstant(1)].into())));
+		expand_memory_function_body.push_statement(CStatement::If(CExpression::Equal(
+			CExpression::LValueRead(CLValue::Dereference(CExpression::LValueRead(CLValue::Variable("memory_buffer".into()).into()).into()).into()).into(),
+			CExpression::LValueRead(CLValue::Variable("NULL".into()).into()).into()
+		).into(), CStatement::CompoundStatement(allocation_error_compound_statement.into()).into()));
+
+		expand_memory_function_body.push_statement(CStatement::Expression(CExpression::FunctionCall("memset".into(), [
+			CExpression::Add(
+				CExpression::LValueRead(CLValue::Dereference(CExpression::LValueRead(CLValue::Variable("memory_buffer".into()).into()).into()).into()).into(),
+				CExpression::LValueRead(CLValue::Variable("old_size".into()).into()).into()
+			),
+			CExpression::IntConstant(0),
+			CExpression::Subtract(
+				CExpression::LValueRead(CLValue::Dereference(CExpression::LValueRead(CLValue::Variable("memory_buffer_size".into()).into()).into()).into()).into(),
+				CExpression::LValueRead(CLValue::Variable("old_size".into()).into()).into()
+			)
+		].into()).into()));
+
+		c_module.push_element(CModuleElement::FunctionDefinition {
+			return_type: CType::Void, name: "expand_memory".into(), parameters: [
 				CFunctionParameter::new(CType::PointerTo(CType::PointerTo(CType::U8.into()).into()), "memory_buffer".into()),
 				CFunctionParameter::new(CType::PointerTo(CType::USize.into()), "memory_buffer_size".into()),
 				CFunctionParameter::new(CType::USize, "resize_to_at_least".into())
-			].into(),
-			body: expand_memory_function_body.into()
-		};
-		c_module.push_element(expand_memory_function);
+			].into(), body: expand_memory_function_body.into()
+		});
 		// Create main function body
 		let mut main_function_body = CCompoundStatement::new();
 		// Add memory buffer variables

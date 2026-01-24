@@ -130,7 +130,7 @@ impl AstNode for CCompoundStatement {
 			for _ in 0..indentation_level + 1 {
 				writer.write_all(b"\t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 			}
-			sub_statement.write_to_file(writer, indentation_level)?;
+			sub_statement.write_to_file(writer, indentation_level + 1)?;
 			writer.write_all(b"\n").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 		}
 		if !self.sub_statements.is_empty() {
