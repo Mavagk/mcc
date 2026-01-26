@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet}, env::{args_os, current_dir}, ffi::OsString, fs::{File, create_dir_all, remove_file}, hash::{DefaultHasher, Hash, Hasher}, io::{BufWriter, Write}, mem::take, path::{Path, PathBuf}};
+use std::{collections::{HashMap, HashSet}, env::{args_os, current_dir}, ffi::OsString, fs::{File, create_dir_all, remove_file}, hash::{DefaultHasher, Hash, Hasher}, io::{BufWriter, Write}, mem::take, path::{Path, PathBuf}, process::Command};
 
 use crate::{arguments::{Arguments, parse_arguments}, error::{Error, ErrorAt}, programming_languages::branflakes::Branflakes, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage}};
 
@@ -87,9 +87,10 @@ fn main() {
 			}
 		}
 	}
-	// Source to source compile to C if "--execute-interpreted" is not set
 	if !args.execute_interpreted {
+		// Source to source compile to C if "--execute-interpreted" is not set
 		_ = create_dir_all(&main_struct.output_directory);
+		let mut c_files_to_compile = HashSet::new();
 		for ((path, is_entrypoint), module) in parsed_modules.iter() {
 			// Source to source compile module to C module
 			let c_module = match module.to_c_module(&mut main_struct, *is_entrypoint) {
@@ -133,7 +134,33 @@ fn main() {
 				println!("Error while writing C module to disk \"{}\": {error}.", path.to_string_lossy());
 				return;
 			}
+			// Add to list of C files to be compiled
+			c_files_to_compile.insert(filepath);
 		}
+		// Compile C files into executable
+		let mut command = Command::new("gcc");
+		for c_filepath in c_files_to_compile.iter() {
+			command.arg(c_filepath);
+		}
+		let mut filepath: PathBuf = main_struct.output_directory.clone().into();
+		filepath.push("a");
+		command.arg("-o");
+		command.arg(filepath);
+		match command.output() {
+			Ok(result) if result.status.success() => {},
+			Ok(result) => {
+				println!("Error while compiling C modules to executable:");
+				for chr in result.stderr {
+					print!("{}", chr as char);
+				}
+				println!();
+				return;
+			},
+			Err(err) => {
+				println!("Error while compiling C modules to executable: {err}.");
+				return;
+			}
+		};
 	}
 }
 

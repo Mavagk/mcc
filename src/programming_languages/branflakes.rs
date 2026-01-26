@@ -250,26 +250,26 @@ impl BranflakesStatement {
 			BranflakesStatementVariant::IncrementPointer => compound_statement.push_statement(CExpression::PostfixIncrement(CLValue::Variable("data_pointer".into()).into()).into()),
 			BranflakesStatementVariant::DecrementPointer => compound_statement.push_statement(CExpression::PostfixDecrement(CLValue::Variable("data_pointer".into()).into()).into()),
 			BranflakesStatementVariant::Increment => {
-				compound_statement.push_statement(CExpression::FunctionCall("resize_to_at_least".into(), [
+				compound_statement.push_statement(CExpression::FunctionCall("expand_memory".into(), [
 					CExpression::TakeReference(CLValue::Variable("memory_buffer".into()).into()),
 					CExpression::TakeReference(CLValue::Variable("memory_buffer_size".into()).into()),
-					CLValue::Variable("data_pointer".into()).into()
+					CExpression::Add(CLValue::Variable("data_pointer".into()).into(), CExpression::IntConstant(1).into())
 				].into()).into());
 				compound_statement.push_statement(CExpression::PostfixIncrement(CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into()).into());
 			}
 			BranflakesStatementVariant::Decrement => {
-				compound_statement.push_statement(CExpression::FunctionCall("resize_to_at_least".into(), [
+				compound_statement.push_statement(CExpression::FunctionCall("expand_memory".into(), [
 					CExpression::TakeReference(CLValue::Variable("memory_buffer".into()).into()),
 					CExpression::TakeReference(CLValue::Variable("memory_buffer_size".into()).into()),
-					CLValue::Variable("data_pointer".into()).into()
+					CExpression::Add(CLValue::Variable("data_pointer".into()).into(), CExpression::IntConstant(1).into())
 				].into()).into());
 				compound_statement.push_statement(CExpression::PostfixDecrement(CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into()).into());
 			}
 			BranflakesStatementVariant::Loop(sub_statements) => {
-				compound_statement.push_statement(CExpression::FunctionCall("resize_to_at_least".into(), [
+				compound_statement.push_statement(CExpression::FunctionCall("expand_memory".into(), [
 					CExpression::TakeReference(CLValue::Variable("memory_buffer".into()).into()),
 					CExpression::TakeReference(CLValue::Variable("memory_buffer_size".into()).into()),
-					CLValue::Variable("data_pointer".into()).into()
+					CExpression::Add(CLValue::Variable("data_pointer".into()).into(), CExpression::IntConstant(1).into())
 				].into()).into());
 				let mut sub_compound_statement = CCompoundStatement::new();
 				for sub_statement in sub_statements.iter() {
@@ -281,10 +281,10 @@ impl BranflakesStatement {
 				).into(), sub_compound_statement.into()));
 			}
 			BranflakesStatementVariant::Print => {
-				compound_statement.push_statement(CExpression::FunctionCall("resize_to_at_least".into(), [
+				compound_statement.push_statement(CExpression::FunctionCall("expand_memory".into(), [
 					CExpression::TakeReference(CLValue::Variable("memory_buffer".into()).into()),
 					CExpression::TakeReference(CLValue::Variable("memory_buffer_size".into()).into()),
-					CLValue::Variable("data_pointer".into()).into()
+					CExpression::Add(CLValue::Variable("data_pointer".into()).into(), CExpression::IntConstant(1).into())
 				].into()).into());
 				compound_statement.push_statement(CExpression::FunctionCall("putchar".into(), [
 					CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into()
@@ -381,12 +381,13 @@ impl Module for BranflakesModule {
 		c_module.push_element(CModuleElement::AngleInclude("stdint.h".into()));
 		c_module.push_element(CModuleElement::AngleInclude("stdlib.h".into()));
 		c_module.push_element(CModuleElement::AngleInclude("stdio.h".into()));
+		c_module.push_element(CModuleElement::AngleInclude("string.h".into()));
 		// Add a function the expands the memory buffer that makes it have at least X cells
 		let mut expand_memory_function_body = CCompoundStatement::new();
 		expand_memory_function_body.push_statement(CStatement::If(
 			CExpression::GreaterThanOrEqual(
-				CExpression::LValueRead(CLValue::Variable("resize_to_at_least".into()).into()).into(),
-				CExpression::LValueRead(CLValue::Dereference(CExpression::LValueRead(CLValue::Variable("memory_buffer_size".into()).into()).into()).into()).into()
+				CExpression::LValueRead(CLValue::Dereference(CExpression::LValueRead(CLValue::Variable("memory_buffer_size".into()).into()).into()).into()).into(),
+				CExpression::LValueRead(CLValue::Variable("resize_to_at_least".into()).into()).into()
 			).into(), CStatement::Return(None).into()
 		));
 		expand_memory_function_body.push_statement(CStatement::VariableDeclaration(CType::USize.into(), "old_size".into(), Some(

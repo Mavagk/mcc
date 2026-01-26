@@ -3,6 +3,7 @@
 		"branflakes",
 		"getchar",
 		"Multibyte",
+		"Peekable",
 		"pointee",
 		"putc",
 		"putchar",
