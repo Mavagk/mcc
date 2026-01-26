@@ -1,6 +1,6 @@
 use std::{fmt::{self, Formatter}, fs::File, io::{BufWriter, Write}};
 
-use crate::{error::{Error, ErrorAt}, programming_languages::c::{l_value::CLValue, types::CType}, traits::{ast_node::AstNode, expression::Expression}};
+use crate::{error::{Error, ErrorAt}, programming_languages::c::{l_value::CLValue, statement::CStatement, types::CType}, traits::{ast_node::AstNode, expression::Expression}};
 
 #[derive(Debug)]
 pub enum CExpression {
@@ -15,6 +15,8 @@ pub enum CExpression {
 	Multiply(Box<CExpression>, Box<CExpression>),
 	Add(Box<CExpression>, Box<CExpression>),
 	Subtract(Box<CExpression>, Box<CExpression>),
+	PostfixIncrement(Box<CLValue>),
+	PostfixDecrement(Box<CLValue>),
 }
 
 impl Expression for CExpression {
@@ -35,6 +37,8 @@ impl AstNode for CExpression {
 			Self::Multiply(_, _) => write!(f, "Multiply"),
 			Self::Add(_, _) => write!(f, "Add"),
 			Self::Subtract(_, _) => write!(f, "Subtract"),
+			Self::PostfixIncrement(_) => write!(f, "Postfix Increment"),
+			Self::PostfixDecrement(_) => write!(f, "Postfix Decrement"),
 		}
 	}
 
@@ -57,6 +61,7 @@ impl AstNode for CExpression {
 				lhs.print(level, f)?;
 				rhs.print(level, f)
 			}
+			Self::PostfixIncrement(l_value) | Self::PostfixDecrement(l_value) => l_value.print(level, f),
 		}
 	}
 
@@ -129,6 +134,22 @@ impl AstNode for CExpression {
 				rhs.write_to_file(writer, indentation_level)?;
 				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
+			Self::PostfixIncrement(l_value) => {
+				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				l_value.write_to_file(writer, indentation_level)?;
+				writer.write_all(b"++)").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+			Self::PostfixDecrement(l_value) => {
+				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				l_value.write_to_file(writer, indentation_level)?;
+				writer.write_all(b"--)").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
 		}
+	}
+}
+
+impl Into<CStatement> for CExpression {
+	fn into(self) -> CStatement {
+		CStatement::Expression(self)
 	}
 }

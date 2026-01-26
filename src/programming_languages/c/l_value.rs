@@ -6,13 +6,28 @@ use crate::{error::{Error, ErrorAt}, programming_languages::c::expression::CExpr
 pub enum CLValue {
 	Variable(Box<str>),
 	Dereference(Box<CExpression>),
+	ArraySubscript(Box<CExpression>, Box<CExpression>),
 }
+
+impl Into<CExpression> for CLValue {
+	fn into(self) -> CExpression {
+		CExpression::LValueRead(self.into())
+	}
+}
+
+impl Into<Box<CExpression>> for CLValue {
+	fn into(self) -> Box<CExpression> {
+		CExpression::LValueRead(self.into()).into()
+	}
+}
+
 
 impl AstNode for CLValue {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::Variable(name) => write!(f, "Variable \"{name}\""),
 			Self::Dereference(_) => write!(f, "Dereference"),
+			Self::ArraySubscript(_, _) => write!(f, "Array Subscript"),
 		}
 	}
 
@@ -20,6 +35,10 @@ impl AstNode for CLValue {
 		match self {
 			Self::Variable(_) => Ok(()),
 			Self::Dereference(pointer) => pointer.print(level, f),
+			Self::ArraySubscript(pointer, subscript) => {
+				pointer.print(level, f)?;
+				subscript.print(level, f)
+			}
 		}
 	}
 
@@ -30,6 +49,13 @@ impl AstNode for CLValue {
 				writer.write_all(b"(*").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				pointer.write_to_file(writer, indentation_level)?;
 				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+			Self::ArraySubscript(pointer, subscript) => {
+				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				pointer.write_to_file(writer, indentation_level)?;
+				writer.write_all(b"[").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				subscript.write_to_file(writer, indentation_level)?;
+				writer.write_all(b"])").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
 		}
 	}

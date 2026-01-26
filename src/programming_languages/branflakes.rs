@@ -243,6 +243,22 @@ impl BranflakesStatement {
 		}
 		Ok(())
 	}
+
+	fn to_c(&self, _main: &mut Main, compound_statement: &mut CCompoundStatement) -> Result<(), ErrorAt> {
+		match self.variant {
+			// TODO: Check for overflow
+			BranflakesStatementVariant::IncrementPointer => compound_statement.push_statement(CExpression::PostfixIncrement(CLValue::Variable("data_pointer".into()).into()).into()),
+			BranflakesStatementVariant::DecrementPointer => compound_statement.push_statement(CExpression::PostfixDecrement(CLValue::Variable("data_pointer".into()).into()).into()),
+			BranflakesStatementVariant::Increment => {
+				compound_statement.push_statement(CExpression::PostfixIncrement(CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into()).into());
+			}
+			BranflakesStatementVariant::Decrement => {
+				compound_statement.push_statement(CExpression::PostfixDecrement(CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into()).into());
+			}
+			_ => {}
+		}
+		Ok(())
+	}
 }
 
 impl Statement for BranflakesStatement {}
@@ -305,7 +321,7 @@ impl Module for BranflakesModule {
 		Ok(())
 	}
 
-	fn to_c_module(&self, _main: &mut Main, is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
+	fn to_c_module(&self, main: &mut Main, is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
 		if !is_entrypoint {
 			return Err(Error::NotYetImplemented("BF to C not entrypoint".into()).at(None, None, None));
 		}
@@ -373,6 +389,10 @@ impl Module for BranflakesModule {
 		main_function_body.push_statement(CStatement::VariableDeclaration(CType::PointerTo(CType::U8.into()), "memory_buffer".into(), Some(memory_buffer_init.into())));
 		main_function_body.push_statement(CStatement::VariableDeclaration(CType::USize, "memory_buffer_size".into(), Some(CInitializer::Expression(CExpression::IntConstant(0)).into())));
 		main_function_body.push_statement(CStatement::VariableDeclaration(CType::USize, "data_pointer".into(), Some(CInitializer::Expression(CExpression::IntConstant(0)).into())));
+		// Convert modules statements to C
+		for statement in self.statements.iter() {
+			statement.to_c(main, &mut main_function_body)?;
+		}
 		// Create main function and add to the module
 		let main_function = CModuleElement::FunctionDefinition { return_type: CType::Int, name: "main".into(), parameters: Default::default(), body: main_function_body.into() };
 		c_module.push_element(main_function);
