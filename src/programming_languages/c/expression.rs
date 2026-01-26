@@ -19,6 +19,7 @@ pub enum CExpression {
 	PostfixIncrement(Box<CLValue>),
 	PostfixDecrement(Box<CLValue>),
 	TakeReference(Box<CLValue>),
+	Ternary(Box<CExpression>, Box<CExpression>, Box<CExpression>),
 }
 
 impl Expression for CExpression {
@@ -43,6 +44,7 @@ impl AstNode for CExpression {
 			Self::PostfixIncrement(_) => write!(f, "Postfix Increment"),
 			Self::PostfixDecrement(_) => write!(f, "Postfix Decrement"),
 			Self::TakeReference(_) => write!(f, "Take Reference"),
+			Self::Ternary(_, _, _) => write!(f, "Ternary"),
 		}
 	}
 
@@ -66,6 +68,11 @@ impl AstNode for CExpression {
 				rhs.print(level, f)
 			}
 			Self::PostfixIncrement(l_value) | Self::PostfixDecrement(l_value) | Self::TakeReference(l_value) => l_value.print(level, f),
+			Self::Ternary(condition, if_true, if_false) => {
+				condition.print(level, f)?;
+				if_true.print(level, f)?;
+				if_false.print(level, f)
+			}
 		}
 	}
 
@@ -160,6 +167,15 @@ impl AstNode for CExpression {
 				l_value.write_to_file(writer, indentation_level)?;
 				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
+			Self::Ternary(condition, if_true, if_false) => {
+				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				condition.write_to_file(writer, indentation_level)?;
+				writer.write_all(b"? ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				if_true.write_to_file(writer, indentation_level)?;
+				writer.write_all(b": ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				if_false.write_to_file(writer, indentation_level)?;
+				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
 		}
 	}
 }
@@ -167,5 +183,11 @@ impl AstNode for CExpression {
 impl Into<CStatement> for CExpression {
 	fn into(self) -> CStatement {
 		CStatement::Expression(self)
+	}
+}
+
+impl Into<Box<CStatement>> for CExpression {
+	fn into(self) -> Box<CStatement> {
+		CStatement::Expression(self).into()
 	}
 }

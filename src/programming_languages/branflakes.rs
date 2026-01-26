@@ -290,7 +290,22 @@ impl BranflakesStatement {
 					CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into()
 				].into()).into());
 			}
-			_ => {}
+			BranflakesStatementVariant::Input => {
+				compound_statement.push_statement(CExpression::Assignment(
+					CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into(),
+					CExpression::FunctionCall("getchar".into(), [].into()).into()
+				).into());
+				compound_statement.push_statement(CStatement::If(
+					CExpression::Equal(
+						CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into(),
+						CLValue::Variable("EOF".into()).into()
+					).into(),
+					CExpression::Assignment(
+						CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into(),
+						CExpression::IntConstant(-1).into(),
+					).into()
+				).into());
+			}
 		}
 		Ok(())
 	}
