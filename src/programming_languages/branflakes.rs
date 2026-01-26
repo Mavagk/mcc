@@ -244,16 +244,51 @@ impl BranflakesStatement {
 		Ok(())
 	}
 
-	fn to_c(&self, _main: &mut Main, compound_statement: &mut CCompoundStatement) -> Result<(), ErrorAt> {
-		match self.variant {
+	fn to_c(&self, main: &mut Main, compound_statement: &mut CCompoundStatement) -> Result<(), ErrorAt> {
+		match &self.variant {
 			// TODO: Check for overflow
 			BranflakesStatementVariant::IncrementPointer => compound_statement.push_statement(CExpression::PostfixIncrement(CLValue::Variable("data_pointer".into()).into()).into()),
 			BranflakesStatementVariant::DecrementPointer => compound_statement.push_statement(CExpression::PostfixDecrement(CLValue::Variable("data_pointer".into()).into()).into()),
 			BranflakesStatementVariant::Increment => {
+				compound_statement.push_statement(CExpression::FunctionCall("resize_to_at_least".into(), [
+					CExpression::TakeReference(CLValue::Variable("memory_buffer".into()).into()),
+					CExpression::TakeReference(CLValue::Variable("memory_buffer_size".into()).into()),
+					CLValue::Variable("data_pointer".into()).into()
+				].into()).into());
 				compound_statement.push_statement(CExpression::PostfixIncrement(CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into()).into());
 			}
 			BranflakesStatementVariant::Decrement => {
+				compound_statement.push_statement(CExpression::FunctionCall("resize_to_at_least".into(), [
+					CExpression::TakeReference(CLValue::Variable("memory_buffer".into()).into()),
+					CExpression::TakeReference(CLValue::Variable("memory_buffer_size".into()).into()),
+					CLValue::Variable("data_pointer".into()).into()
+				].into()).into());
 				compound_statement.push_statement(CExpression::PostfixDecrement(CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into()).into());
+			}
+			BranflakesStatementVariant::Loop(sub_statements) => {
+				compound_statement.push_statement(CExpression::FunctionCall("resize_to_at_least".into(), [
+					CExpression::TakeReference(CLValue::Variable("memory_buffer".into()).into()),
+					CExpression::TakeReference(CLValue::Variable("memory_buffer_size".into()).into()),
+					CLValue::Variable("data_pointer".into()).into()
+				].into()).into());
+				let mut sub_compound_statement = CCompoundStatement::new();
+				for sub_statement in sub_statements.iter() {
+					sub_statement.to_c(main, &mut sub_compound_statement)?;
+				}
+				compound_statement.push_statement(CStatement::While(CExpression::NotEqual(
+					CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into(),
+					CExpression::IntConstant(0).into(),
+				).into(), sub_compound_statement.into()));
+			}
+			BranflakesStatementVariant::Print => {
+				compound_statement.push_statement(CExpression::FunctionCall("resize_to_at_least".into(), [
+					CExpression::TakeReference(CLValue::Variable("memory_buffer".into()).into()),
+					CExpression::TakeReference(CLValue::Variable("memory_buffer_size".into()).into()),
+					CLValue::Variable("data_pointer".into()).into()
+				].into()).into());
+				compound_statement.push_statement(CExpression::FunctionCall("putchar".into(), [
+					CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into()
+				].into()).into());
 			}
 			_ => {}
 		}

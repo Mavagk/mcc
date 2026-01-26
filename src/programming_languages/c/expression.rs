@@ -12,11 +12,13 @@ pub enum CExpression {
 	Sizeof(CType),
 	GreaterThanOrEqual(Box<CExpression>, Box<CExpression>),
 	Equal(Box<CExpression>, Box<CExpression>),
+	NotEqual(Box<CExpression>, Box<CExpression>),
 	Multiply(Box<CExpression>, Box<CExpression>),
 	Add(Box<CExpression>, Box<CExpression>),
 	Subtract(Box<CExpression>, Box<CExpression>),
 	PostfixIncrement(Box<CLValue>),
 	PostfixDecrement(Box<CLValue>),
+	TakeReference(Box<CLValue>),
 }
 
 impl Expression for CExpression {
@@ -33,12 +35,14 @@ impl AstNode for CExpression {
 			Self::StringConstant(value) => write!(f, "String Constant \"{value}\""),
 			Self::Sizeof(_) => write!(f, "Sizeof"),
 			Self::Equal(_, _) => write!(f, "Equal"),
+			Self::NotEqual(_, _) => write!(f, "Not Equal"),
 			Self::GreaterThanOrEqual(_, _) => write!(f, "Greater than or Equal"),
 			Self::Multiply(_, _) => write!(f, "Multiply"),
 			Self::Add(_, _) => write!(f, "Add"),
 			Self::Subtract(_, _) => write!(f, "Subtract"),
 			Self::PostfixIncrement(_) => write!(f, "Postfix Increment"),
 			Self::PostfixDecrement(_) => write!(f, "Postfix Decrement"),
+			Self::TakeReference(_) => write!(f, "Take Reference"),
 		}
 	}
 
@@ -57,11 +61,11 @@ impl AstNode for CExpression {
 			}
 			Self::IntConstant(_) | Self::StringConstant(_) => Ok(()),
 			Self::Sizeof(sub_type) => sub_type.print(level, f),
-			Self::Equal(lhs, rhs) | Self::GreaterThanOrEqual(lhs, rhs) | Self::Multiply(lhs, rhs) | Self::Add(lhs, rhs) | Self::Subtract(lhs, rhs) => {
+			Self::Equal(lhs, rhs) | Self::NotEqual(lhs, rhs) | Self::GreaterThanOrEqual(lhs, rhs) | Self::Multiply(lhs, rhs) | Self::Add(lhs, rhs) | Self::Subtract(lhs, rhs) => {
 				lhs.print(level, f)?;
 				rhs.print(level, f)
 			}
-			Self::PostfixIncrement(l_value) | Self::PostfixDecrement(l_value) => l_value.print(level, f),
+			Self::PostfixIncrement(l_value) | Self::PostfixDecrement(l_value) | Self::TakeReference(l_value) => l_value.print(level, f),
 		}
 	}
 
@@ -106,6 +110,13 @@ impl AstNode for CExpression {
 				rhs.write_to_file(writer, indentation_level)?;
 				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
+			Self::NotEqual(lhs, rhs) => {
+				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				lhs.write_to_file(writer, indentation_level)?;
+				writer.write_all(b" != ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				rhs.write_to_file(writer, indentation_level)?;
+				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
 			Self::GreaterThanOrEqual(lhs, rhs) => {
 				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				lhs.write_to_file(writer, indentation_level)?;
@@ -143,6 +154,11 @@ impl AstNode for CExpression {
 				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				l_value.write_to_file(writer, indentation_level)?;
 				writer.write_all(b"--)").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+			Self::TakeReference(l_value) => {
+				writer.write_all(b"(&").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				l_value.write_to_file(writer, indentation_level)?;
+				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
 		}
 	}

@@ -9,6 +9,7 @@ pub enum CStatement {
 	Expression(CExpression),
 	Comment(Box<str>),
 	If(Box<CExpression>, Box<CStatement>),
+	While(Box<CExpression>, Box<CStatement>),
 	Return(Option<Box<CExpression>>),
 }
 
@@ -24,6 +25,7 @@ impl AstNode for CStatement {
 			Self::Expression(_) => write!(f, "Expression"),
 			Self::Comment(comment) => write!(f, "Comment \"{comment}\""),
 			Self::If(_, _) => write!(f, "If"),
+			Self::While(_, _) => write!(f, "While"),
 			Self::Return(_) => write!(f, "Return"),
 		}
 	}
@@ -40,7 +42,7 @@ impl AstNode for CStatement {
 			}
 			Self::Expression(expression) => expression.print(level, f),
 			Self::Comment(_) => Ok(()),
-			Self::If(condition_expression, sub_statement) => {
+			Self::If(condition_expression, sub_statement) | Self::While(condition_expression, sub_statement) => {
 				condition_expression.print(level, f)?;
 				sub_statement.print(level, f)
 			}
@@ -80,6 +82,12 @@ impl AstNode for CStatement {
 				writer.write_all(b") ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				sub_statement.write_to_file(writer, indentation_level)
 			}
+			Self::While(condition_expression, sub_statement) => {
+				writer.write_all(b"while (").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				condition_expression.write_to_file(writer, indentation_level)?;
+				writer.write_all(b") ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				sub_statement.write_to_file(writer, indentation_level)
+			}
 			Self::Return(return_value) => {
 				writer.write_all(b"return").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				if let Some(return_value) = return_value {
@@ -95,6 +103,18 @@ impl AstNode for CStatement {
 #[derive(Debug)]
 pub struct CCompoundStatement {
 	sub_statements: Vec<CStatement>,
+}
+
+impl Into<CStatement> for CCompoundStatement {
+	fn into(self) -> CStatement {
+		CStatement::CompoundStatement(self)
+	}
+}
+
+impl Into<Box<CStatement>> for CCompoundStatement {
+	fn into(self) -> Box<CStatement> {
+		CStatement::CompoundStatement(self).into()
+	}
 }
 
 impl CCompoundStatement {

@@ -3,6 +3,8 @@
 		"branflakes",
 		"Multibyte",
 		"pointee",
+		"putc",
+		"putchar",
 		"stdint"
 	]
 }
