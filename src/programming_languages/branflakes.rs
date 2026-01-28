@@ -52,13 +52,6 @@ impl Branflakes {
 				Some(statement) => statements.push(statement),
 			};
 		}
-		// Throw an error if there were un-equal amounts of opening and closing parentheses
-		//match token_reader.peek() {
-		//	None if is_parenthesised => return Err(Error::MoreOpeningParenthesesThanClosingParentheses.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None)),
-		//	Some(BranflakesToken { line, column, .. }) if !is_parenthesised =>
-		//		return Err(Error::MoreClosingParenthesesThanOpeningParentheses.at(Some(*line), Some(*column), None)),
-		//	_ => {}
-		//}
 		// Return parsed statements
 		Ok(statements.into())
 	}
@@ -250,9 +243,20 @@ impl BranflakesStatement {
 
 	fn to_c(&self, main: &mut Main, compound_statement: &mut CCompoundStatement) -> Result<(), ErrorAt> {
 		match &self.variant {
-			// TODO: Check for overflow
-			BranflakesStatementVariant::IncrementPointer => compound_statement.push_statement(CExpression::PostfixIncrement(CLValue::Variable("data_pointer".into()).into()).into()),
-			BranflakesStatementVariant::DecrementPointer => compound_statement.push_statement(CExpression::PostfixDecrement(CLValue::Variable("data_pointer".into()).into()).into()),
+			BranflakesStatementVariant::IncrementPointer => {
+				compound_statement.push_statement(CExpression::PostfixIncrement(CLValue::Variable("data_pointer".into()).into()).into());
+				let mut error_compound_statement = CCompoundStatement::new();
+				error_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("puts".into(), [CExpression::StringConstant("Error: Data pointer overflow.".into())].into())));
+				error_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("exit".into(), [CExpression::IntConstant(1)].into())));
+				compound_statement.push_statement(CStatement::If(CExpression::Equal(CLValue::Variable("data_pointer".into()).into(), CExpression::IntConstant(0).into()).into(), error_compound_statement.into()).into());
+			}
+			BranflakesStatementVariant::DecrementPointer => {
+				let mut error_compound_statement = CCompoundStatement::new();
+				error_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("puts".into(), [CExpression::StringConstant("Error: Data pointer underflow.".into())].into())));
+				error_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("exit".into(), [CExpression::IntConstant(1)].into())));
+				compound_statement.push_statement(CStatement::If(CExpression::Equal(CLValue::Variable("data_pointer".into()).into(), CExpression::IntConstant(0).into()).into(), error_compound_statement.into()).into());
+				compound_statement.push_statement(CExpression::PostfixDecrement(CLValue::Variable("data_pointer".into()).into()).into())
+			}
 			BranflakesStatementVariant::Increment => {
 				compound_statement.push_statement(CExpression::FunctionCall("expand_memory".into(), [
 					CExpression::TakeReference(CLValue::Variable("memory_buffer".into()).into()),
