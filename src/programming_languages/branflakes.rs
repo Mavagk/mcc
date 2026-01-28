@@ -7,10 +7,14 @@ pub struct Branflakes;
 
 impl Branflakes {
 	/// Parses a single statement from tokens including a loop containing other statements.
-	fn parse_statement(token_reader: &mut TokenReader<BranflakesToken>) -> Result<Option<BranflakesStatement>, ErrorAt> {
+	fn parse_statement(token_reader: &mut TokenReader<BranflakesToken>, is_parenthesised: bool) -> Result<Option<BranflakesStatement>, ErrorAt> {
 		// Read the token or return if it is a loop end or the end of the tokens
 		let token = match token_reader.next().cloned() {
-			None | Some(BranflakesToken { variant: BranflakesTokenVariant::LoopEnd, .. }) => return Ok(None),
+			None if is_parenthesised => return Err(Error::MoreOpeningParenthesesThanClosingParentheses.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None)),
+			None => return Ok(None),
+			Some(BranflakesToken { variant: BranflakesTokenVariant::LoopEnd, line, column, .. }) if !is_parenthesised =>
+				return Err(Error::MoreClosingParenthesesThanOpeningParentheses.at(Some(line), Some(column), None)),
+			Some(BranflakesToken { variant: BranflakesTokenVariant::LoopEnd, .. }) => return Ok(None),
 			Some(token) => token,
 		};
 		// Convert the token to a statement if it is not a loop start
@@ -43,18 +47,18 @@ impl Branflakes {
 		// Parse single statements until the end is reached
 		let mut statements = Vec::new();
 		loop {
-			match Self::parse_statement(token_reader)? {
+			match Self::parse_statement(token_reader, is_parenthesised)? {
 				None => break,
 				Some(statement) => statements.push(statement),
 			};
 		}
 		// Throw an error if there were un-equal amounts of opening and closing parentheses
-		match token_reader.peek() {
-			None if is_parenthesised => return Err(Error::MoreOpeningParenthesesThanClosingParentheses.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None)),
-			Some(BranflakesToken { line, column, .. }) if !is_parenthesised =>
-				return Err(Error::MoreClosingParenthesesThanOpeningParentheses.at(Some(*line), Some(*column), None)),
-			_ => {}
-		}
+		//match token_reader.peek() {
+		//	None if is_parenthesised => return Err(Error::MoreOpeningParenthesesThanClosingParentheses.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None)),
+		//	Some(BranflakesToken { line, column, .. }) if !is_parenthesised =>
+		//		return Err(Error::MoreClosingParenthesesThanOpeningParentheses.at(Some(*line), Some(*column), None)),
+		//	_ => {}
+		//}
 		// Return parsed statements
 		Ok(statements.into())
 	}

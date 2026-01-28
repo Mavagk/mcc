@@ -146,6 +146,12 @@ fn main() {
 		filepath.push("a");
 		command.arg("-o");
 		command.arg(filepath);
+		if let Some(optimization_level) = args.optimization_level {
+			command.arg(format!("-O{optimization_level}"));
+		}
+		if let Some(3) = args.optimization_level {
+			command.arg("-s");
+		}
 		match command.output() {
 			Ok(result) if result.status.success() => {},
 			Ok(result) => {

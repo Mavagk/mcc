@@ -23,6 +23,7 @@ pub enum Error {
 	IntegerOverflow,
 	IntegerUnderflow,
 	InvalidAsciiValue,
+	InvalidOptimizationLevel,
 }
 
 impl Error {
@@ -54,6 +55,7 @@ impl Display for Error {
 			Self::IntegerOverflow => write!(f, "Integer overflow"),
 			Self::IntegerUnderflow => write!(f, "Integer underflow"),
 			Self::InvalidAsciiValue => write!(f, "Invalid ASCII value"),
+			Self::InvalidOptimizationLevel => write!(f, "Invalid optimization level"),
 		}
 	}
 }

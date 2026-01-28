@@ -17,6 +17,7 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 	let mut print_source_to_source_c = false;
 	let mut execute_interpreted = false;
 	let mut is_entrypoint_module = false;
+	let mut optimization_level = None;
 	// Process each argument
 	for arg in args {
 		match parse_state {
@@ -79,6 +80,22 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 							}
 							print_source_to_source_c = true;
 						}
+						_ if matches!(arg_str.chars().next(), Some('O')) => {
+							if optimization_level.is_some() {
+								return Err(Error::RepeatedArgument(arg_str.into()));
+							}
+							if arg_str.len() > 2 {
+								return Err(Error::InvalidOptimizationLevel);
+							}
+							let level = match arg_str.chars().skip(1).next() {
+								None => return Err(Error::InvalidOptimizationLevel),
+								Some(chr) => match chr.to_digit(10) {
+									None => return Err(Error::InvalidOptimizationLevel),
+									Some(level) => level,
+								}
+							};
+							optimization_level = Some(level as u8);
+						}
 						_ => return Err(Error::InvalidCommandLineArgument(arg_str.into()))
 					}
 					continue;
@@ -122,6 +139,7 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 	Ok(Arguments {
 		source_files: source_files.into_boxed_slice(), home_directory, output_directory, source_directory, output_file,
 		print_help, print_version, print_source, print_tokens, print_ast, execute_interpreted, print_source_to_source_c,
+		optimization_level,
 	})
 }
 
@@ -140,6 +158,7 @@ pub struct Arguments {
 	pub print_ast: bool,
 	pub execute_interpreted: bool,
 	pub print_source_to_source_c: bool,
+	pub optimization_level: Option<u8>,
 }
 
 enum ParseState {
