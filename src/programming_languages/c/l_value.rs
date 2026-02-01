@@ -9,6 +9,36 @@ pub enum CLValue {
 	ArraySubscript(Box<CExpression>, Box<CExpression>),
 }
 
+impl CLValue {
+	pub fn postfix_increment(self) -> CExpression {
+		CExpression::PostfixIncrement(self.into())
+	}
+
+	pub fn postfix_decrement(self) -> CExpression {
+		CExpression::PostfixDecrement(self.into())
+	}
+
+	pub fn array_subscript(self, index: CExpression) -> CLValue {
+		CLValue::ArraySubscript(self.into(), index.into())
+	}
+
+	pub fn variable(name: &str) -> Self {
+		Self::Variable(name.into())
+	}
+
+	pub fn read(self) -> CExpression {
+		CExpression::LValueRead(self.into())
+	}
+
+	pub fn assign(self, rhs: CExpression) -> CExpression {
+		CExpression::Assignment(self.into(), rhs.into())
+	}
+
+	pub fn take_reference(self) -> CExpression {
+		CExpression::TakeReference(self.into())
+	}
+}
+
 impl Into<CExpression> for CLValue {
 	fn into(self) -> CExpression {
 		CExpression::LValueRead(self.into())

@@ -244,74 +244,67 @@ impl BranflakesStatement {
 	fn to_c(&self, main: &mut Main, compound_statement: &mut CCompoundStatement) -> Result<(), ErrorAt> {
 		match &self.variant {
 			BranflakesStatementVariant::IncrementPointer => {
-				compound_statement.push_statement(CExpression::PostfixIncrement(CLValue::Variable("data_pointer".into()).into()).into());
+				compound_statement.push_statement(CLValue::variable("data_pointer").postfix_increment().into());
 				let mut error_compound_statement = CCompoundStatement::new();
-				error_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("puts".into(), [CExpression::StringConstant("Error: Data pointer overflow.".into())].into())));
-				error_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("exit".into(), [CExpression::IntConstant(1)].into())));
-				compound_statement.push_statement(CStatement::If(CExpression::Equal(CLValue::Variable("data_pointer".into()).into(), CExpression::IntConstant(0).into()).into(), error_compound_statement.into()).into());
+				error_compound_statement.push_statement(CExpression::function_call("puts", [CExpression::string_constant("Error: Data pointer overflow.")].into()).into());
+				error_compound_statement.push_statement(CExpression::function_call("exit", [CExpression::IntConstant(1)].into()).into());
+				compound_statement.push_statement(CExpression::IntConstant(0).equal(CLValue::variable("data_pointer").into()).if_statement(error_compound_statement.into()));
 			}
 			BranflakesStatementVariant::DecrementPointer => {
 				let mut error_compound_statement = CCompoundStatement::new();
-				error_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("puts".into(), [CExpression::StringConstant("Error: Data pointer underflow.".into())].into())));
-				error_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("exit".into(), [CExpression::IntConstant(1)].into())));
-				compound_statement.push_statement(CStatement::If(CExpression::Equal(CLValue::Variable("data_pointer".into()).into(), CExpression::IntConstant(0).into()).into(), error_compound_statement.into()).into());
-				compound_statement.push_statement(CExpression::PostfixDecrement(CLValue::Variable("data_pointer".into()).into()).into())
+				error_compound_statement.push_statement(CExpression::function_call("puts", [CExpression::string_constant("Error: Data pointer underflow.")].into()).into());
+				error_compound_statement.push_statement(CExpression::function_call("exit", [CExpression::IntConstant(1)].into()).into());
+				compound_statement.push_statement(CExpression::IntConstant(0).equal(CLValue::variable("data_pointer").into()).if_statement(error_compound_statement.into()));
+				compound_statement.push_statement(CLValue::variable("data_pointer").postfix_decrement().into())
 			}
 			BranflakesStatementVariant::Increment => {
-				compound_statement.push_statement(CExpression::FunctionCall("expand_memory".into(), [
-					CExpression::TakeReference(CLValue::Variable("memory_buffer".into()).into()),
-					CExpression::TakeReference(CLValue::Variable("memory_buffer_size".into()).into()),
-					CExpression::Add(CLValue::Variable("data_pointer".into()).into(), CExpression::IntConstant(1).into())
+				compound_statement.push_statement(CExpression::function_call("expand_memory", [
+					CLValue::variable("memory_buffer").take_reference(),
+					CLValue::variable("memory_buffer_size").take_reference(),
+					CExpression::IntConstant(1).add(CLValue::variable("data_pointer").into())
 				].into()).into());
-				compound_statement.push_statement(CExpression::PostfixIncrement(CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into()).into());
+				compound_statement.push_statement(CLValue::variable("memory_buffer").array_subscript(CLValue::variable("data_pointer").into()).postfix_increment().into());
 			}
 			BranflakesStatementVariant::Decrement => {
-				compound_statement.push_statement(CExpression::FunctionCall("expand_memory".into(), [
-					CExpression::TakeReference(CLValue::Variable("memory_buffer".into()).into()),
-					CExpression::TakeReference(CLValue::Variable("memory_buffer_size".into()).into()),
-					CExpression::Add(CLValue::Variable("data_pointer".into()).into(), CExpression::IntConstant(1).into())
+				compound_statement.push_statement(CExpression::function_call("expand_memory", [
+					CLValue::variable("memory_buffer").take_reference(),
+					CLValue::variable("memory_buffer_size").take_reference(),
+					CExpression::IntConstant(1).add(CLValue::variable("data_pointer").into())
 				].into()).into());
-				compound_statement.push_statement(CExpression::PostfixDecrement(CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into()).into());
+				compound_statement.push_statement(CLValue::variable("memory_buffer").array_subscript(CLValue::variable("data_pointer").into()).postfix_decrement().into());
 			}
 			BranflakesStatementVariant::Loop(sub_statements) => {
-				compound_statement.push_statement(CExpression::FunctionCall("expand_memory".into(), [
-					CExpression::TakeReference(CLValue::Variable("memory_buffer".into()).into()),
-					CExpression::TakeReference(CLValue::Variable("memory_buffer_size".into()).into()),
-					CExpression::Add(CLValue::Variable("data_pointer".into()).into(), CExpression::IntConstant(1).into())
+				compound_statement.push_statement(CExpression::function_call("expand_memory", [
+					CLValue::variable("memory_buffer").take_reference(),
+					CLValue::variable("memory_buffer_size").take_reference(),
+					CExpression::IntConstant(1).add(CLValue::variable("data_pointer").into())
 				].into()).into());
 				let mut sub_compound_statement = CCompoundStatement::new();
 				for sub_statement in sub_statements.iter() {
 					sub_statement.to_c(main, &mut sub_compound_statement)?;
 				}
-				compound_statement.push_statement(CStatement::While(CExpression::NotEqual(
-					CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into(),
-					CExpression::IntConstant(0).into(),
-				).into(), sub_compound_statement.into()));
+				compound_statement.push_statement(CExpression::IntConstant(0).not_equal(CLValue::variable("memory_buffer").array_subscript(CLValue::variable("data_pointer").into()).into())
+					.while_statement(sub_compound_statement.into())
+				);
 			}
 			BranflakesStatementVariant::Print => {
-				compound_statement.push_statement(CExpression::FunctionCall("expand_memory".into(), [
-					CExpression::TakeReference(CLValue::Variable("memory_buffer".into()).into()),
-					CExpression::TakeReference(CLValue::Variable("memory_buffer_size".into()).into()),
-					CExpression::Add(CLValue::Variable("data_pointer".into()).into(), CExpression::IntConstant(1).into())
+				compound_statement.push_statement(CExpression::function_call("expand_memory", [
+					CLValue::variable("memory_buffer").take_reference(),
+					CLValue::variable("memory_buffer_size").take_reference(),
+					CExpression::IntConstant(1).add(CLValue::variable("data_pointer").into())
 				].into()).into());
-				compound_statement.push_statement(CExpression::FunctionCall("putchar".into(), [
-					CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into()
+				compound_statement.push_statement(CExpression::function_call("putchar", [
+					CLValue::variable("memory_buffer").array_subscript(CLValue::variable("data_pointer").into()).into()
 				].into()).into());
 			}
 			BranflakesStatementVariant::Input => {
-				compound_statement.push_statement(CExpression::Assignment(
-					CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into(),
-					CExpression::FunctionCall("getchar".into(), [].into()).into()
+				compound_statement.push_statement(
+					CLValue::variable("memory_buffer").array_subscript(CLValue::variable("data_pointer").into())
+						.assign(CExpression::function_call("getchar", [].into()).into()
 				).into());
-				compound_statement.push_statement(CStatement::If(
-					CExpression::Equal(
-						CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into(),
-						CLValue::Variable("EOF".into()).into()
-					).into(),
-					CExpression::Assignment(
-						CLValue::ArraySubscript(CLValue::Variable("memory_buffer".into()).into(), CLValue::Variable("data_pointer".into()).into()).into(),
-						CExpression::IntConstant(-1).into(),
-					).into()
+				compound_statement.push_statement(
+					CLValue::variable("memory_buffer").array_subscript(CLValue::variable("data_pointer").into()).read().equal(CLValue::variable("EOF").into())
+					.if_statement(CLValue::variable("memory_buffer").array_subscript(CLValue::variable("data_pointer").into()).assign(CExpression::IntConstant(-1).into()).into()
 				).into());
 			}
 		}

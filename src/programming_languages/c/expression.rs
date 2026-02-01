@@ -61,6 +61,36 @@ pub enum CExpression {
 	Ternary(Box<CExpression>, Box<CExpression>, Box<CExpression>),
 }
 
+impl CExpression {
+	pub fn equal(self, rhs: Self) -> Self {
+		Self::Equal(self.into(), rhs.into())
+	}
+
+	pub fn not_equal(self, rhs: Self) -> Self {
+		Self::NotEqual(self.into(), rhs.into())
+	}
+
+	pub fn add(self, rhs: Self) -> Self {
+		Self::Add(self.into(), rhs.into())
+	}
+
+	pub fn if_statement(self, block: CStatement) -> CStatement {
+		CStatement::If(self.into(), block.into())
+	}
+
+	pub fn while_statement(self, block: CStatement) -> CStatement {
+		CStatement::If(self.into(), block.into())
+	}
+
+	pub fn function_call(name: &str, args: Box<[CExpression]>) -> Self {
+		Self::FunctionCall(name.into(), args)
+	}
+
+	pub fn string_constant(value: &str) -> Self {
+		Self::StringConstant(value.into())
+	}
+}
+
 impl Expression for CExpression {
 	
 }
