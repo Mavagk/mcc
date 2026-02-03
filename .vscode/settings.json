@@ -8,6 +8,7 @@
 		"pointee",
 		"putc",
 		"putchar",
-		"stdint"
+		"stdint",
+		"tanuki"
 	]
 }

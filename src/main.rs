@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet}, env::{args_os, current_dir}, ffi::OsString, fs::{File, create_dir_all, remove_file}, hash::{DefaultHasher, Hash, Hasher}, io::{BufWriter, Write}, mem::take, path::{Path, PathBuf}, process::Command};
 
-use crate::{arguments::{Arguments, parse_arguments}, error::{Error, ErrorAt}, programming_languages::branflakes::Branflakes, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage}};
+use crate::{arguments::{Arguments, parse_arguments}, error::{Error, ErrorAt}, programming_languages::{branflakes::Branflakes, tanuki::Tanuki}, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage}};
 
 pub mod traits;
 pub mod programming_languages;
@@ -233,10 +233,11 @@ fn parse_module_to_ast(main: &mut Main, args: &Arguments, module_path: &Path) ->
 		None => return Err(Error::InvalidFileExtension(filepath.to_string_lossy().into()).at(None, None, None)),
 	};
 	// Tokenize and parse
-	let module = match extension {
-		"bf" => Branflakes::tokenize_parse(main, args, &filepath),
+	let module: Box<dyn Module> = match extension {
+		"bf" => Box::new(Branflakes::tokenize_parse(main, args, &filepath)?),
+		"tnk" => Box::new(Tanuki::tokenize_parse(main, args, &filepath)?),
 		_ => return Err(Error::InvalidFileExtension(filepath.to_string_lossy().into()).at(None, None, None)),
-	}?;
+	};
 	// Return
-	Ok(Box::new(module))
+	Ok(module)
 }
