@@ -5,7 +5,7 @@ pub mod types;
 pub mod expression;
 pub mod l_value;
 
-use std::{fmt::{self, Formatter}, num::NonZeroUsize};
+use std::fmt::{self, Formatter};
 
 use crate::{Main, error::ErrorAt, programming_languages::c::module::CModule, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::{programming_language::ProgrammingLanguage, token::Token}};
 
@@ -36,22 +36,6 @@ pub struct CToken {
 }
 
 impl Token for CToken {
-	fn start_line(&self) -> NonZeroUsize {
-		todo!()
-	}
-
-	fn end_column(&self) -> NonZeroUsize {
-		todo!()
-	}
-
-	fn start_column(&self) -> NonZeroUsize {
-		todo!()
-	}
-
-	fn end_line(&self) -> NonZeroUsize {
-		todo!()
-	}
-
 	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
 		todo!()
 	}

@@ -127,20 +127,20 @@ impl Debug for BranflakesToken {
 }
 
 impl Token for BranflakesToken {
-	fn start_line(&self) -> NonZeroUsize {
-		self.line
+	fn start_line(&self) -> Option<NonZeroUsize> {
+		Some(self.line)
 	}
 
-	fn end_line(&self) -> NonZeroUsize {
-		self.line
+	fn end_line(&self) -> Option<NonZeroUsize> {
+		Some(self.line)
 	}
 
-	fn start_column(&self) -> NonZeroUsize {
-		self.column
+	fn start_column(&self) -> Option<NonZeroUsize> {
+		Some(self.column)
 	}
 
-	fn end_column(&self) -> NonZeroUsize {
-		self.column.saturating_add(1)
+	fn end_column(&self) -> Option<NonZeroUsize> {
+		Some(self.column.saturating_add(1))
 	}
 
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
