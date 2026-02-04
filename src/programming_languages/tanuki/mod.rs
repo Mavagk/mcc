@@ -56,6 +56,29 @@ impl ProgrammingLanguage<TanukiToken, TanukiModule> for Tanuki {
 					.ok_or_else(|| Error::InvalidKeyword(format!("@{name}")).at(Some(start_line), Some(start_column), None))?;
 				TanukiTokenVariant::Keyword(keyword)
 			}
+			'0'..='9' | '.' => {
+				// Read base
+				let mut base = 10u8;
+				if first_char == '0' {
+					reader.read_char()?;
+					if matches!(reader.peek_char()?, Some(chr) if chr.is_alphabetic()) {
+						base = match reader.read_char()?.unwrap() {
+							'b' => 2,
+							'o' => 8,
+							'x' => 16,
+							other => return Err(Error::InvalidBaseSpecifier(format!("0{other}")).at(Some(start_line), Some(start_column), None)),
+						};
+					}
+					reader.read_char()?;
+				}
+				// Read numbers chars
+				let mut numeric_literal_without_base = String::new();
+				while matches!(reader.peek_char()?, Some('A'..='Z' | 'a'..='z' | '_' | '0'..='9' | '.')) {
+					numeric_literal_without_base.push(reader.read_char()?.unwrap());
+				}
+				// Parse
+				todo!()
+			}
 			_ => todo!()
 		};
 		// Assemble into token

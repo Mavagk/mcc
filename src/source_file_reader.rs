@@ -64,6 +64,13 @@ impl<'a> SourceFileReader<'a> {
 		}
 		Ok(())
 	}
+
+	pub fn skip(&mut self, n: usize) -> Result<(), ErrorAt> {
+		for _ in 0..n {
+			self.read_char()?;
+		}
+		Ok(())
+	}
 }
 
 struct Utf8Iter {

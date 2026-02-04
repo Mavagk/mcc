@@ -25,6 +25,7 @@ pub enum Error {
 	InvalidAsciiValue,
 	InvalidOptimizationLevel,
 	InvalidKeyword(String),
+	InvalidBaseSpecifier(String),
 }
 
 impl Error {
@@ -58,6 +59,7 @@ impl Display for Error {
 			Self::InvalidAsciiValue => write!(f, "Invalid ASCII value"),
 			Self::InvalidOptimizationLevel => write!(f, "Invalid optimization level"),
 			Self::InvalidKeyword(name) => write!(f, "Invalid keyword {name}"),
+			Self::InvalidBaseSpecifier(specifier) => write!(f, "Invalid base specifier {specifier}"),
 		}
 	}
 }
