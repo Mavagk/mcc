@@ -38,7 +38,6 @@ pub trait Token: Debug {
 			(Some(start_line), None, Some(start_column), Some(end_column)) => write!(f, "{start_line:03}:{start_column:03}-{end_column:03} ")?,
 			_ => unimplemented!(),
 		}
-		self.print_name(f)?;
-		writeln!(f)
+		self.print_name(f)
 	}
 }

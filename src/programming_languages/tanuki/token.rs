@@ -1,19 +1,18 @@
-use std::{fmt::{self, Formatter}, num::NonZeroUsize};
+use std::{fmt::{self, Debug, Formatter}, num::NonZeroUsize};
 
 use num::BigUint;
 
 use crate::traits::token::Token;
 
-#[derive(Debug)]
 pub struct TanukiToken {
-	variant: TanukiTokenVariant,
-	start_line: NonZeroUsize,
-	start_column: NonZeroUsize,
-	end_line: NonZeroUsize,
-	end_column: NonZeroUsize,
+	pub variant: TanukiTokenVariant,
+	pub start_line: NonZeroUsize,
+	pub start_column: NonZeroUsize,
+	pub end_line: NonZeroUsize,
+	pub end_column: NonZeroUsize,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum TanukiTokenVariant {
 	LeftParenthesis,
 	RightParenthesis,
@@ -24,10 +23,11 @@ pub enum TanukiTokenVariant {
 	Comma,
 	Semicolon,
 	Identifier(Box<str>),
-	Keyword,
+	Keyword(Keyword),
 	BlockLabel(Box<str>),
 	NumericLiteral(Option<BigUint>, Option<f64>),
 	StringLiteral(Box<str>),
+	CharacterLiteral(char),
 	Operator(Option<PrefixUnaryOperator>, Option<InfixBinaryOperator>, Option<PostfixUnaryOperator>, Option<InfixTernaryOperator>),
 }
 
@@ -49,36 +49,130 @@ impl Token for TanukiToken {
 	}
 
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		match self.variant {
-			TanukiTokenVariant::LeftParenthesis        => write!(f, "Left Parenthesis"),
-			TanukiTokenVariant::RightParenthesis       => write!(f, "Right Parenthesis"),
-			TanukiTokenVariant::LeftCurlyParenthesis   => write!(f, "Left Curly Parenthesis"),
-			TanukiTokenVariant::RightCurlyParenthesis  => write!(f, "Right Curly Parenthesis"),
-			TanukiTokenVariant::LeftSquareParenthesis  => write!(f, "Left Square Parenthesis"),
-			TanukiTokenVariant::RightSquareParenthesis => write!(f, "Right Square Parenthesis"),
-			TanukiTokenVariant::Comma                  => write!(f, "Comma"),
-			TanukiTokenVariant::Semicolon              => write!(f, "Semicolon"),
+		match &self.variant {
+			TanukiTokenVariant::LeftParenthesis             => write!(f, "Left Parenthesis"),
+			TanukiTokenVariant::RightParenthesis            => write!(f, "Right Parenthesis"),
+			TanukiTokenVariant::LeftCurlyParenthesis        => write!(f, "Left Curly Parenthesis"),
+			TanukiTokenVariant::RightCurlyParenthesis       => write!(f, "Right Curly Parenthesis"),
+			TanukiTokenVariant::LeftSquareParenthesis       => write!(f, "Left Square Parenthesis"),
+			TanukiTokenVariant::RightSquareParenthesis      => write!(f, "Right Square Parenthesis"),
+			TanukiTokenVariant::Comma                       => write!(f, "Comma"),
+			TanukiTokenVariant::Semicolon                   => write!(f, "Semicolon"),
+			TanukiTokenVariant::Identifier(name) => write!(f, "Identifier \"{name}\""),
+			TanukiTokenVariant::Keyword(keyword)  => {
+				write!(f, "Keyword ")?;
+				keyword.print_name(f)
+			}
+			TanukiTokenVariant::BlockLabel(name) => write!(f, "Block Label \"{name}\""),
+			TanukiTokenVariant::NumericLiteral(int_value, float_value) => {
+				write!(f, "Numeric Literal")?;
+				if let Some(int_value) = int_value {
+					write!(f, " Integer {int_value}")?;
+				}
+				if let Some(float_value) = float_value {
+					write!(f, " Float {float_value}")?;
+				}
+				Ok(())
+			}
+			TanukiTokenVariant::StringLiteral(value) => write!(f, "String Literal \"{value}\""),
+			TanukiTokenVariant::CharacterLiteral(value) => write!(f, "Character Literal '{value}'"),
+			TanukiTokenVariant::Operator(prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator) => {
+				write!(f, "Operator")?;
+				if let Some(prefix_unary_operator) = prefix_unary_operator {
+					write!(f, " Prefix Unary ")?;
+					prefix_unary_operator.print_name(f)?;
+				}
+				if let Some(infix_binary_operator) = infix_binary_operator {
+					write!(f, " Infix Binary ")?;
+					infix_binary_operator.print_name(f)?;
+				}
+				if let Some(postfix_unary_operator) = postfix_unary_operator {
+					write!(f, " Postfix Unary ")?;
+					postfix_unary_operator.print_name(f)?;
+				}
+				if let Some(infix_ternary_operator) = infix_ternary_operator {
+					write!(f, " Infix Ternary ")?;
+					infix_ternary_operator.print_name(f)?;
+				}
+				Ok(())
+			}
+		}
+	}
+}
+
+impl Debug for TanukiToken {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		self.print(f)
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PrefixUnaryOperator {
+
+}
+
+impl PrefixUnaryOperator {
+	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
+		match &self {
 			_ => todo!()
 		}
 	}
 }
 
-#[derive(Debug)]
-pub enum PrefixUnaryOperator {
-
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum InfixBinaryOperator {
 	
 }
 
-#[derive(Debug)]
+impl InfixBinaryOperator {
+	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
+		match &self {
+			_ => todo!()
+		}
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum PostfixUnaryOperator {
 	
 }
 
-#[derive(Debug)]
+impl PostfixUnaryOperator {
+	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
+		match &self {
+			_ => todo!()
+		}
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum InfixTernaryOperator {
 	
+}
+
+impl InfixTernaryOperator {
+	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
+		match &self {
+			_ => todo!()
+		}
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Keyword {
+	
+}
+
+impl Keyword {
+	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
+		match &self {
+			_ => todo!()
+		}
+	}
+
+	pub fn from_name(name: &str) -> Option<Self> {
+		match name {
+			_ => None,
+		}
+	}
 }

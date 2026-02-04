@@ -1,4 +1,4 @@
-use std::fmt::{self, Formatter, write};
+use std::fmt::{self, Formatter};
 
 use crate::{error::ErrorAt, programming_languages::c::module::CModule, traits::{ast_node::AstNode, module::Module}};
 
@@ -8,11 +8,11 @@ pub struct TanukiModule {
 }
 
 impl Module for TanukiModule {
-	fn interpreted_execute_entrypoint(&self, main: &mut crate::Main) -> Result<(), ErrorAt> {
+	fn interpreted_execute_entrypoint(&self, _main: &mut crate::Main) -> Result<(), ErrorAt> {
 		todo!()
 	}
 
-	fn to_c_module(&self, main: &mut crate::Main, is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
+	fn to_c_module(&self, _main: &mut crate::Main, _is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
 		todo!()
 	}
 }
@@ -22,7 +22,7 @@ impl AstNode for TanukiModule {
 		write!(f, "Tanuki Module")
 	}
 
-	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
+	fn print_sub_nodes(&self, _level: usize, _f: &mut Formatter<'_>) -> fmt::Result {
 		Ok(())
 	}
 }

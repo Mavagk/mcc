@@ -24,6 +24,7 @@ pub enum Error {
 	IntegerUnderflow,
 	InvalidAsciiValue,
 	InvalidOptimizationLevel,
+	InvalidKeyword(String),
 }
 
 impl Error {
@@ -56,6 +57,7 @@ impl Display for Error {
 			Self::IntegerUnderflow => write!(f, "Integer underflow"),
 			Self::InvalidAsciiValue => write!(f, "Invalid ASCII value"),
 			Self::InvalidOptimizationLevel => write!(f, "Invalid optimization level"),
+			Self::InvalidKeyword(name) => write!(f, "Invalid keyword {name}"),
 		}
 	}
 }
