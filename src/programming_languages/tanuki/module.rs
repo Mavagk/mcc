@@ -1,4 +1,4 @@
-use std::fmt::{self, Formatter};
+use std::fmt::{self, Formatter, write};
 
 use crate::{error::ErrorAt, programming_languages::c::module::CModule, traits::{ast_node::AstNode, module::Module}};
 
@@ -19,10 +19,10 @@ impl Module for TanukiModule {
 
 impl AstNode for TanukiModule {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		todo!()
+		write!(f, "Tanuki Module")
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
-		todo!()
+		Ok(())
 	}
 }

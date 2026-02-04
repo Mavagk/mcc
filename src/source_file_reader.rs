@@ -57,6 +57,13 @@ impl<'a> SourceFileReader<'a> {
 		}
 		Ok(Some(chr))
 	}
+
+	pub fn skip_leading_ascii_whitespaces(&mut self) -> Result<(), ErrorAt> {
+		while matches!(self.peek_char()?, Some(chr) if chr.is_ascii_whitespace()) {
+			self.read_char()?;
+		}
+		Ok(())
+	}
 }
 
 struct Utf8Iter {
