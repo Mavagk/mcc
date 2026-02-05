@@ -26,6 +26,7 @@ pub enum Error {
 	InvalidOptimizationLevel,
 	InvalidKeyword(String),
 	InvalidBaseSpecifier(String),
+	InvalidNumericLiteral(String),
 }
 
 impl Error {
@@ -60,6 +61,8 @@ impl Display for Error {
 			Self::InvalidOptimizationLevel => write!(f, "Invalid optimization level"),
 			Self::InvalidKeyword(name) => write!(f, "Invalid keyword {name}"),
 			Self::InvalidBaseSpecifier(specifier) => write!(f, "Invalid base specifier {specifier}"),
+			Self::InvalidNumericLiteral(literal) => write!(f, "Invalid numeric literal {literal}"),
+			
 		}
 	}
 }

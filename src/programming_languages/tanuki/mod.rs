@@ -1,3 +1,5 @@
+use num::{BigUint, Num};
+
 use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{module::TanukiModule, token::{Keyword, TanukiToken, TanukiTokenVariant}}, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::programming_language::ProgrammingLanguage};
 
 pub mod module;
@@ -58,7 +60,7 @@ impl ProgrammingLanguage<TanukiToken, TanukiModule> for Tanuki {
 			}
 			'0'..='9' | '.' => {
 				// Read base
-				let mut base = 10u8;
+				let mut base = 10;
 				if first_char == '0' {
 					reader.read_char()?;
 					if matches!(reader.peek_char()?, Some(chr) if chr.is_alphabetic()) {
@@ -69,15 +71,32 @@ impl ProgrammingLanguage<TanukiToken, TanukiModule> for Tanuki {
 							other => return Err(Error::InvalidBaseSpecifier(format!("0{other}")).at(Some(start_line), Some(start_column), None)),
 						};
 					}
-					reader.read_char()?;
 				}
 				// Read numbers chars
-				let mut numeric_literal_without_base = String::new();
-				while matches!(reader.peek_char()?, Some('A'..='Z' | 'a'..='z' | '_' | '0'..='9' | '.')) {
-					numeric_literal_without_base.push(reader.read_char()?.unwrap());
+				let mut numeric_literal_without_base: String = "0".into();
+				let mut last_was_e = false;
+				loop {
+				//while matches!(reader.peek_char()?, Some('A'..='Z' | 'a'..='z' | '_' | '0'..='9' | '.') | Some('+' | '-') if last_was_e && base == 10) {
+					let chr = reader.peek_char()?;
+					if !(matches!(chr, Some('A'..='Z' | 'a'..='z' | '_' | '0'..='9' | '.')) || matches!(chr, Some('+' | '-') if last_was_e && base == 10)) {
+						break;
+					}
+					let chr = chr.unwrap();
+					if chr == '_' {
+						continue;
+					}
+					last_was_e = matches!(chr, 'e' | 'E');
+					numeric_literal_without_base.push(chr);
+					reader.read_char()?;
 				}
 				// Parse
-				todo!()
+				let as_integer = BigUint::from_str_radix(&numeric_literal_without_base, base).ok();
+				let as_float = f64::from_str_radix(&numeric_literal_without_base, base).ok();
+				if as_integer.is_none() && as_float.is_none() {
+					return Err(Error::InvalidNumericLiteral(numeric_literal_without_base.into()).at(Some(start_line), Some(start_column), None));
+				}
+				// Assemble into token variant
+				TanukiTokenVariant::NumericLiteral(as_integer, as_float)
 			}
 			_ => todo!()
 		};
