@@ -74,8 +74,8 @@ impl Token for TanukiToken {
 				}
 				Ok(())
 			}
-			TanukiTokenVariant::StringLiteral(value) => write!(f, "String Literal \"{value}\""),
-			TanukiTokenVariant::CharacterLiteral(value) => write!(f, "Character Literal '{value}'"),
+			TanukiTokenVariant::StringLiteral(value) => write!(f, "String Literal {value:?}"),
+			TanukiTokenVariant::CharacterLiteral(value) => write!(f, "Character Literal {value:?}"),
 			TanukiTokenVariant::Operator(prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator) => {
 				write!(f, "Operator")?;
 				if let Some(prefix_unary_operator) = prefix_unary_operator {

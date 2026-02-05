@@ -27,6 +27,9 @@ pub enum Error {
 	InvalidKeyword(String),
 	InvalidBaseSpecifier(String),
 	InvalidNumericLiteral(String),
+	ExpectedClosingQuote,
+	InvalidEscapeChars(String),
+	InvalidUnicodeCodePoint,
 }
 
 impl Error {
@@ -62,7 +65,9 @@ impl Display for Error {
 			Self::InvalidKeyword(name) => write!(f, "Invalid keyword {name}"),
 			Self::InvalidBaseSpecifier(specifier) => write!(f, "Invalid base specifier {specifier}"),
 			Self::InvalidNumericLiteral(literal) => write!(f, "Invalid numeric literal {literal}"),
-			
+			Self::ExpectedClosingQuote => write!(f, "Expected closing quote"),
+			Self::InvalidEscapeChars(chars) => write!(f, "Invalid escape chars \"{chars}\""),
+			Self::InvalidUnicodeCodePoint => write!(f, "Invalid Unicode code point"),
 		}
 	}
 }

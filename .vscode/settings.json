@@ -3,6 +3,7 @@
 		"Bitshift",
 		"branflakes",
 		"getchar",
+		"hexdigit",
 		"Multibyte",
 		"Peekable",
 		"pointee",
