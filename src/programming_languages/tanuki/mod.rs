@@ -201,6 +201,56 @@ fn parse_literal_char(reader: &mut SourceFileReader, is_char_literal: bool) -> R
 				//		_ => return Err(Error::InvalidEscapeChars(format!("\\???")).at(Some(start_line), Some(start_column), None)),
 				//	}
 				//}
+				'o' => {
+					if reader.read_char()? != Some('{') {
+						return Err(Error::InvalidEscapeChars("\\o?".into()).at(Some(start_line), Some(start_column), None));
+					}
+					let mut hex_digits = String::new();
+					while matches!(reader.peek_char()?, Some(chr) if matches!(chr, '0'..='7') || chr == '_') {
+						if reader.peek_char()?.unwrap() != '_' {
+							hex_digits.push(reader.read_char()?.unwrap());
+						}
+						else {
+							reader.read_char()?;
+						}
+					}
+					if reader.peek_char()? != Some('}') {
+						return Err(Error::InvalidEscapeChars("\\o{?".into()).at(Some(start_line), Some(start_column), None));
+					}
+					reader.read_char()?;
+					match u32::from_str_radix(&hex_digits, 8) {
+						Ok(escaped_char_value) => match char::from_u32(escaped_char_value) {
+							Some(escaped_char_value) => escaped_char_value,
+							None => return Err(Error::InvalidUnicodeCodePoint.at(Some(start_line), Some(start_column), None)),
+						}
+						Err(_) => return Err(Error::InvalidUnicodeCodePoint.at(Some(start_line), Some(start_column), None)),
+					}
+				}
+				'd' => {
+					if reader.read_char()? != Some('{') {
+						return Err(Error::InvalidEscapeChars("\\d?".into()).at(Some(start_line), Some(start_column), None));
+					}
+					let mut hex_digits = String::new();
+					while matches!(reader.peek_char()?, Some(chr) if chr.is_ascii_digit() || chr == '_') {
+						if reader.peek_char()?.unwrap() != '_' {
+							hex_digits.push(reader.read_char()?.unwrap());
+						}
+						else {
+							reader.read_char()?;
+						}
+					}
+					if reader.peek_char()? != Some('}') {
+						return Err(Error::InvalidEscapeChars("\\d{?".into()).at(Some(start_line), Some(start_column), None));
+					}
+					reader.read_char()?;
+					match u32::from_str_radix(&hex_digits, 10) {
+						Ok(escaped_char_value) => match char::from_u32(escaped_char_value) {
+							Some(escaped_char_value) => escaped_char_value,
+							None => return Err(Error::InvalidUnicodeCodePoint.at(Some(start_line), Some(start_column), None)),
+						}
+						Err(_) => return Err(Error::InvalidUnicodeCodePoint.at(Some(start_line), Some(start_column), None)),
+					}
+				}
 				'{' => {
 					let mut hex_digits = String::new();
 					while matches!(reader.peek_char()?, Some(chr) if chr.is_ascii_hexdigit() || chr == '_') {
