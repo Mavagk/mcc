@@ -183,6 +183,10 @@ fn parse_literal_char(reader: &mut SourceFileReader, is_char_literal: bool) -> R
 				'r' => '\r',
 				't' => '\t',
 				'0' => '\0',
+				'a' => '\x07',
+				'b' => '\x08',
+				'f' => '\x0C',
+				'v' => '\x0B',
 				'x' => {
 					match (reader.read_char()?, reader.read_char()?) {
 						(Some(high_digit), Some(low_digit)) if high_digit.is_ascii_hexdigit() && low_digit.is_ascii_hexdigit()
@@ -190,6 +194,13 @@ fn parse_literal_char(reader: &mut SourceFileReader, is_char_literal: bool) -> R
 						_ => return Err(Error::InvalidEscapeChars(format!("\\x??")).at(Some(start_line), Some(start_column), None)),
 					}
 				}
+				//'0'..='7' => {
+				//	match (reader.read_char()?, reader.read_char()?) {
+				//		(Some(mid_digit), Some(low_digit)) if matches!(mid_digit, '0'..='7') && matches!(low_digit, '0'..='7')
+				//			=> char::from_u32((char_after_backslash.to_digit(8).unwrap() * 64 + mid_digit.to_digit(8).unwrap() * 8 + low_digit.to_digit(8).unwrap()) as u32).unwrap(),
+				//		_ => return Err(Error::InvalidEscapeChars(format!("\\???")).at(Some(start_line), Some(start_column), None)),
+				//	}
+				//}
 				'{' => {
 					let mut hex_digits = String::new();
 					while matches!(reader.peek_char()?, Some(chr) if chr.is_ascii_hexdigit() || chr == '_') {
