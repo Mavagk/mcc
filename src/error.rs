@@ -28,8 +28,16 @@ pub enum Error {
 	InvalidBaseSpecifier(String),
 	InvalidNumericLiteral(String),
 	ExpectedClosingQuote,
+	ExpectedOpeningParenthesis,
+	ExpectedClosingParenthesis,
+	ExpectedCurlyOpeningParenthesis,
+	ExpectedCurlyClosingParenthesis,
+	ExpectedSquareOpeningParenthesis,
+	ExpectedSquareClosingParenthesis,
 	InvalidEscapeChars(String),
 	InvalidUnicodeCodePoint,
+	InvalidOperatorSymbol(String),
+	InvalidCharStartingToken(char),
 }
 
 impl Error {
@@ -68,6 +76,14 @@ impl Display for Error {
 			Self::ExpectedClosingQuote => write!(f, "Expected closing quote"),
 			Self::InvalidEscapeChars(chars) => write!(f, "Invalid escape chars \"{chars}\""),
 			Self::InvalidUnicodeCodePoint => write!(f, "Invalid Unicode code point"),
+			Self::ExpectedOpeningParenthesis => write!(f, "Expected opening parenthesis"),
+			Self::ExpectedClosingParenthesis => write!(f, "Expected closing parenthesis"),
+			Self::ExpectedCurlyOpeningParenthesis => write!(f, "Expected curly opening parenthesis"),
+			Self::ExpectedCurlyClosingParenthesis => write!(f, "Expected curly closing parenthesis"),
+			Self::ExpectedSquareOpeningParenthesis => write!(f, "Expected square opening parenthesis"),
+			Self::ExpectedSquareClosingParenthesis => write!(f, "Expected square closing parenthesis"),
+			Self::InvalidOperatorSymbol(name) => write!(f, "Invalid operator symbol \"{name}\""),
+			Self::InvalidCharStartingToken(chr) => write!(f, "Invalid char '{chr}' starting token"),
 		}
 	}
 }

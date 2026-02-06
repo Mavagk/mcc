@@ -71,6 +71,40 @@ impl<'a> SourceFileReader<'a> {
 		}
 		Ok(())
 	}
+
+	pub fn read_string_while<P>(&mut self, p: P) -> Result<String, ErrorAt> where P: Fn(char) -> bool {
+		let mut out = String::new();
+		while let Some(chr) = self.peek_char()? {
+			if !p(chr) {
+				break;
+			}
+			out.push(chr);
+			self.read_char()?;
+		}
+		Ok(out)
+	}
+
+	pub fn read_string_while_and_skip<P, S>(&mut self, read_while: P, skip_if: S) -> Result<String, ErrorAt> where P: Fn(char) -> bool, S: Fn(char) -> bool {
+		let mut out = String::new();
+		while let Some(chr) = self.peek_char()? {
+			if !read_while(chr) {
+				break;
+			}
+			if !skip_if(chr) {
+				out.push(chr);
+			}
+			self.read_char()?;
+		}
+		Ok(out)
+	}
+
+	pub fn read_and_expect_char(&mut self, char_to_expect: char) -> Result<bool, ErrorAt> {
+		if self.peek_char()? == Some(char_to_expect) {
+			self.read_char()?;
+			return Ok(true);
+		}
+		Ok(false)
+	}
 }
 
 struct Utf8Iter {

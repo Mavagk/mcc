@@ -1,6 +1,6 @@
 use num::{BigUint, Num};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{module::TanukiModule, token::{Keyword, TanukiToken, TanukiTokenVariant}}, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::programming_language::ProgrammingLanguage};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{module::TanukiModule, token::{InfixBinaryOperator, InfixTernaryOperator, Keyword, PostfixUnaryOperator, PrefixUnaryOperator, TanukiToken, TanukiTokenVariant}}, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::programming_language::ProgrammingLanguage};
 
 pub mod module;
 pub mod token;
@@ -27,6 +27,7 @@ impl ProgrammingLanguage<TanukiToken, TanukiModule> for Tanuki {
 		let start_column = reader.get_column();
 		// Match depending on first char
 		let token_variant = match first_char {
+			// For separator tokens, the token is one char long
 			'(' | ')' | '{' | '}' | '[' | ']' | ',' | ';' => {
 				reader.read_char()?;
 				match first_char {
@@ -41,24 +42,18 @@ impl ProgrammingLanguage<TanukiToken, TanukiModule> for Tanuki {
 					_ => unreachable!(),
 				}
 			}
-			'A'..='Z' | 'a'..='z' | '_' => {
-				let mut name = String::new();
-				while matches!(reader.peek_char()?, Some('A'..='Z' | 'a'..='z' | '_' | '0'..='9')) {
-					name.push(reader.read_char()?.unwrap());
-				}
-				TanukiTokenVariant::Identifier(name.into_boxed_str())
-			}
+			// For identifiers, the token consists of letters, digits and underscores but does not start with a digit
+			'A'..='Z' | 'a'..='z' | '_' => TanukiTokenVariant::Identifier(reader.read_string_while(|chr| matches!(chr, 'A'..='Z' | 'a'..='z' | '_' | '0'..='9'))?.into_boxed_str()),
+			// For keywords, the token starts with a '@' char, the rest of the token consists of letters, digits and underscores
 			'@' => {
 				reader.read_char()?;
-				let mut name = String::new();
-				while matches!(reader.peek_char()?, Some('A'..='Z' | 'a'..='z' | '_' | '0'..='9')) {
-					name.push(reader.read_char()?.unwrap());
-				}
+				let name = reader.read_string_while(|chr| matches!(chr, 'A'..='Z' | 'a'..='z' | '_' | '0'..='9'))?;
 				let keyword = Keyword::from_name(&name)
 					.ok_or_else(|| Error::InvalidKeyword(format!("@{name}")).at(Some(start_line), Some(start_column), None))?;
 				TanukiTokenVariant::Keyword(keyword)
 			}
-			'0'..='9' | '.' => {
+			// For numeric literals, the token starts with a digit, the rest of the token consists of letters, digits, underscores and decimal points
+			'0'..='9' => {
 				// Read base
 				let mut base = 10;
 				if first_char == '0' {
@@ -97,6 +92,7 @@ impl ProgrammingLanguage<TanukiToken, TanukiModule> for Tanuki {
 				// Assemble into token variant
 				TanukiTokenVariant::NumericLiteral(as_integer, as_float)
 			}
+			// For a string literals, the token is enclosed by double quotes and consists of non double quote or backslash chars and escape sequences
 			'"' => {
 				// Take opening quote
 				reader.read_char()?;
@@ -114,6 +110,8 @@ impl ProgrammingLanguage<TanukiToken, TanukiModule> for Tanuki {
 				// Assemble into token variant
 				TanukiTokenVariant::StringLiteral(string.into_boxed_str())
 			}
+			// For char literals, the token is enclosed by a single quote and consists of a single non backslash char or escape sequence
+			// For block labels, the token starts with a single quote, the rest of the token consists of letters, digits and underscores
 			'\'' => 'a: {
 				// Take opening quote
 				reader.read_char()?;
@@ -140,7 +138,20 @@ impl ProgrammingLanguage<TanukiToken, TanukiModule> for Tanuki {
 				reader.read_char()?;
 				TanukiTokenVariant::CharacterLiteral(first_parsed_char)
 			}
-			_ => todo!()
+			// For operators, the token consists of operator chars
+			'+' | '-' | '*' | '/' | '%' | '!' | '|' | '&' | '^' | '<' | '=' | '>' | ':' | '?' => {
+				let name = reader.read_string_while(|chr| matches!(chr, '+' | '-' | '*' | '/' | '%' | '!' | '|' | '&' | '^' | '<' | '=' | '>' | ':' | '?'))?;
+				let prefix_unary_operator = PrefixUnaryOperator::from_source(&name);
+				let infix_binary_operator = InfixBinaryOperator::from_source(&name);
+				let postfix_unary_operator = PostfixUnaryOperator::from_source(&name);
+				let infix_ternary_operator = InfixTernaryOperator::from_source(&name);
+				if prefix_unary_operator.is_none() && infix_binary_operator.is_none() && postfix_unary_operator.is_none() && infix_ternary_operator.is_none() {
+					return Err(Error::InvalidOperatorSymbol(name).at(Some(start_line), Some(start_column), None));
+				}
+				TanukiTokenVariant::Operator(prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator)
+			}
+			// TODO: Comments
+			other => return Err(Error::InvalidCharStartingToken(other).at(Some(start_line), Some(start_column), None)),
 		};
 		// Assemble into token
 		Ok(Some(TanukiToken {
@@ -157,6 +168,8 @@ impl ProgrammingLanguage<TanukiToken, TanukiModule> for Tanuki {
 	}
 }
 
+/// Reads and parses a single escaped or unescaped char form the reader.
+/// Returns `Ok(None)` if a double quote is encountered and `is_char_literal` is false.
 fn parse_literal_char(reader: &mut SourceFileReader, is_char_literal: bool) -> Result<Option<char>, ErrorAt> {
 	// TODO: Better errors
 	let start_line = reader.get_line();
@@ -194,31 +207,12 @@ fn parse_literal_char(reader: &mut SourceFileReader, is_char_literal: bool) -> R
 						_ => return Err(Error::InvalidEscapeChars(format!("\\x??")).at(Some(start_line), Some(start_column), None)),
 					}
 				}
-				//'0'..='7' => {
-				//	match (reader.read_char()?, reader.read_char()?) {
-				//		(Some(mid_digit), Some(low_digit)) if matches!(mid_digit, '0'..='7') && matches!(low_digit, '0'..='7')
-				//			=> char::from_u32((char_after_backslash.to_digit(8).unwrap() * 64 + mid_digit.to_digit(8).unwrap() * 8 + low_digit.to_digit(8).unwrap()) as u32).unwrap(),
-				//		_ => return Err(Error::InvalidEscapeChars(format!("\\???")).at(Some(start_line), Some(start_column), None)),
-				//	}
-				//}
 				'o' => {
-					if reader.read_char()? != Some('{') {
-						return Err(Error::InvalidEscapeChars("\\o?".into()).at(Some(start_line), Some(start_column), None));
-					}
-					let mut hex_digits = String::new();
-					while matches!(reader.peek_char()?, Some(chr) if matches!(chr, '0'..='7') || chr == '_') {
-						if reader.peek_char()?.unwrap() != '_' {
-							hex_digits.push(reader.read_char()?.unwrap());
-						}
-						else {
-							reader.read_char()?;
-						}
-					}
-					if reader.peek_char()? != Some('}') {
-						return Err(Error::InvalidEscapeChars("\\o{?".into()).at(Some(start_line), Some(start_column), None));
-					}
+					expect_opening_curly_parenthesis(reader)?;
+					let digits = reader.read_string_while_and_skip(|chr| matches!(chr, '0'..='7'), |chr| chr == '_')?;
+					expect_closing_curly_parenthesis(reader)?;
 					reader.read_char()?;
-					match u32::from_str_radix(&hex_digits, 8) {
+					match u32::from_str_radix(&digits, 8) {
 						Ok(escaped_char_value) => match char::from_u32(escaped_char_value) {
 							Some(escaped_char_value) => escaped_char_value,
 							None => return Err(Error::InvalidUnicodeCodePoint.at(Some(start_line), Some(start_column), None)),
@@ -227,23 +221,11 @@ fn parse_literal_char(reader: &mut SourceFileReader, is_char_literal: bool) -> R
 					}
 				}
 				'd' => {
-					if reader.read_char()? != Some('{') {
-						return Err(Error::InvalidEscapeChars("\\d?".into()).at(Some(start_line), Some(start_column), None));
-					}
-					let mut hex_digits = String::new();
-					while matches!(reader.peek_char()?, Some(chr) if chr.is_ascii_digit() || chr == '_') {
-						if reader.peek_char()?.unwrap() != '_' {
-							hex_digits.push(reader.read_char()?.unwrap());
-						}
-						else {
-							reader.read_char()?;
-						}
-					}
-					if reader.peek_char()? != Some('}') {
-						return Err(Error::InvalidEscapeChars("\\d{?".into()).at(Some(start_line), Some(start_column), None));
-					}
+					expect_opening_curly_parenthesis(reader)?;
+					let digits = reader.read_string_while_and_skip(|chr| chr.is_ascii_digit(), |chr| chr == '_')?;
+					expect_closing_curly_parenthesis(reader)?;
 					reader.read_char()?;
-					match u32::from_str_radix(&hex_digits, 10) {
+					match u32::from_str_radix(&digits, 10) {
 						Ok(escaped_char_value) => match char::from_u32(escaped_char_value) {
 							Some(escaped_char_value) => escaped_char_value,
 							None => return Err(Error::InvalidUnicodeCodePoint.at(Some(start_line), Some(start_column), None)),
@@ -252,20 +234,10 @@ fn parse_literal_char(reader: &mut SourceFileReader, is_char_literal: bool) -> R
 					}
 				}
 				'{' => {
-					let mut hex_digits = String::new();
-					while matches!(reader.peek_char()?, Some(chr) if chr.is_ascii_hexdigit() || chr == '_') {
-						if reader.peek_char()?.unwrap() != '_' {
-							hex_digits.push(reader.read_char()?.unwrap());
-						}
-						else {
-							reader.read_char()?;
-						}
-					}
-					if reader.peek_char()? != Some('}') {
-						return Err(Error::InvalidEscapeChars("\\{?".into()).at(Some(start_line), Some(start_column), None));
-					}
+					let digits = reader.read_string_while_and_skip(|chr| chr.is_ascii_hexdigit(), |chr| chr == '_')?;
+					expect_closing_curly_parenthesis(reader)?;
 					reader.read_char()?;
-					match u32::from_str_radix(&hex_digits, 16) {
+					match u32::from_str_radix(&digits, 16) {
 						Ok(escaped_char_value) => match char::from_u32(escaped_char_value) {
 							Some(escaped_char_value) => escaped_char_value,
 							None => return Err(Error::InvalidUnicodeCodePoint.at(Some(start_line), Some(start_column), None)),
@@ -309,5 +281,21 @@ fn parse_literal_char(reader: &mut SourceFileReader, is_char_literal: bool) -> R
 			}))
 		},
 		_ => reader.read_char(),
+	}
+}
+
+/// Reads a single `{` char, returns an error if it is not said char.
+pub fn expect_opening_curly_parenthesis(reader: &mut SourceFileReader) -> Result<(), ErrorAt> {
+	match reader.read_and_expect_char('{')? {
+		true => Ok(()),
+		false => Err(Error::ExpectedCurlyOpeningParenthesis.at(Some(reader.get_line()), Some(reader.get_column()), None)),
+	}
+}
+
+/// Reads a single `}` char, returns an error if it is not said char.
+pub fn expect_closing_curly_parenthesis(reader: &mut SourceFileReader) -> Result<(), ErrorAt> {
+	match reader.read_and_expect_char('}')? {
+		true => Ok(()),
+		false => Err(Error::ExpectedCurlyOpeningParenthesis.at(Some(reader.get_line()), Some(reader.get_column()), None)),
 	}
 }

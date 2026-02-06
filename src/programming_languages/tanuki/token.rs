@@ -117,6 +117,12 @@ impl PrefixUnaryOperator {
 			_ => todo!()
 		}
 	}
+
+	pub fn from_source(source: &str) -> Option<Self> {
+		Some(match source {
+			_ => return None,
+		})
+	}
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -129,6 +135,12 @@ impl InfixBinaryOperator {
 		match &self {
 			_ => todo!()
 		}
+	}
+
+	pub fn from_source(source: &str) -> Option<Self> {
+		Some(match source {
+			_ => return None,
+		})
 	}
 }
 
@@ -143,6 +155,12 @@ impl PostfixUnaryOperator {
 			_ => todo!()
 		}
 	}
+
+	pub fn from_source(source: &str) -> Option<Self> {
+		Some(match source {
+			_ => return None,
+		})
+	}
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -155,6 +173,12 @@ impl InfixTernaryOperator {
 		match &self {
 			_ => todo!()
 		}
+	}
+
+	pub fn from_source(source: &str) -> Option<Self> {
+		Some(match source {
+			_ => return None,
+		})
 	}
 }
 
