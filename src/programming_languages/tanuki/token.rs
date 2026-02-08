@@ -14,21 +14,36 @@ pub struct TanukiToken {
 
 #[derive(Clone, Debug)]
 pub enum TanukiTokenVariant {
+	/// Tokenized from a single `(` char.
 	LeftParenthesis,
+	/// Tokenized from a single `)` char.
 	RightParenthesis,
+	/// Tokenized from a single `{` char.
 	LeftCurlyParenthesis,
+	/// Tokenized from a single `}` char.
 	RightCurlyParenthesis,
+	/// Tokenized from a single `[` char.
 	LeftSquareParenthesis,
+	/// Tokenized from a single `]` char.
 	RightSquareParenthesis,
+	/// Tokenized from a single `,` char.
 	Comma,
+	/// Tokenized from a single `;` char.
 	Semicolon,
+	/// An identifier for naming variables, consists of letters, digits, underscores and all but the first char can be digits.
 	Identifier(Box<str>),
+	/// Tokenized from a keyword that started with an `@` sign.
 	Keyword(Keyword),
+	/// A label for naming block expressions that started with a `'` char, contained string is the source code literal without the leading `'`.
 	BlockLabel(Box<str>),
+	/// Contains a numeric literal tokenized to int and float types if they are valid for each types.
 	NumericLiteral(Option<BigUint>, Option<f64>),
+	/// Tokenized from a string literal, contains the content without the surrounding `"` chars and escape sequences have been escaped.
 	StringLiteral(Box<str>),
+	/// Contains the char that has been parsed from a char literal.
 	CharacterLiteral(char),
-	Operator(Option<PrefixUnaryOperator>, Option<InfixBinaryOperator>, Option<PostfixUnaryOperator>, Option<InfixTernaryOperator>),
+	/// Tokenized from an operator literal, contains the chars in operator's symbol.
+	Operator(Box<str>),
 }
 
 impl Token for TanukiToken {
@@ -76,26 +91,7 @@ impl Token for TanukiToken {
 			}
 			TanukiTokenVariant::StringLiteral(value) => write!(f, "String Literal {value:?}"),
 			TanukiTokenVariant::CharacterLiteral(value) => write!(f, "Character Literal {value:?}"),
-			TanukiTokenVariant::Operator(prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator) => {
-				write!(f, "Operator")?;
-				if let Some(prefix_unary_operator) = prefix_unary_operator {
-					write!(f, " Prefix Unary ")?;
-					prefix_unary_operator.print_name(f)?;
-				}
-				if let Some(infix_binary_operator) = infix_binary_operator {
-					write!(f, " Infix Binary ")?;
-					infix_binary_operator.print_name(f)?;
-				}
-				if let Some(postfix_unary_operator) = postfix_unary_operator {
-					write!(f, " Postfix Unary ")?;
-					postfix_unary_operator.print_name(f)?;
-				}
-				if let Some(infix_ternary_operator) = infix_ternary_operator {
-					write!(f, " Infix Ternary ")?;
-					infix_ternary_operator.print_name(f)?;
-				}
-				Ok(())
-			}
+			TanukiTokenVariant::Operator(symbol) => write!(f, "Operator {symbol}"),
 		}
 	}
 }
@@ -103,82 +99,6 @@ impl Token for TanukiToken {
 impl Debug for TanukiToken {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		self.print(f)
-	}
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum PrefixUnaryOperator {
-
-}
-
-impl PrefixUnaryOperator {
-	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
-		match &self {
-			_ => todo!()
-		}
-	}
-
-	pub fn from_source(source: &str) -> Option<Self> {
-		Some(match source {
-			_ => return None,
-		})
-	}
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum InfixBinaryOperator {
-	
-}
-
-impl InfixBinaryOperator {
-	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
-		match &self {
-			_ => todo!()
-		}
-	}
-
-	pub fn from_source(source: &str) -> Option<Self> {
-		Some(match source {
-			_ => return None,
-		})
-	}
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum PostfixUnaryOperator {
-	
-}
-
-impl PostfixUnaryOperator {
-	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
-		match &self {
-			_ => todo!()
-		}
-	}
-
-	pub fn from_source(source: &str) -> Option<Self> {
-		Some(match source {
-			_ => return None,
-		})
-	}
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum InfixTernaryOperator {
-	
-}
-
-impl InfixTernaryOperator {
-	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
-		match &self {
-			_ => todo!()
-		}
-	}
-
-	pub fn from_source(source: &str) -> Option<Self> {
-		Some(match source {
-			_ => return None,
-		})
 	}
 }
 
