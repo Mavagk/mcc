@@ -42,8 +42,8 @@ pub enum TanukiTokenVariant {
 	StringLiteral(Box<str>),
 	/// Contains the char that has been parsed from a char literal.
 	CharacterLiteral(char),
-	/// Tokenized from an operator literal, contains the chars in operator's symbol.
-	Operator(Box<str>),
+	/// Tokenized from an operator literal.
+	Operator(Option<PrefixUnaryOperator>, Option<InfixBinaryOperator>, Option<PostfixUnaryOperator>, Option<InfixTernaryOperator>),
 }
 
 impl Token for TanukiToken {
@@ -91,7 +91,26 @@ impl Token for TanukiToken {
 			}
 			TanukiTokenVariant::StringLiteral(value) => write!(f, "String Literal {value:?}"),
 			TanukiTokenVariant::CharacterLiteral(value) => write!(f, "Character Literal {value:?}"),
-			TanukiTokenVariant::Operator(symbol) => write!(f, "Operator {symbol}"),
+			TanukiTokenVariant::Operator(prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator) => {
+				write!(f, "Operator")?;
+				if let Some(prefix_unary_operator) = prefix_unary_operator {
+					write!(f, " Prefix Unary ")?;
+					prefix_unary_operator.print_name(f)?;
+				}
+				if let Some(infix_binary_operator) = infix_binary_operator {
+					write!(f, " Infix Binary ")?;
+					infix_binary_operator.print_name(f)?;
+				}
+				if let Some(postfix_unary_operator) = postfix_unary_operator {
+					write!(f, " Postfix Unary ")?;
+					postfix_unary_operator.print_name(f)?;
+				}
+				if let Some(infix_ternary_operator) = infix_ternary_operator {
+					write!(f, " Infix Ternary ")?;
+					infix_ternary_operator.print_name(f)?;
+				}
+				Ok(())
+			}
 		}
 	}
 }
@@ -99,6 +118,82 @@ impl Token for TanukiToken {
 impl Debug for TanukiToken {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		self.print(f)
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PrefixUnaryOperator {
+
+}
+
+impl PrefixUnaryOperator {
+	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
+		match &self {
+			_ => todo!()
+		}
+	}
+
+	pub fn from_source(source: &str) -> Option<Self> {
+		Some(match source {
+			_ => return None,
+		})
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum InfixBinaryOperator {
+	
+}
+
+impl InfixBinaryOperator {
+	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
+		match &self {
+			_ => todo!()
+		}
+	}
+
+	pub fn from_source(source: &str) -> Option<Self> {
+		Some(match source {
+			_ => return None,
+		})
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PostfixUnaryOperator {
+	
+}
+
+impl PostfixUnaryOperator {
+	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
+		match &self {
+			_ => todo!()
+		}
+	}
+
+	pub fn from_source(source: &str) -> Option<Self> {
+		Some(match source {
+			_ => return None,
+		})
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum InfixTernaryOperator {
+	
+}
+
+impl InfixTernaryOperator {
+	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
+		match &self {
+			_ => todo!()
+		}
+	}
+
+	pub fn from_source(source: &str) -> Option<Self> {
+		Some(match source {
+			_ => return None,
+		})
 	}
 }
 
