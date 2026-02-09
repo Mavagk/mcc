@@ -43,7 +43,7 @@ pub enum TanukiTokenVariant {
 	/// Contains the char that has been parsed from a char literal.
 	CharacterLiteral(char),
 	/// Tokenized from an operator literal.
-	Operator(Option<PrefixUnaryOperator>, Option<InfixBinaryOperator>, Option<PostfixUnaryOperator>, Option<InfixTernaryOperator>),
+	Operator(Option<PrefixUnaryOperator>, Option<InfixBinaryOperator>, Option<PostfixUnaryOperator>, Option<InfixTernaryOperator>, Box<str>),
 }
 
 impl Token for TanukiToken {
@@ -91,7 +91,7 @@ impl Token for TanukiToken {
 			}
 			TanukiTokenVariant::StringLiteral(value) => write!(f, "String Literal {value:?}"),
 			TanukiTokenVariant::CharacterLiteral(value) => write!(f, "Character Literal {value:?}"),
-			TanukiTokenVariant::Operator(prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator) => {
+			TanukiTokenVariant::Operator(prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator, _symbol) => {
 				write!(f, "Operator")?;
 				if let Some(prefix_unary_operator) = prefix_unary_operator {
 					write!(f, " Prefix Unary ")?;
@@ -123,18 +123,116 @@ impl Debug for TanukiToken {
 
 #[derive(Debug, Clone, Copy)]
 pub enum PrefixUnaryOperator {
+	Read,             // +
+	Not,              // !
+	Roll,             // ?
+	Reciprocal,       // /
+	BitshiftRightOne, // <<
+	ComplexConjugate, // |
 
+	Negation,           // -
+	SaturatingNegation, // -|
+	WrappingNegation,   // -%
+	TryNegation,        // -?
+
+	Square,           // **
+	SaturatingSquare, // **|
+	WrappingSquare,   // **%
+	TrySquare,        // **?
+
+	BitshiftLeftOne,           // <<
+	SaturatingBitshiftLeftOne, // <<|
+	WrappingBitshiftLeftOne,   // <<%
+	TryBitshiftLeftOne,        // <<?
+
+	Increment,           // ++
+	SaturatingIncrement, // ++|
+	WrappingIncrement,   // ++%
+
+	Decrement,           // --
+	SaturatingDecrement, // --|
+	WrappingDecrement,   // --%
+
+	AddressOf,   // &
+	Dereference, // *
+	NthToLast,   // ^
 }
 
 impl PrefixUnaryOperator {
-	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
+	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self {
-			_ => todo!()
+			Self::Read             => write!(f, "Read +"),
+			Self::Not              => write!(f, "Not !"),
+			Self::Roll             => write!(f, "Roll ?"),
+			Self::Reciprocal       => write!(f, "Reciprocal /"),
+			Self::BitshiftRightOne => write!(f, "Bitshift Right One >>"),
+			Self::ComplexConjugate => write!(f, "Complex Conjugate |"),
+
+			Self::Negation           => write!(f, "Negation -"),
+			Self::SaturatingNegation => write!(f, "Saturating Negation -|"),
+			Self::WrappingNegation   => write!(f, "Wrapping Negation -%"),
+			Self::TryNegation        => write!(f, "Try Negation -?"),
+
+			Self::Square           => write!(f, "Square **"),
+			Self::SaturatingSquare => write!(f, "Saturating Square **|"),
+			Self::WrappingSquare   => write!(f, "Wrapping Square **%"),
+			Self::TrySquare        => write!(f, "Try Square **?"),
+
+			Self::BitshiftLeftOne           => write!(f, "Bitshift Left One <<"),
+			Self::SaturatingBitshiftLeftOne => write!(f, "Saturating Bitshift Left One <<|"),
+			Self::WrappingBitshiftLeftOne   => write!(f, "Wrapping Bitshift Left One <<%"),
+			Self::TryBitshiftLeftOne        => write!(f, "Try Bitshift Left One <<?"),
+
+			Self::Increment           => write!(f, "Increment ++"),
+			Self::SaturatingIncrement => write!(f, "Saturating Increment ++|"),
+			Self::WrappingIncrement   => write!(f, "Wrapping Increment ++%"),
+
+			Self::Decrement           => write!(f, "Decrement --"),
+			Self::SaturatingDecrement => write!(f, "Saturating Decrement --|"),
+			Self::WrappingDecrement   => write!(f, "Wrapping Decrement --%"),
+
+			Self::AddressOf           => write!(f, "Address of &"),
+			Self::Dereference         => write!(f, "Dereference *"),
+			Self::NthToLast           => write!(f, "Nth to Last ^"),
 		}
 	}
 
 	pub fn from_source(source: &str) -> Option<Self> {
 		Some(match source {
+			"+"  => Self::Read,
+			"!"  => Self::Not,
+			"?"  => Self::Roll,
+			"/"  => Self::Reciprocal,
+			">>" => Self::BitshiftRightOne,
+			"|"  => Self::ComplexConjugate,
+
+			"-"  => Self::Negation,
+			"-|" => Self::SaturatingNegation,
+			"-%" => Self::WrappingNegation,
+			"-?" => Self::TryNegation,
+
+			"**"  => Self::Square,
+			"**|" => Self::SaturatingSquare,
+			"**%" => Self::WrappingSquare,
+			"**?" => Self::TrySquare,
+
+			"<<"  => Self::BitshiftLeftOne,
+			"<<|" => Self::SaturatingBitshiftLeftOne,
+			"<<%" => Self::WrappingBitshiftLeftOne,
+			"<<?" => Self::TryBitshiftLeftOne,
+
+			"++"  => Self::Increment,
+			"++|" => Self::SaturatingIncrement,
+			"++%" => Self::WrappingIncrement,
+
+			"--"  => Self::Decrement,
+			"--|" => Self::SaturatingDecrement,
+			"--%" => Self::WrappingDecrement,
+
+			"&" => Self::AddressOf,
+			"*" => Self::Dereference,
+			"^" => Self::NthToLast,
+
 			_ => return None,
 		})
 	}
@@ -142,18 +240,22 @@ impl PrefixUnaryOperator {
 
 #[derive(Debug, Clone, Copy)]
 pub enum InfixBinaryOperator {
-	
+	Addition,
+	Subtraction,
 }
 
 impl InfixBinaryOperator {
-	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
+	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self {
-			_ => todo!()
+			Self::Addition    => write!(f, "Addition +"),
+			Self::Subtraction => write!(f, "Subtraction -"),
 		}
 	}
 
 	pub fn from_source(source: &str) -> Option<Self> {
 		Some(match source {
+			"+" => Self::Addition,
+			"-" => Self::Subtraction,
 			_ => return None,
 		})
 	}
@@ -161,18 +263,19 @@ impl InfixBinaryOperator {
 
 #[derive(Debug, Clone, Copy)]
 pub enum PostfixUnaryOperator {
-	
+	TryPropagate
 }
 
 impl PostfixUnaryOperator {
-	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
+	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self {
-			_ => todo!()
+			Self::TryPropagate => write!(f, "Try Propagate ?"),
 		}
 	}
 
 	pub fn from_source(source: &str) -> Option<Self> {
 		Some(match source {
+			"?" => Self::TryPropagate,
 			_ => return None,
 		})
 	}
@@ -180,18 +283,19 @@ impl PostfixUnaryOperator {
 
 #[derive(Debug, Clone, Copy)]
 pub enum InfixTernaryOperator {
-	
+	NonShortCircuitingConditional,
 }
 
 impl InfixTernaryOperator {
-	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
+	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self {
-			_ => todo!()
+			Self::NonShortCircuitingConditional => write!(f, "Conditional ?"),
 		}
 	}
 
 	pub fn from_source(source: &str) -> Option<Self> {
 		Some(match source {
+			"?" => Self::NonShortCircuitingConditional,
 			_ => return None,
 		})
 	}

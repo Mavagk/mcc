@@ -87,10 +87,11 @@ impl<'a> SourceFileReader<'a> {
 	pub fn read_string_while_and_skip<P, S>(&mut self, read_while: P, skip_if: S) -> Result<String, ErrorAt> where P: Fn(char) -> bool, S: Fn(char) -> bool {
 		let mut out = String::new();
 		while let Some(chr) = self.peek_char()? {
-			if !read_while(chr) {
+			let do_skip = skip_if(chr);
+			if !(read_while(chr) || do_skip) {
 				break;
 			}
-			if !skip_if(chr) {
+			if !do_skip {
 				out.push(chr);
 			}
 			self.read_char()?;
