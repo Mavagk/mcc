@@ -128,15 +128,22 @@ pub fn tokenize_token(_main: &mut Main, reader: &mut SourceFileReader) -> Result
 		// For operators, the token consists of operator chars
 		'+' | '-' | '*' | '/' | '%' | '!' | '|' | '&' | '^' | '<' | '=' | '>' | ':' | '?' | '.' => {
 				let name = reader.read_string_while(|chr| matches!(chr, '+' | '-' | '*' | '/' | '%' | '!' | '|' | '&' | '^' | '<' | '=' | '>' | ':' | '?' | '.'))?;
-				let prefix_unary_operator = PrefixUnaryOperator::from_source(&name);
-				let infix_binary_operator = InfixBinaryOperator::from_source(&name);
-				let postfix_unary_operator = PostfixUnaryOperator::from_source(&name);
-				let infix_ternary_operator = InfixTernaryOperator::from_source(&name);
-				let nullary_operator = NullaryOperator::from_source(&name);
+				// Get if this is an assignment operator
+				let is_assignment = name.ends_with('=') && !matches!(name.as_str(), "==" | "!=" | "===" | "!==" | "<=" | ">=" | "..=");
+				let name_without_assignment: &str = match is_assignment {
+					true => name.as_str().strip_suffix('=').unwrap_or(name.as_str()),
+					false => name.as_str(),
+				};
+				// Parse
+				let prefix_unary_operator = PrefixUnaryOperator::from_source(name_without_assignment);
+				let infix_binary_operator = InfixBinaryOperator::from_source(name_without_assignment);
+				let postfix_unary_operator = PostfixUnaryOperator::from_source(name_without_assignment);
+				let infix_ternary_operator = InfixTernaryOperator::from_source(name_without_assignment);
+				let nullary_operator = NullaryOperator::from_source(name_without_assignment);
 				if prefix_unary_operator.is_none() && infix_binary_operator.is_none() && postfix_unary_operator.is_none() && infix_ternary_operator.is_none() && nullary_operator.is_none() {
 					return Err(Error::InvalidOperatorSymbol(name).at(Some(start_line), Some(start_column), None));
 				}
-				TanukiTokenVariant::Operator(prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator, nullary_operator, name.into_boxed_str())
+				TanukiTokenVariant::Operator { prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator, nullary_operator, is_assignment, symbol: name.into_boxed_str() }
 			}
 		// TODO: Comments
 		other => return Err(Error::InvalidCharStartingToken(other).at(Some(start_line), Some(start_column), None)),
@@ -194,7 +201,6 @@ fn parse_literal_char(reader: &mut SourceFileReader, is_char_literal: bool) -> R
 					expect_opening_curly_parenthesis(reader)?;
 					let digits = reader.read_string_while_and_skip(|chr| matches!(chr, '0'..='7'), |chr| chr == '_')?;
 					expect_closing_curly_parenthesis(reader)?;
-					//reader.read_char()?;
 					match u32::from_str_radix(&digits, 8) {
 						Ok(escaped_char_value) => match char::from_u32(escaped_char_value) {
 							Some(escaped_char_value) => escaped_char_value,
@@ -207,7 +213,6 @@ fn parse_literal_char(reader: &mut SourceFileReader, is_char_literal: bool) -> R
 					expect_opening_curly_parenthesis(reader)?;
 					let digits = reader.read_string_while_and_skip(|chr| chr.is_ascii_digit(), |chr| chr == '_')?;
 					expect_closing_curly_parenthesis(reader)?;
-					//reader.read_char()?;
 					match u32::from_str_radix(&digits, 10) {
 						Ok(escaped_char_value) => match char::from_u32(escaped_char_value) {
 							Some(escaped_char_value) => escaped_char_value,
@@ -219,7 +224,6 @@ fn parse_literal_char(reader: &mut SourceFileReader, is_char_literal: bool) -> R
 				'{' => {
 					let digits = reader.read_string_while_and_skip(|chr| chr.is_ascii_hexdigit(), |chr| chr == '_')?;
 					expect_closing_curly_parenthesis(reader)?;
-					//reader.read_char()?;
 					match u32::from_str_radix(&digits, 16) {
 						Ok(escaped_char_value) => match char::from_u32(escaped_char_value) {
 							Some(escaped_char_value) => escaped_char_value,

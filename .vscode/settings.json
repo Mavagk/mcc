@@ -5,12 +5,14 @@
 		"getchar",
 		"hexdigit",
 		"Multibyte",
+		"Nand",
 		"Nullary",
 		"Peekable",
 		"pointee",
 		"putc",
 		"putchar",
 		"stdint",
-		"tanuki"
+		"tanuki",
+		"Xnor"
 	]
 }
