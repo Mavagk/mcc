@@ -43,7 +43,7 @@ pub enum TanukiTokenVariant {
 	/// Contains the char that has been parsed from a char literal.
 	CharacterLiteral(char),
 	/// Tokenized from an operator literal.
-	Operator(Option<PrefixUnaryOperator>, Option<InfixBinaryOperator>, Option<PostfixUnaryOperator>, Option<InfixTernaryOperator>, Box<str>),
+	Operator(Option<PrefixUnaryOperator>, Option<InfixBinaryOperator>, Option<PostfixUnaryOperator>, Option<InfixTernaryOperator>, Option<NullaryOperator>, Box<str>),
 }
 
 impl Token for TanukiToken {
@@ -91,7 +91,7 @@ impl Token for TanukiToken {
 			}
 			TanukiTokenVariant::StringLiteral(value) => write!(f, "String Literal {value:?}"),
 			TanukiTokenVariant::CharacterLiteral(value) => write!(f, "Character Literal {value:?}"),
-			TanukiTokenVariant::Operator(prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator, _symbol) => {
+			TanukiTokenVariant::Operator(prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator, nullary_operator, _symbol) => {
 				write!(f, "Operator")?;
 				if let Some(prefix_unary_operator) = prefix_unary_operator {
 					write!(f, " Prefix Unary ")?;
@@ -109,6 +109,10 @@ impl Token for TanukiToken {
 					write!(f, " Infix Ternary ")?;
 					infix_ternary_operator.print_name(f)?;
 				}
+				if let Some(nullary_operator) = nullary_operator {
+					write!(f, " Nullary ")?;
+					nullary_operator.print_name(f)?;
+				}
 				Ok(())
 			}
 		}
@@ -123,6 +127,7 @@ impl Debug for TanukiToken {
 
 #[derive(Debug, Clone, Copy)]
 pub enum PrefixUnaryOperator {
+	// Reads an l-value and converts it to an r-value. This operator is a no-op when used on r-values.
 	Read,             // +
 	Not,              // !
 	Roll,             // ?
@@ -296,6 +301,26 @@ impl InfixTernaryOperator {
 	pub fn from_source(source: &str) -> Option<Self> {
 		Some(match source {
 			"?" => Self::NonShortCircuitingConditional,
+			_ => return None,
+		})
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum NullaryOperator {
+	Last,
+}
+
+impl NullaryOperator {
+	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		match &self {
+			Self::Last => write!(f, "Last ^"),
+		}
+	}
+
+	pub fn from_source(source: &str) -> Option<Self> {
+		Some(match source {
+			"^" => Self::Last,
 			_ => return None,
 		})
 	}

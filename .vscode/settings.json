@@ -5,6 +5,7 @@
 		"getchar",
 		"hexdigit",
 		"Multibyte",
+		"Nullary",
 		"Peekable",
 		"pointee",
 		"putc",

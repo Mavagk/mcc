@@ -1,6 +1,6 @@
 use num::{BigUint, Num};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::token::{InfixBinaryOperator, InfixTernaryOperator, Keyword, PostfixUnaryOperator, PrefixUnaryOperator, TanukiToken, TanukiTokenVariant}, source_file_reader::SourceFileReader};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::token::{InfixBinaryOperator, InfixTernaryOperator, Keyword, NullaryOperator, PostfixUnaryOperator, PrefixUnaryOperator, TanukiToken, TanukiTokenVariant}, source_file_reader::SourceFileReader};
 
 pub fn tokenize_token(_main: &mut Main, reader: &mut SourceFileReader) -> Result<Option<TanukiToken>, ErrorAt> {
 	// Strip leading whitespaces
@@ -132,10 +132,11 @@ pub fn tokenize_token(_main: &mut Main, reader: &mut SourceFileReader) -> Result
 				let infix_binary_operator = InfixBinaryOperator::from_source(&name);
 				let postfix_unary_operator = PostfixUnaryOperator::from_source(&name);
 				let infix_ternary_operator = InfixTernaryOperator::from_source(&name);
-				if prefix_unary_operator.is_none() && infix_binary_operator.is_none() && postfix_unary_operator.is_none() && infix_ternary_operator.is_none() {
+				let nullary_operator = NullaryOperator::from_source(&name);
+				if prefix_unary_operator.is_none() && infix_binary_operator.is_none() && postfix_unary_operator.is_none() && infix_ternary_operator.is_none() && nullary_operator.is_none() {
 					return Err(Error::InvalidOperatorSymbol(name).at(Some(start_line), Some(start_column), None));
 				}
-				TanukiTokenVariant::Operator(prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator, name.into_boxed_str())
+				TanukiTokenVariant::Operator(prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator, nullary_operator, name.into_boxed_str())
 			}
 		// TODO: Comments
 		other => return Err(Error::InvalidCharStartingToken(other).at(Some(start_line), Some(start_column), None)),
