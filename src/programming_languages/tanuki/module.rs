@@ -1,8 +1,7 @@
-use std::fmt::{self, Formatter};
+use std::{fmt::{self, Debug, Formatter}, num::NonZeroUsize};
 
-use crate::{Main, error::ErrorAt, programming_languages::{c::module::CModule, tanuki::{expression::TanukiExpression, token::TanukiToken}}, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module}};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::{c::module::CModule, tanuki::{expression::TanukiExpression, token::{TanukiToken, TanukiTokenVariant}}}, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module}};
 
-#[derive(Debug)]
 pub struct TanukiModule {
 	pub expressions: Box<[TanukiExpression]>,
 }
@@ -10,23 +9,30 @@ pub struct TanukiModule {
 impl TanukiModule {
 	/// Parse tokens received from tokenizing a file into a `TanukiModule` containing an AST.
 	pub fn parse(main: &mut Main, token_reader: &mut TokenReader<TanukiToken>) -> Result<Self, ErrorAt> {
+		// Parse expressions until there are none left
 		let mut expressions = Vec::new();
 		while !token_reader.is_empty() {
-			expressions.push(TanukiExpression::parse(main, token_reader)?);
+			// Parse expression
+			if let Some(expression) = TanukiExpression::parse(main, token_reader)? {
+				expressions.push(expression);
+			}
+			// Expect a semicolon
+			if let Some(token) = token_reader.next() && !matches!(token.variant, TanukiTokenVariant::Semicolon) {
+				return Err(Error::ExpectedSemicolon.at(Some(token.start_line), Some(token.start_column), None));
+			}
 		}
 		Ok(Self {
 			expressions: expressions.into_boxed_slice(),
 		})
-		// TODO: Remove , ;
 	}
 }
 
 impl Module for TanukiModule {
-	fn interpreted_execute_entrypoint(&self, _main: &mut crate::Main) -> Result<(), ErrorAt> {
+	fn interpreted_execute_entrypoint(&self, _main: &mut Main) -> Result<(), ErrorAt> {
 		todo!()
 	}
 
-	fn to_c_module(&self, _main: &mut crate::Main, _is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
+	fn to_c_module(&self, _main: &mut Main, _is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
 		todo!()
 	}
 }
@@ -36,7 +42,32 @@ impl AstNode for TanukiModule {
 		write!(f, "Tanuki Module")
 	}
 
-	fn print_sub_nodes(&self, _level: usize, _f: &mut Formatter<'_>) -> fmt::Result {
+	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
+		for expression in &self.expressions {
+			expression.print(level, f)?;
+		}
 		Ok(())
+	}
+
+	fn start_line(&self) -> Option<NonZeroUsize> {
+		Some(self.expressions.first().map(|expression| expression.start_line).unwrap_or(NonZeroUsize::new(1).unwrap()))
+	}
+
+	fn start_column(&self) -> Option<NonZeroUsize> {
+		Some(self.expressions.first().map(|expression| expression.start_column).unwrap_or(NonZeroUsize::new(1).unwrap()))
+	}
+
+	fn end_line(&self) -> Option<NonZeroUsize> {
+		Some(self.expressions.last().map(|expression| expression.end_line).unwrap_or(NonZeroUsize::new(1).unwrap()))
+	}
+
+	fn end_column(&self) -> Option<NonZeroUsize> {
+		Some(self.expressions.last().map(|expression| expression.end_column).unwrap_or(NonZeroUsize::new(1).unwrap()))
+	}
+}
+
+impl Debug for TanukiModule {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		self.print(0, f)
 	}
 }

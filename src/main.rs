@@ -44,6 +44,7 @@ fn main() {
 		//println!("-print-source\t\t\t\t\t\tPrints out each processed source file.");
 		println!("--print-tokens\t\t\t\t\t\tPrints out the tokenized tokens.");
 		println!("--print-ast\t\t\t\t\t\tPrints out the parsed module ASTs.");
+		println!("--stop-after-parse\t\t\t\t\tPrints out the tokenized tokens.");
 		println!("--execute-interpreted\t\t\t\t\tExecute entrypoint modules and do not compile.");
 		println!("--print-c\t\t\t\t\t\tPrint out modules once they have been source to source compiled to C.");
 	}
@@ -70,6 +71,9 @@ fn main() {
 		};
 		// Insert into parsed module list
 		parsed_modules.insert(module_path, module);
+	}
+	if args.do_stop_after_parse {
+		return;
 	}
 	// Execute entrypoint modules if "--execute-interpreted" is set
 	if args.execute_interpreted {

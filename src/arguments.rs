@@ -18,6 +18,7 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 	let mut execute_interpreted = false;
 	let mut is_entrypoint_module = false;
 	let mut optimization_level = None;
+	let mut do_stop_after_parse = false;
 	// Process each argument
 	for arg in args {
 		match parse_state {
@@ -80,6 +81,12 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 							}
 							print_source_to_source_c = true;
 						}
+						"-stop-after-parse" => {
+							if do_stop_after_parse {
+								return Err(Error::RepeatedArgument(arg_str.into()));
+							}
+							do_stop_after_parse = true;
+						}
 						_ if matches!(arg_str.chars().next(), Some('O')) => {
 							if optimization_level.is_some() {
 								return Err(Error::RepeatedArgument(arg_str.into()));
@@ -138,7 +145,7 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 	// Assemble into arguments struct
 	Ok(Arguments {
 		source_files: source_files.into_boxed_slice(), home_directory, output_directory, source_directory, output_file,
-		print_help, print_version, print_source, print_tokens, print_ast, execute_interpreted, print_source_to_source_c,
+		print_help, print_version, print_source, print_tokens, print_ast, execute_interpreted, print_source_to_source_c, do_stop_after_parse,
 		optimization_level,
 	})
 }
@@ -159,6 +166,7 @@ pub struct Arguments {
 	pub execute_interpreted: bool,
 	pub print_source_to_source_c: bool,
 	pub optimization_level: Option<u8>,
+	pub do_stop_after_parse: bool,
 }
 
 enum ParseState {

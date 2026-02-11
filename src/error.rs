@@ -34,6 +34,7 @@ pub enum Error {
 	ExpectedCurlyClosingParenthesis,
 	ExpectedSquareOpeningParenthesis,
 	ExpectedSquareClosingParenthesis,
+	ExpectedSemicolon,
 	InvalidEscapeChars(String),
 	InvalidUnicodeCodePoint,
 	InvalidOperatorSymbol(String),
@@ -82,6 +83,7 @@ impl Display for Error {
 			Self::ExpectedCurlyClosingParenthesis => write!(f, "Expected curly closing parenthesis"),
 			Self::ExpectedSquareOpeningParenthesis => write!(f, "Expected square opening parenthesis"),
 			Self::ExpectedSquareClosingParenthesis => write!(f, "Expected square closing parenthesis"),
+			Self::ExpectedSemicolon => write!(f, "Expected semicolon"),
 			Self::InvalidOperatorSymbol(name) => write!(f, "Invalid operator symbol \"{name}\""),
 			Self::InvalidCharStartingToken(chr) => write!(f, "Invalid char '{chr}' starting token"),
 		}

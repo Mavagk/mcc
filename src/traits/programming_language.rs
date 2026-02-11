@@ -35,6 +35,7 @@ pub trait ProgrammingLanguage<T, M>: Debug where T: Token, M: Module {
 		let token_reader = TokenReader::new(&tokens);
 		let module = Self::parse_tokens(main, token_reader)?;
 		if args.print_ast {
+			println!("AST of {}", filepath.as_os_str().to_string_lossy());
 			println!("{module:?}");
 		}
 		// Return

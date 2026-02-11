@@ -1,15 +1,17 @@
 use crate::traits::token::Token;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub enum MaybeParsedToken<P, U> where U: Token {
+pub enum MaybeParsedToken<P, Q, U> where U: Token {
 	Unparsed(U),
+	PartiallyParsed(Q),
 	Parsed(P),
 }
 
-impl<P, U: Token> MaybeParsedToken<P, U> {
+impl<P, Q, U: Token> MaybeParsedToken<P, Q, U> {
 	pub fn unwrap_parsed(self) -> P {
 		match self {
 			Self::Parsed(parsed) => parsed,
+			Self::PartiallyParsed(..) => panic!("Unwrapped partially parsed token as parsed."),
 			Self::Unparsed(..) => panic!("Unwrapped unparsed token as parsed."),
 		}
 	}
@@ -17,6 +19,7 @@ impl<P, U: Token> MaybeParsedToken<P, U> {
 	pub fn unwrap_unparsed(self) -> U {
 		match self {
 			Self::Unparsed(unparsed) => unparsed,
+			Self::PartiallyParsed(..) => panic!("Unwrapped partially parsed token as unparsed."),
 			Self::Parsed(..) => panic!("Unwrapped parsed token as unparsed."),
 		}
 	}
