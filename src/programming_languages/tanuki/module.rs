@@ -17,8 +17,10 @@ impl TanukiModule {
 				expressions.push(expression);
 			}
 			// Expect a semicolon
-			if let Some(token) = token_reader.next() && !matches!(token.variant, TanukiTokenVariant::Semicolon) {
-				return Err(Error::ExpectedSemicolon.at(Some(token.start_line), Some(token.start_column), None));
+			match token_reader.next() {
+				Some(TanukiToken { variant: TanukiTokenVariant::Semicolon, .. }) => {},
+				Some(TanukiToken { start_line, start_column, .. }) => return Err(Error::ExpectedSemicolon.at(Some(*start_line), Some(*start_column), None)),
+				None => return Err(Error::ExpectedSemicolon.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None)),
 			}
 		}
 		Ok(Self {

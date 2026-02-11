@@ -1,6 +1,6 @@
 use std::{fmt::{self, Formatter}, num::NonZeroUsize};
 
-use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{constant_value::TanukiConstantValue, token::{TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader, traits::{ast_node::AstNode, expression::Expression}};
+use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{constant_value::TanukiConstantValue, token::{PostfixUnaryOperator, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader, traits::{ast_node::AstNode, expression::Expression}};
 
 #[derive(Debug, Clone)]
 pub struct TanukiExpression {
@@ -15,10 +15,30 @@ pub struct TanukiExpression {
 pub enum TanukiExpressionVariant {
 	Constant(TanukiConstantValue),
 	Block { sub_expressions: Box<[TanukiExpression]>, has_return_value: bool },
+	// Unary postfix operators
+	Percent(Box<TanukiExpression>),
+	Factorial(Box<TanukiExpression>),
+	SaturatingFactorial(Box<TanukiExpression>),
+	WrappingFactorial(Box<TanukiExpression>),
+	TryFactorial(Box<TanukiExpression>),
+	PostfixIncrement(Box<TanukiExpression>),
+	PostfixSaturatingIncrement(Box<TanukiExpression>),
+	PostfixWrappingIncrement(Box<TanukiExpression>),
+	PostfixDecrement(Box<TanukiExpression>),
+	PostfixSaturatingDecrement(Box<TanukiExpression>),
+	PostfixWrappingDecrement(Box<TanukiExpression>),
+	TryPropagate(Box<TanukiExpression>),
+	Unwrap(Box<TanukiExpression>),
+	RangeFrom(Box<TanukiExpression>),
 }
 
 impl TanukiExpression {
 	pub fn parse(main: &mut Main, token_reader: &mut TokenReader<TanukiToken>) -> Result<Option<Self>, ErrorAt> {
+		if token_reader.peek().is_none() {
+			return Ok(None);
+		}
+		let expression_start_line = token_reader.peek().unwrap().start_line;
+		let expression_start_column = token_reader.peek().unwrap().start_column;
 		let mut maybe_parsed_tokens: Vec<MaybeParsedToken<TanukiExpression, (), TanukiToken>> = Vec::new();
 		let mut bracket_depth = 0usize;
 		// Loop through all tokens until we reach the end of the expression
@@ -94,18 +114,51 @@ impl TanukiExpression {
 		if maybe_parsed_tokens.is_empty() {
 			return Ok(None);
 		}
+		// Parse postfix operators
+		let mut x = 0;
+		while x < maybe_parsed_tokens.len() - 1 {
+			// Skip if this is not in the order parsed expression, operator, non-parsed_expression
+			if !maybe_parsed_tokens[x].is_parsed() || !matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { .. }, .. })) ||
+				matches!(maybe_parsed_tokens.get(x + 2), Some(token) if token.is_parsed())
+			{
+				x += 1;
+				continue;
+			}
+
+			let operand = maybe_parsed_tokens[x].clone().unwrap_parsed();
+			maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(match maybe_parsed_tokens.remove(x + 1) {
+				MaybeParsedToken::Unparsed(TanukiToken {
+					variant: TanukiTokenVariant::Operator { postfix_unary_operator, symbol, .. }, start_line, start_column, end_line, end_column
+				}) => TanukiExpression { start_line: operand.start_line, start_column: operand.start_column, variant: match postfix_unary_operator {
+					Some(PostfixUnaryOperator::Percent) => TanukiExpressionVariant::Percent(Box::new(operand)),
+					Some(PostfixUnaryOperator::Factorial) => TanukiExpressionVariant::Factorial(Box::new(operand)),
+					Some(PostfixUnaryOperator::SaturatingFactorial) => TanukiExpressionVariant::SaturatingFactorial(Box::new(operand)),
+					Some(PostfixUnaryOperator::WrappingFactorial) => TanukiExpressionVariant::WrappingFactorial(Box::new(operand)),
+					Some(PostfixUnaryOperator::TryFactorial) => TanukiExpressionVariant::TryFactorial(Box::new(operand)),
+					Some(PostfixUnaryOperator::Increment) => TanukiExpressionVariant::PostfixIncrement(Box::new(operand)),
+					Some(PostfixUnaryOperator::SaturatingIncrement) => TanukiExpressionVariant::PostfixSaturatingIncrement(Box::new(operand)),
+					Some(PostfixUnaryOperator::WrappingIncrement) => TanukiExpressionVariant::PostfixWrappingIncrement(Box::new(operand)),
+					Some(PostfixUnaryOperator::Decrement) => TanukiExpressionVariant::PostfixDecrement(Box::new(operand)),
+					Some(PostfixUnaryOperator::SaturatingDecrement) => TanukiExpressionVariant::PostfixSaturatingDecrement(Box::new(operand)),
+					Some(PostfixUnaryOperator::WrappingDecrement) => TanukiExpressionVariant::PostfixWrappingDecrement(Box::new(operand)),
+					Some(PostfixUnaryOperator::TryPropagate) => TanukiExpressionVariant::TryPropagate(Box::new(operand)),
+					Some(PostfixUnaryOperator::Unwrap) => TanukiExpressionVariant::Unwrap(Box::new(operand)),
+					Some(PostfixUnaryOperator::RangeFrom) => TanukiExpressionVariant::RangeFrom(Box::new(operand)),
+					None => return Err(Error::InvalidPostfixUnaryOperator(symbol.into_string()).at(Some(start_line), Some(start_column), None)),
+				}, end_line, end_column },
+				MaybeParsedToken::Unparsed(TanukiToken {
+					variant: _, ..
+				}) => unreachable!(),
+				MaybeParsedToken::PartiallyParsed(..) => todo!(),
+				MaybeParsedToken::Parsed(..) => unreachable!(),
+			});
+		}
+		// There should only be one `MaybeParsedToken`, it should be parsed into an expression
 		if maybe_parsed_tokens.len() == 1 && maybe_parsed_tokens[0].is_parsed() {
 			return Ok(Some(maybe_parsed_tokens.pop().unwrap().unwrap_parsed()))
 		}
 		println!("{maybe_parsed_tokens:?}");
-		// TODO
-		Ok(Some(Self {
-			variant: TanukiExpressionVariant::Block { sub_expressions: [].into(), has_return_value: false},
-			end_column: 1.try_into().unwrap(),
-			end_line: 1.try_into().unwrap(),
-			start_column: 1.try_into().unwrap(),
-			start_line: 1.try_into().unwrap(),
-		}))
+		Err(Error::NotYetImplemented("Parsing some expressions".into()).at(Some(expression_start_line), Some(expression_start_column), None))
 	}
 }
 
@@ -124,6 +177,20 @@ impl AstNode for TanukiExpression {
 				}
 				Ok(())
 			},
+			TanukiExpressionVariant::Percent(..)                    => write!(f, "Percent"),
+			TanukiExpressionVariant::Factorial(..)                  => write!(f, "Factorial"),
+			TanukiExpressionVariant::SaturatingFactorial(..)        => write!(f, "Saturating Factorial"),
+			TanukiExpressionVariant::WrappingFactorial(..)          => write!(f, "Wrapping Factorial"),
+			TanukiExpressionVariant::TryFactorial(..)               => write!(f, "Try Factorial"),
+			TanukiExpressionVariant::PostfixIncrement(..)           => write!(f, "Postfix Increment"),
+			TanukiExpressionVariant::PostfixSaturatingIncrement(..) => write!(f, "Postfix Saturating Increment"),
+			TanukiExpressionVariant::PostfixWrappingIncrement(..)   => write!(f, "Postfix Wrapping Increment"),
+			TanukiExpressionVariant::PostfixDecrement(..)           => write!(f, "Postfix Decrement"),
+			TanukiExpressionVariant::PostfixSaturatingDecrement(..) => write!(f, "Postfix Saturating Decrement"),
+			TanukiExpressionVariant::PostfixWrappingDecrement(..)   => write!(f, "Postfix Wrapping Decrement"),
+			TanukiExpressionVariant::TryPropagate(..)               => write!(f, "Try Propagate"),
+			TanukiExpressionVariant::Unwrap(..)                     => write!(f, "Unwrap"),
+			TanukiExpressionVariant::RangeFrom(..)                  => write!(f, "Range From"),
 		}
 	}
 
@@ -136,6 +203,20 @@ impl AstNode for TanukiExpression {
 				}
 				Ok(())
 			}
+			TanukiExpressionVariant::Percent(sub_expression) |
+			TanukiExpressionVariant::Factorial(sub_expression) |
+			TanukiExpressionVariant::SaturatingFactorial(sub_expression) |
+			TanukiExpressionVariant::WrappingFactorial(sub_expression) |
+			TanukiExpressionVariant::TryFactorial(sub_expression) |
+			TanukiExpressionVariant::PostfixIncrement(sub_expression) |
+			TanukiExpressionVariant::PostfixSaturatingIncrement(sub_expression) |
+			TanukiExpressionVariant::PostfixWrappingIncrement(sub_expression) |
+			TanukiExpressionVariant::PostfixDecrement(sub_expression) |
+			TanukiExpressionVariant::PostfixSaturatingDecrement(sub_expression) |
+			TanukiExpressionVariant::PostfixWrappingDecrement(sub_expression) |
+			TanukiExpressionVariant::TryPropagate(sub_expression) |
+			TanukiExpressionVariant::Unwrap(sub_expression) |
+			TanukiExpressionVariant::RangeFrom(sub_expression) => sub_expression.print(level, f),
 		}
 	}
 

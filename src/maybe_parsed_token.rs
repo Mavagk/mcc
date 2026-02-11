@@ -27,4 +27,8 @@ impl<P, Q, U: Token> MaybeParsedToken<P, Q, U> {
 	pub fn is_parsed(&self) -> bool {
 		matches!(self, Self::Parsed(..))
 	}
+
+	pub fn is_unparsed(&self) -> bool {
+		matches!(self, Self::Unparsed(..))
+	}
 }

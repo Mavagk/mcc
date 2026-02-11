@@ -39,6 +39,7 @@ pub enum Error {
 	InvalidUnicodeCodePoint,
 	InvalidOperatorSymbol(String),
 	InvalidCharStartingToken(char),
+	InvalidPostfixUnaryOperator(String),
 }
 
 impl Error {
@@ -86,6 +87,7 @@ impl Display for Error {
 			Self::ExpectedSemicolon => write!(f, "Expected semicolon"),
 			Self::InvalidOperatorSymbol(name) => write!(f, "Invalid operator symbol \"{name}\""),
 			Self::InvalidCharStartingToken(chr) => write!(f, "Invalid char '{chr}' starting token"),
+			Self::InvalidPostfixUnaryOperator(symbol) => write!(f, "Invalid postfix unary operator {symbol}"),
 		}
 	}
 }
@@ -102,13 +104,13 @@ impl Display for ErrorAt {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		write!(f, "{}", self.error)?;
 		match (self.line, self.column, self.file.clone()) {
-			(Some(line), Some(column), Some(file)) => write!(f, " at \"{file}\":{line}:{column}")?,
-			(Some(line), None,                         Some(file)) => write!(f, " in \"{file}\" on line {line}")?,
-			(None,                       None,                         Some(file)) => write!(f, " in \"{file}\"")?,
+			(Some(line), Some(column), Some(file)) => write!(f, " at {file}:{line}:{column}")?,
+			(Some(line), None,                         Some(file)) => write!(f, " in {file} on line {line}")?,
+			(None,                       None,                         Some(file)) => write!(f, " in {file}")?,
 			(Some(line), Some(column), None              ) => write!(f, " at {line}:{column}")?,
 			(Some(line), None,                         None              ) => write!(f, " on line {line}")?,
 			(None,                       None,                         None              ) => write!(f, "")?,
-			(None,                       Some(column), Some(file)) => write!(f, " in \"{file}\" in column {column}")?,
+			(None,                       Some(column), Some(file)) => write!(f, " in {file} in column {column}")?,
 			(None,                       Some(column), None              ) => write!(f, " in column {column}")?,
 		}
 		Ok(())
