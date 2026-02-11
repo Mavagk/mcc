@@ -4,6 +4,9 @@ use crate::{Main, error::ErrorAt, programming_languages::tanuki::{module::Tanuki
 pub mod module;
 pub mod token;
 pub mod tokenize;
+pub mod parse;
+pub mod expression;
+pub mod constant_value;
 
 #[derive(Debug)]
 pub struct Tanuki {}
@@ -19,7 +22,7 @@ impl ProgrammingLanguage<TanukiToken, TanukiModule> for Tanuki {
 		tokenize_token(main, reader)
 	}
 
-	fn parse_tokens(_main: &mut Main, _token_reader: TokenReader<TanukiToken>) -> Result<TanukiModule, ErrorAt> {
-		todo!()
+	fn parse_tokens(main: &mut Main, mut token_reader: TokenReader<TanukiToken>) -> Result<TanukiModule, ErrorAt> {
+		TanukiModule::parse(main, &mut token_reader)
 	}
 }

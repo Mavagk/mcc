@@ -1,10 +1,24 @@
 use std::fmt::{self, Formatter};
 
-use crate::{error::ErrorAt, programming_languages::c::module::CModule, traits::{ast_node::AstNode, module::Module}};
+use crate::{Main, error::ErrorAt, programming_languages::{c::module::CModule, tanuki::{expression::TanukiExpression, token::TanukiToken}}, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module}};
 
 #[derive(Debug)]
 pub struct TanukiModule {
+	pub expressions: Box<[TanukiExpression]>,
+}
 
+impl TanukiModule {
+	/// Parse tokens received from tokenizing a file into a `TanukiModule` containing an AST.
+	pub fn parse(main: &mut Main, token_reader: &mut TokenReader<TanukiToken>) -> Result<Self, ErrorAt> {
+		let mut expressions = Vec::new();
+		while !token_reader.is_empty() {
+			expressions.push(TanukiExpression::parse(main, token_reader)?);
+		}
+		Ok(Self {
+			expressions: expressions.into_boxed_slice(),
+		})
+		// TODO: Remove , ;
+	}
 }
 
 impl Module for TanukiModule {

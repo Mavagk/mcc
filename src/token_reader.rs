@@ -17,6 +17,10 @@ impl<'a, T: Token> TokenReader<'a, T> {
 			last_taken_token_end_column: None,
 		}
 	}
+
+	pub fn is_empty(&self) -> bool {
+		self.tokens.is_empty()
+	}
 	
 	pub fn peek(&self) -> Option<&T> {
 		self.tokens.get(0)

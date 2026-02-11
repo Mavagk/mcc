@@ -4,6 +4,7 @@ use num::BigUint;
 
 use crate::traits::token::Token;
 
+#[derive(Clone)]
 pub struct TanukiToken {
 	pub variant: TanukiTokenVariant,
 	pub start_line: NonZeroUsize,
