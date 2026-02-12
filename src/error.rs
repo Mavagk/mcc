@@ -40,6 +40,8 @@ pub enum Error {
 	InvalidOperatorSymbol(String),
 	InvalidCharStartingToken(char),
 	InvalidPostfixUnaryOperator(String),
+	InvalidPrefixUnaryOperator(String),
+	InvalidInfixBinaryOperator(String),
 }
 
 impl Error {
@@ -88,6 +90,8 @@ impl Display for Error {
 			Self::InvalidOperatorSymbol(name) => write!(f, "Invalid operator symbol \"{name}\""),
 			Self::InvalidCharStartingToken(chr) => write!(f, "Invalid char '{chr}' starting token"),
 			Self::InvalidPostfixUnaryOperator(symbol) => write!(f, "Invalid postfix unary operator {symbol}"),
+			Self::InvalidPrefixUnaryOperator(symbol) => write!(f, "Invalid prefix unary operator {symbol}"),
+			Self::InvalidInfixBinaryOperator(symbol) => write!(f, "Invalid infix binary operator {symbol}"),
 		}
 	}
 }

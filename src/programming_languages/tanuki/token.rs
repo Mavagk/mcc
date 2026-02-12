@@ -145,7 +145,7 @@ pub enum PrefixUnaryOperator {
 	Read,             // +
 	Not,              // !
 	/// Returns a random number in the 0..x range.
-	Roll,             // ?
+	//Roll,             // ?
 	/// Returns 1. / x, floats only.
 	Reciprocal,       // /
 	BitshiftRightOne, // <<
@@ -203,7 +203,7 @@ impl PrefixUnaryOperator {
 		match &self {
 			Self::Read             => write!(f, "Read +"),
 			Self::Not              => write!(f, "Not !"),
-			Self::Roll             => write!(f, "Roll ?"),
+			//Self::Roll             => write!(f, "Roll ?"),
 			Self::Reciprocal       => write!(f, "Reciprocal /"),
 			Self::BitshiftRightOne => write!(f, "Bitshift Right One >>"),
 			Self::ComplexConjugate => write!(f, "Complex Conjugate |"),
@@ -244,7 +244,7 @@ impl PrefixUnaryOperator {
 		Some(match source {
 			"+"  => Self::Read,
 			"!"  => Self::Not,
-			"?"  => Self::Roll,
+			//"?"  => Self::Roll,
 			"/"  => Self::Reciprocal,
 			">>" => Self::BitshiftRightOne,
 			"|"  => Self::ComplexConjugate,
@@ -628,8 +628,8 @@ pub enum PostfixUnaryOperator {
 
 	TryPropagate, // ?
 	Unwrap,       // .?
-	/// Returns a half open range starting from x.
-	RangeFrom,    // ..
+	// /// Returns a half open range starting from x.
+	//RangeFrom,    // ..
 }
 
 impl PostfixUnaryOperator {
@@ -652,7 +652,7 @@ impl PostfixUnaryOperator {
 
 			Self::TryPropagate => write!(f, "Try Propagate ?"),
 			Self::Unwrap       => write!(f, "Unwrap .?"),
-			Self::RangeFrom    => write!(f, "Range From .."),
+			//Self::RangeFrom    => write!(f, "Range From .."),
 		}
 	}
 
@@ -675,7 +675,7 @@ impl PostfixUnaryOperator {
 
 			"?" => Self::TryPropagate,
 			".?" => Self::Unwrap,
-			".." => Self::RangeFrom,
+			//".." => Self::RangeFrom,
 			
 			_ => return None,
 		})

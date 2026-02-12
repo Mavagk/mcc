@@ -1,6 +1,6 @@
 use std::{fmt::{self, Formatter}, num::NonZeroUsize};
 
-use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{constant_value::TanukiConstantValue, token::{PostfixUnaryOperator, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader, traits::{ast_node::AstNode, expression::Expression}};
+use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{constant_value::TanukiConstantValue, token::{PostfixUnaryOperator, PrefixUnaryOperator, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader, traits::{ast_node::AstNode, expression::Expression}};
 
 #[derive(Debug, Clone)]
 pub struct TanukiExpression {
@@ -29,7 +29,36 @@ pub enum TanukiExpressionVariant {
 	PostfixWrappingDecrement(Box<TanukiExpression>),
 	TryPropagate(Box<TanukiExpression>),
 	Unwrap(Box<TanukiExpression>),
-	RangeFrom(Box<TanukiExpression>),
+	//RangeFrom(Box<TanukiExpression>),
+	Read(Box<TanukiExpression>),
+	Not(Box<TanukiExpression>),
+	Reciprocal(Box<TanukiExpression>),
+	BitshiftRightOne(Box<TanukiExpression>),
+	ComplexConjugate(Box<TanukiExpression>),
+	Signum(Box<TanukiExpression>),
+	Negation(Box<TanukiExpression>),
+	SaturatingNegation(Box<TanukiExpression>),
+	WrappingNegation(Box<TanukiExpression>),
+	TryNegation(Box<TanukiExpression>),
+	Square(Box<TanukiExpression>),
+	SaturatingSquare(Box<TanukiExpression>),
+	WrappingSquare(Box<TanukiExpression>),
+	TrySquare(Box<TanukiExpression>),
+	BitshiftLeftOne(Box<TanukiExpression>),
+	SaturatingBitshiftLeftOne(Box<TanukiExpression>),
+	WrappingBitshiftLeftOne(Box<TanukiExpression>),
+	TryBitshiftLeftOne(Box<TanukiExpression>),
+	PrefixIncrement(Box<TanukiExpression>),
+	PrefixSaturatingIncrement(Box<TanukiExpression>),
+	PrefixWrappingIncrement(Box<TanukiExpression>),
+	PrefixDecrement(Box<TanukiExpression>),
+	PrefixSaturatingDecrement(Box<TanukiExpression>),
+	PrefixWrappingDecrement(Box<TanukiExpression>),
+	AddressOf(Box<TanukiExpression>),
+	Dereference(Box<TanukiExpression>),
+	NthToLast(Box<TanukiExpression>),
+	RangeToExclusive(Box<TanukiExpression>),
+	RangeToInclusive(Box<TanukiExpression>),
 }
 
 impl TanukiExpression {
@@ -118,13 +147,14 @@ impl TanukiExpression {
 		let mut x = 0;
 		while x < maybe_parsed_tokens.len() - 1 {
 			// Skip if this is not in the order parsed expression, operator, non-parsed_expression
-			if !maybe_parsed_tokens[x].is_parsed() || !matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { .. }, .. })) ||
+			if !maybe_parsed_tokens[x].is_parsed() ||
+				!matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { postfix_unary_operator: Some(..), .. }, .. })) ||
 				matches!(maybe_parsed_tokens.get(x + 2), Some(token) if token.is_parsed())
 			{
 				x += 1;
 				continue;
 			}
-
+			// Parse
 			let operand = maybe_parsed_tokens[x].clone().unwrap_parsed();
 			maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(match maybe_parsed_tokens.remove(x + 1) {
 				MaybeParsedToken::Unparsed(TanukiToken {
@@ -143,8 +173,66 @@ impl TanukiExpression {
 					Some(PostfixUnaryOperator::WrappingDecrement) => TanukiExpressionVariant::PostfixWrappingDecrement(Box::new(operand)),
 					Some(PostfixUnaryOperator::TryPropagate) => TanukiExpressionVariant::TryPropagate(Box::new(operand)),
 					Some(PostfixUnaryOperator::Unwrap) => TanukiExpressionVariant::Unwrap(Box::new(operand)),
-					Some(PostfixUnaryOperator::RangeFrom) => TanukiExpressionVariant::RangeFrom(Box::new(operand)),
+					//Some(PostfixUnaryOperator::RangeFrom) => TanukiExpressionVariant::RangeFrom(Box::new(operand)),
 					None => return Err(Error::InvalidPostfixUnaryOperator(symbol.into_string()).at(Some(start_line), Some(start_column), None)),
+				}, end_line, end_column },
+				MaybeParsedToken::Unparsed(TanukiToken {
+					variant: _, ..
+				}) => unreachable!(),
+				MaybeParsedToken::PartiallyParsed(..) => todo!(),
+				MaybeParsedToken::Parsed(..) => unreachable!(),
+			});
+		}
+		// Parse prefix operators
+		let mut x = maybe_parsed_tokens.len().saturating_sub(2);
+		loop {
+			// Skip if this is not in the order parsed expression, operator, non-parsed_expression
+			if !matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { .. }, .. })) ||
+				!maybe_parsed_tokens.get(x + 1).is_some_and(|token| token.is_parsed()) ||
+				(x > 0 && maybe_parsed_tokens[x - 1].is_parsed()) || x == maybe_parsed_tokens.len() - 1
+			{
+				x = match x.checked_sub(1) {
+					Some(x) => x,
+					None => break,
+				};
+				continue;
+			}
+			// Parse
+			let operand = maybe_parsed_tokens.remove(x + 1).unwrap_parsed();
+			maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(match maybe_parsed_tokens[x].clone() {
+				MaybeParsedToken::Unparsed(TanukiToken {
+					variant: TanukiTokenVariant::Operator { prefix_unary_operator, symbol, .. }, start_line, start_column, end_line, end_column
+				}) => TanukiExpression { start_line: operand.start_line, start_column: operand.start_column, variant: match prefix_unary_operator {
+					Some(PrefixUnaryOperator::Read) => TanukiExpressionVariant::Read(Box::new(operand)),
+					Some(PrefixUnaryOperator::Not) => TanukiExpressionVariant::Not(Box::new(operand)),
+					Some(PrefixUnaryOperator::Reciprocal) => TanukiExpressionVariant::Reciprocal(Box::new(operand)),
+					Some(PrefixUnaryOperator::BitshiftRightOne) => TanukiExpressionVariant::BitshiftRightOne(Box::new(operand)),
+					Some(PrefixUnaryOperator::ComplexConjugate) => TanukiExpressionVariant::ComplexConjugate(Box::new(operand)),
+					Some(PrefixUnaryOperator::Signum) => TanukiExpressionVariant::Signum(Box::new(operand)),
+					Some(PrefixUnaryOperator::Negation) => TanukiExpressionVariant::Negation(Box::new(operand)),
+					Some(PrefixUnaryOperator::SaturatingNegation) => TanukiExpressionVariant::SaturatingNegation(Box::new(operand)),
+					Some(PrefixUnaryOperator::WrappingNegation) => TanukiExpressionVariant::WrappingNegation(Box::new(operand)),
+					Some(PrefixUnaryOperator::TryNegation) => TanukiExpressionVariant::TryNegation(Box::new(operand)),
+					Some(PrefixUnaryOperator::Square) => TanukiExpressionVariant::Square(Box::new(operand)),
+					Some(PrefixUnaryOperator::SaturatingSquare) => TanukiExpressionVariant::SaturatingSquare(Box::new(operand)),
+					Some(PrefixUnaryOperator::WrappingSquare) => TanukiExpressionVariant::WrappingSquare(Box::new(operand)),
+					Some(PrefixUnaryOperator::TrySquare) => TanukiExpressionVariant::TrySquare(Box::new(operand)),
+					Some(PrefixUnaryOperator::BitshiftLeftOne) => TanukiExpressionVariant::BitshiftLeftOne(Box::new(operand)),
+					Some(PrefixUnaryOperator::SaturatingBitshiftLeftOne) => TanukiExpressionVariant::SaturatingBitshiftLeftOne(Box::new(operand)),
+					Some(PrefixUnaryOperator::WrappingBitshiftLeftOne) => TanukiExpressionVariant::WrappingBitshiftLeftOne(Box::new(operand)),
+					Some(PrefixUnaryOperator::TryBitshiftLeftOne) => TanukiExpressionVariant::TryBitshiftLeftOne(Box::new(operand)),
+					Some(PrefixUnaryOperator::Increment) => TanukiExpressionVariant::PrefixIncrement(Box::new(operand)),
+					Some(PrefixUnaryOperator::SaturatingIncrement) => TanukiExpressionVariant::PrefixSaturatingIncrement(Box::new(operand)),
+					Some(PrefixUnaryOperator::WrappingIncrement) => TanukiExpressionVariant::PrefixWrappingIncrement(Box::new(operand)),
+					Some(PrefixUnaryOperator::Decrement) => TanukiExpressionVariant::PrefixDecrement(Box::new(operand)),
+					Some(PrefixUnaryOperator::SaturatingDecrement) => TanukiExpressionVariant::PrefixSaturatingDecrement(Box::new(operand)),
+					Some(PrefixUnaryOperator::WrappingDecrement) => TanukiExpressionVariant::PrefixWrappingDecrement(Box::new(operand)),
+					Some(PrefixUnaryOperator::AddressOf) => TanukiExpressionVariant::AddressOf(Box::new(operand)),
+					Some(PrefixUnaryOperator::Dereference) => TanukiExpressionVariant::Dereference(Box::new(operand)),
+					Some(PrefixUnaryOperator::NthToLast) => TanukiExpressionVariant::NthToLast(Box::new(operand)),
+					Some(PrefixUnaryOperator::RangeToExclusive) => TanukiExpressionVariant::RangeToExclusive(Box::new(operand)),
+					Some(PrefixUnaryOperator::RangeToInclusive) => TanukiExpressionVariant::RangeToInclusive(Box::new(operand)),
+					None => return Err(Error::InvalidPrefixUnaryOperator(symbol.into_string()).at(Some(start_line), Some(start_column), None)),
 				}, end_line, end_column },
 				MaybeParsedToken::Unparsed(TanukiToken {
 					variant: _, ..
@@ -190,7 +278,36 @@ impl AstNode for TanukiExpression {
 			TanukiExpressionVariant::PostfixWrappingDecrement(..)   => write!(f, "Postfix Wrapping Decrement"),
 			TanukiExpressionVariant::TryPropagate(..)               => write!(f, "Try Propagate"),
 			TanukiExpressionVariant::Unwrap(..)                     => write!(f, "Unwrap"),
-			TanukiExpressionVariant::RangeFrom(..)                  => write!(f, "Range From"),
+			TanukiExpressionVariant::Read(..)                       => write!(f, "Read"),
+			TanukiExpressionVariant::Not(..)                        => write!(f, "Not"),
+			TanukiExpressionVariant::Reciprocal(..)                 => write!(f, "Reciprocal"),
+			TanukiExpressionVariant::BitshiftRightOne(..)           => write!(f, "Bitshift Right One"),
+			TanukiExpressionVariant::ComplexConjugate(..)           => write!(f, "ComplexConjugate"),
+			TanukiExpressionVariant::Signum(..)                     => write!(f, "Signum"),
+			TanukiExpressionVariant::Negation(..)                   => write!(f, "Negation"),
+			TanukiExpressionVariant::SaturatingNegation(..)         => write!(f, "Saturating Negation"),
+			TanukiExpressionVariant::WrappingNegation(..)           => write!(f, "Wrapping Negation"),
+			TanukiExpressionVariant::TryNegation(..)                => write!(f, "Try Negation"),
+			TanukiExpressionVariant::Square(..)                     => write!(f, "Square"),
+			TanukiExpressionVariant::SaturatingSquare(..)           => write!(f, "Saturating Square"),
+			TanukiExpressionVariant::WrappingSquare(..)             => write!(f, "Wrapping Square"),
+			TanukiExpressionVariant::TrySquare(..)                  => write!(f, "TrySquare"),
+			TanukiExpressionVariant::BitshiftLeftOne(..)            => write!(f, "Bitshift Left One"),
+			TanukiExpressionVariant::SaturatingBitshiftLeftOne(..)  => write!(f, "Saturating Bitshift Left One"),
+			TanukiExpressionVariant::WrappingBitshiftLeftOne(..)    => write!(f, "Wrapping Bitshift Left One"),
+			TanukiExpressionVariant::TryBitshiftLeftOne(..)         => write!(f, "Try Bitshift Left One"),
+			TanukiExpressionVariant::PrefixIncrement(..)            => write!(f, "Prefix Increment"),
+			TanukiExpressionVariant::PrefixSaturatingIncrement(..)  => write!(f, "Prefix Saturating Increment"),
+			TanukiExpressionVariant::PrefixWrappingIncrement(..)    => write!(f, "Prefix Wrapping Increment"),
+			TanukiExpressionVariant::PrefixDecrement(..)            => write!(f, "Prefix Decrement"),
+			TanukiExpressionVariant::PrefixSaturatingDecrement(..)  => write!(f, "Prefix Saturating Decrement"),
+			TanukiExpressionVariant::PrefixWrappingDecrement(..)    => write!(f, "Prefix Wrapping Decrement"),
+			TanukiExpressionVariant::AddressOf(..)                  => write!(f, "Address of"),
+			TanukiExpressionVariant::Dereference(..)                => write!(f, "Dereference"),
+			TanukiExpressionVariant::NthToLast(..)                  => write!(f, "Nth to Last"),
+			TanukiExpressionVariant::RangeToExclusive(..)           => write!(f, "Range to Exclusive"),
+			TanukiExpressionVariant::RangeToInclusive(..)           => write!(f, "Range to Inclusive"),
+			//TanukiExpressionVariant::RangeFrom(..)                  => write!(f, "Range From"),
 		}
 	}
 
@@ -216,7 +333,35 @@ impl AstNode for TanukiExpression {
 			TanukiExpressionVariant::PostfixWrappingDecrement(sub_expression) |
 			TanukiExpressionVariant::TryPropagate(sub_expression) |
 			TanukiExpressionVariant::Unwrap(sub_expression) |
-			TanukiExpressionVariant::RangeFrom(sub_expression) => sub_expression.print(level, f),
+			TanukiExpressionVariant::Read(sub_expression) |
+			TanukiExpressionVariant::Not(sub_expression) |
+			TanukiExpressionVariant::Reciprocal(sub_expression) |
+			TanukiExpressionVariant::BitshiftRightOne(sub_expression) |
+			TanukiExpressionVariant::ComplexConjugate(sub_expression) |
+			TanukiExpressionVariant::Signum(sub_expression) |
+			TanukiExpressionVariant::Negation(sub_expression) |
+			TanukiExpressionVariant::SaturatingNegation(sub_expression) |
+			TanukiExpressionVariant::WrappingNegation(sub_expression) |
+			TanukiExpressionVariant::TryNegation(sub_expression) |
+			TanukiExpressionVariant::Square(sub_expression) |
+			TanukiExpressionVariant::SaturatingSquare(sub_expression) |
+			TanukiExpressionVariant::WrappingSquare(sub_expression) |
+			TanukiExpressionVariant::TrySquare(sub_expression) |
+			TanukiExpressionVariant::BitshiftLeftOne(sub_expression) |
+			TanukiExpressionVariant::SaturatingBitshiftLeftOne(sub_expression) |
+			TanukiExpressionVariant::WrappingBitshiftLeftOne(sub_expression) |
+			TanukiExpressionVariant::TryBitshiftLeftOne(sub_expression) |
+			TanukiExpressionVariant::PrefixIncrement(sub_expression) |
+			TanukiExpressionVariant::PrefixSaturatingIncrement(sub_expression) |
+			TanukiExpressionVariant::PrefixWrappingIncrement(sub_expression) |
+			TanukiExpressionVariant::PrefixDecrement(sub_expression) |
+			TanukiExpressionVariant::PrefixSaturatingDecrement(sub_expression) |
+			TanukiExpressionVariant::PrefixWrappingDecrement(sub_expression) |
+			TanukiExpressionVariant::AddressOf(sub_expression) |
+			TanukiExpressionVariant::Dereference(sub_expression) |
+			TanukiExpressionVariant::NthToLast(sub_expression) |
+			TanukiExpressionVariant::RangeToExclusive(sub_expression) |
+			TanukiExpressionVariant::RangeToInclusive(sub_expression) => sub_expression.print(level, f),
 		}
 	}
 
