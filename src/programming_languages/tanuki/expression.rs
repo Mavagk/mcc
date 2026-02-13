@@ -29,7 +29,7 @@ pub enum TanukiExpressionVariant {
 	PostfixWrappingDecrement(Box<TanukiExpression>),
 	TryPropagate(Box<TanukiExpression>),
 	Unwrap(Box<TanukiExpression>),
-	//RangeFrom(Box<TanukiExpression>),
+	// Unary prefix operators
 	Read(Box<TanukiExpression>),
 	Not(Box<TanukiExpression>),
 	Reciprocal(Box<TanukiExpression>),
@@ -59,6 +59,71 @@ pub enum TanukiExpressionVariant {
 	NthToLast(Box<TanukiExpression>),
 	RangeToExclusive(Box<TanukiExpression>),
 	RangeToInclusive(Box<TanukiExpression>),
+	// Binary infix operators
+	MemberAccess(Box<TanukiExpression>, Box<TanukiExpression>),
+	As(Box<TanukiExpression>, Box<TanukiExpression>),
+	SaturatingAs(Box<TanukiExpression>, Box<TanukiExpression>),
+	WrappingAs(Box<TanukiExpression>, Box<TanukiExpression>),
+	TryAs(Box<TanukiExpression>, Box<TanukiExpression>),
+	Exponent(Box<TanukiExpression>, Box<TanukiExpression>),
+	SaturatingExponent(Box<TanukiExpression>, Box<TanukiExpression>),
+	WrappingExponent(Box<TanukiExpression>, Box<TanukiExpression>),
+	TryExponent(Box<TanukiExpression>, Box<TanukiExpression>),
+	Multiplication(Box<TanukiExpression>, Box<TanukiExpression>),
+	SaturatingMultiplication(Box<TanukiExpression>, Box<TanukiExpression>),
+	WrappingMultiplication(Box<TanukiExpression>, Box<TanukiExpression>),
+	TryMultiplication(Box<TanukiExpression>, Box<TanukiExpression>),
+	Division(Box<TanukiExpression>, Box<TanukiExpression>),
+	SaturatingDivision(Box<TanukiExpression>, Box<TanukiExpression>),
+	WrappingDivision(Box<TanukiExpression>, Box<TanukiExpression>),
+	TryDivision(Box<TanukiExpression>, Box<TanukiExpression>),
+	Modulo(Box<TanukiExpression>, Box<TanukiExpression>),
+	SaturatingModulo(Box<TanukiExpression>, Box<TanukiExpression>),
+	WrappingModulo(Box<TanukiExpression>, Box<TanukiExpression>),
+	TryModulo(Box<TanukiExpression>, Box<TanukiExpression>),
+	Addition(Box<TanukiExpression>, Box<TanukiExpression>),
+	SaturatingAddition(Box<TanukiExpression>, Box<TanukiExpression>),
+	WrappingAddition(Box<TanukiExpression>, Box<TanukiExpression>),
+	TryAddition(Box<TanukiExpression>, Box<TanukiExpression>),
+	Subtraction(Box<TanukiExpression>, Box<TanukiExpression>),
+	SaturatingSubtraction(Box<TanukiExpression>, Box<TanukiExpression>),
+	WrappingSubtraction(Box<TanukiExpression>, Box<TanukiExpression>),
+	TrySubtraction(Box<TanukiExpression>, Box<TanukiExpression>),
+	Concatenate(Box<TanukiExpression>, Box<TanukiExpression>),
+	Append(Box<TanukiExpression>, Box<TanukiExpression>),
+	BitshiftLeft(Box<TanukiExpression>, Box<TanukiExpression>),
+	SaturatingBitshiftLeft(Box<TanukiExpression>, Box<TanukiExpression>),
+	WrappingBitshiftLeft(Box<TanukiExpression>, Box<TanukiExpression>),
+	TryBitshiftLeft(Box<TanukiExpression>, Box<TanukiExpression>),
+	BitshiftRight(Box<TanukiExpression>, Box<TanukiExpression>),
+	ThreeWayCompare(Box<TanukiExpression>, Box<TanukiExpression>),
+	LessThan(Box<TanukiExpression>, Box<TanukiExpression>),
+	LessThanOrEqualTo(Box<TanukiExpression>, Box<TanukiExpression>),
+	GreaterThan(Box<TanukiExpression>, Box<TanukiExpression>),
+	GreaterThanOrEqualTo(Box<TanukiExpression>, Box<TanukiExpression>),
+	Equality(Box<TanukiExpression>, Box<TanukiExpression>),
+	Inequality(Box<TanukiExpression>, Box<TanukiExpression>),
+	ReferenceEquality(Box<TanukiExpression>, Box<TanukiExpression>),
+	ReferenceInequality(Box<TanukiExpression>, Box<TanukiExpression>),
+	NonShortCircuitAnd(Box<TanukiExpression>, Box<TanukiExpression>),
+	NonShortCircuitNand(Box<TanukiExpression>, Box<TanukiExpression>),
+	NonShortCircuitXor(Box<TanukiExpression>, Box<TanukiExpression>),
+	NonShortCircuitXnor(Box<TanukiExpression>, Box<TanukiExpression>),
+	NonShortCircuitOr(Box<TanukiExpression>, Box<TanukiExpression>),
+	NonShortCircuitNor(Box<TanukiExpression>, Box<TanukiExpression>),
+	Minimum(Box<TanukiExpression>, Box<TanukiExpression>),
+	Maximum(Box<TanukiExpression>, Box<TanukiExpression>),
+	Pipe(Box<TanukiExpression>, Box<TanukiExpression>),
+	ShortCircuitAnd(Box<TanukiExpression>, Box<TanukiExpression>),
+	ShortCircuitNand(Box<TanukiExpression>, Box<TanukiExpression>),
+	ShortCircuitXor(Box<TanukiExpression>, Box<TanukiExpression>),
+	ShortCircuitXnor(Box<TanukiExpression>, Box<TanukiExpression>),
+	ShortCircuitOr(Box<TanukiExpression>, Box<TanukiExpression>),
+	ShortCircuitNor(Box<TanukiExpression>, Box<TanukiExpression>),
+	NonShortCircuitingNullCoalescing(Box<TanukiExpression>, Box<TanukiExpression>),
+	ShortCircuitingNullCoalescing(Box<TanukiExpression>, Box<TanukiExpression>),
+	ExclusiveRange(Box<TanukiExpression>, Box<TanukiExpression>),
+	InclusiveRange(Box<TanukiExpression>, Box<TanukiExpression>),
 }
 
 impl TanukiExpression {
@@ -148,7 +213,7 @@ impl TanukiExpression {
 		while x < maybe_parsed_tokens.len() - 1 {
 			// Skip if this is not in the order parsed expression, operator, non-parsed_expression
 			if !maybe_parsed_tokens[x].is_parsed() ||
-				!matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { postfix_unary_operator: Some(..), .. }, .. })) ||
+				!matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { postfix_unary_operator: Some(..), is_assignment: false, .. }, .. })) ||
 				matches!(maybe_parsed_tokens.get(x + 2), Some(token) if token.is_parsed())
 			{
 				x += 1;
@@ -186,8 +251,8 @@ impl TanukiExpression {
 		// Parse prefix operators
 		let mut x = maybe_parsed_tokens.len().saturating_sub(2);
 		loop {
-			// Skip if this is not in the order parsed expression, operator, non-parsed_expression
-			if !matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { .. }, .. })) ||
+			// Skip if this is not in the order parsed expression, operator, non-parsed expression
+			if !matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { is_assignment: false, .. }, .. })) ||
 				!maybe_parsed_tokens.get(x + 1).is_some_and(|token| token.is_parsed()) ||
 				(x > 0 && maybe_parsed_tokens[x - 1].is_parsed()) || x == maybe_parsed_tokens.len() - 1
 			{
@@ -244,25 +309,103 @@ impl TanukiExpression {
 		// Parse infix binary operators
 		for precedence_level in InfixBinaryOperator::PRECEDENCE_LEVELS {
 			let mut x = 0;
-			while x < maybe_parsed_tokens.len() - 2 {
-				// Skip if this is not in the order parsed expression, operator, non-parsed_expression
+			while x < maybe_parsed_tokens.len().saturating_sub(2) {
+				// Skip if this is not in the order parsed expression, operator, parsed expression
 				if !maybe_parsed_tokens[x].is_parsed() ||
-					!matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { .. }, .. })) ||
+					!matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { is_assignment: false, .. }, .. })) ||
 					!maybe_parsed_tokens[x + 2].is_parsed()
 				{
 					x += 1;
 					continue;
 				}
+				// Skip if the operator should not be parsed for this precedence level
+				match &maybe_parsed_tokens[x + 1] {
+					MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { infix_binary_operator, symbol, .. }, start_line, start_column, .. }) => {
+						if infix_binary_operator.is_none() {
+							return Err(Error::InvalidInfixBinaryOperator(symbol.clone().into_string()).at(Some(*start_line), Some(*start_column), None));
+						}
+						if !precedence_level.contains(&infix_binary_operator.unwrap()) {
+							x += 1;
+							continue;
+						}
+					}
+					_ => unreachable!(),
+				}
 				// Parse
+				let lhs = maybe_parsed_tokens[x].clone().unwrap_parsed();
 				let operator = maybe_parsed_tokens.remove(x + 1).unwrap_unparsed();
 				let rhs = maybe_parsed_tokens.remove(x + 1).unwrap_parsed();
 				maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(match operator {
 					TanukiToken {
 						variant: TanukiTokenVariant::Operator { infix_binary_operator, symbol, .. }, start_line: operator_start_line, start_column: operator_start_column, ..
-					} => match infix_binary_operator {
+					} => TanukiExpression { start_line: lhs.start_line, start_column: lhs.start_column, end_line: rhs.end_line, end_column: rhs.end_column, variant: match infix_binary_operator {
+						Some(InfixBinaryOperator::MemberAccess) => TanukiExpressionVariant::MemberAccess(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::As) => TanukiExpressionVariant::As(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::SaturatingAs) => TanukiExpressionVariant::SaturatingAs(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::WrappingAs) => TanukiExpressionVariant::WrappingAs(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::TryAs) => TanukiExpressionVariant::TryAs(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::Exponent) => TanukiExpressionVariant::Exponent(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::SaturatingExponent) => TanukiExpressionVariant::SaturatingExponent(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::WrappingExponent) => TanukiExpressionVariant::WrappingExponent(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::TryExponent) => TanukiExpressionVariant::TryExponent(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::Multiplication) => TanukiExpressionVariant::Multiplication(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::SaturatingMultiplication) => TanukiExpressionVariant::SaturatingMultiplication(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::WrappingMultiplication) => TanukiExpressionVariant::WrappingMultiplication(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::TryMultiplication) => TanukiExpressionVariant::TryMultiplication(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::Division) => TanukiExpressionVariant::Division(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::SaturatingDivision) => TanukiExpressionVariant::SaturatingDivision(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::WrappingDivision) => TanukiExpressionVariant::WrappingDivision(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::TryDivision) => TanukiExpressionVariant::TryDivision(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::Modulo) => TanukiExpressionVariant::Modulo(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::SaturatingModulo) => TanukiExpressionVariant::SaturatingModulo(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::WrappingModulo) => TanukiExpressionVariant::WrappingModulo(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::TryModulo) => TanukiExpressionVariant::TryModulo(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::Addition) => TanukiExpressionVariant::Addition(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::SaturatingAddition) => TanukiExpressionVariant::SaturatingAddition(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::WrappingAddition) => TanukiExpressionVariant::WrappingAddition(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::TryAddition) => TanukiExpressionVariant::TryAddition(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::Subtraction) => TanukiExpressionVariant::Subtraction(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::SaturatingSubtraction) => TanukiExpressionVariant::SaturatingSubtraction(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::WrappingSubtraction) => TanukiExpressionVariant::WrappingSubtraction(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::TrySubtraction) => TanukiExpressionVariant::TrySubtraction(Box::new(lhs), Box::new(rhs)),
+						//Some(InfixBinaryOperator::Concatenate) => TanukiExpressionVariant::Concatenate(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::Append) => TanukiExpressionVariant::Append(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::BitshiftLeft) => TanukiExpressionVariant::BitshiftLeft(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::SaturatingBitshiftLeft) => TanukiExpressionVariant::SaturatingBitshiftLeft(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::WrappingBitshiftLeft) => TanukiExpressionVariant::WrappingBitshiftLeft(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::TryBitshiftLeft) => TanukiExpressionVariant::TryBitshiftLeft(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::BitshiftRight) => TanukiExpressionVariant::BitshiftRight(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::ThreeWayCompare) => TanukiExpressionVariant::ThreeWayCompare(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::LessThan) => TanukiExpressionVariant::LessThan(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::LessThanOrEqualTo) => TanukiExpressionVariant::LessThanOrEqualTo(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::GreaterThan) => TanukiExpressionVariant::GreaterThan(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::GreaterThanOrEqualTo) => TanukiExpressionVariant::GreaterThanOrEqualTo(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::Equality) => TanukiExpressionVariant::Equality(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::Inequality) => TanukiExpressionVariant::Inequality(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::ReferenceEquality) => TanukiExpressionVariant::ReferenceEquality(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::ReferenceInequality) => TanukiExpressionVariant::ReferenceInequality(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::NonShortCircuitAnd) => TanukiExpressionVariant::NonShortCircuitAnd(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::NonShortCircuitNand) => TanukiExpressionVariant::NonShortCircuitNand(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::NonShortCircuitXor) => TanukiExpressionVariant::NonShortCircuitXor(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::NonShortCircuitXnor) => TanukiExpressionVariant::NonShortCircuitXnor(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::NonShortCircuitOr) => TanukiExpressionVariant::NonShortCircuitOr(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::NonShortCircuitNor) => TanukiExpressionVariant::NonShortCircuitNor(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::Minimum) => TanukiExpressionVariant::Minimum(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::Maximum) => TanukiExpressionVariant::Maximum(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::Pipe) => TanukiExpressionVariant::Pipe(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::ShortCircuitAnd) => TanukiExpressionVariant::ShortCircuitAnd(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::ShortCircuitNand) => TanukiExpressionVariant::ShortCircuitNand(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::ShortCircuitXor) => TanukiExpressionVariant::ShortCircuitXor(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::ShortCircuitXnor) => TanukiExpressionVariant::ShortCircuitXnor(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::ShortCircuitOr) => TanukiExpressionVariant::ShortCircuitOr(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::ShortCircuitNor) => TanukiExpressionVariant::ShortCircuitNor(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::NonShortCircuitingNullCoalescing) => TanukiExpressionVariant::NonShortCircuitingNullCoalescing(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::ShortCircuitingNullCoalescing) => TanukiExpressionVariant::ShortCircuitingNullCoalescing(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::ExclusiveRange) => TanukiExpressionVariant::ExclusiveRange(Box::new(lhs), Box::new(rhs)),
+						Some(InfixBinaryOperator::InclusiveRange) => TanukiExpressionVariant::InclusiveRange(Box::new(lhs), Box::new(rhs)),
 						None => return Err(Error::InvalidInfixBinaryOperator(symbol.into_string()).at(Some(operator_start_line), Some(operator_start_column), None)),
 						_ => todo!(),
-					},
+					}},
 					_ => unreachable!()
 				});
 			}
@@ -291,49 +434,113 @@ impl AstNode for TanukiExpression {
 				}
 				Ok(())
 			},
-			TanukiExpressionVariant::Percent(..)                    => write!(f, "Percent"),
-			TanukiExpressionVariant::Factorial(..)                  => write!(f, "Factorial"),
-			TanukiExpressionVariant::SaturatingFactorial(..)        => write!(f, "Saturating Factorial"),
-			TanukiExpressionVariant::WrappingFactorial(..)          => write!(f, "Wrapping Factorial"),
-			TanukiExpressionVariant::TryFactorial(..)               => write!(f, "Try Factorial"),
-			TanukiExpressionVariant::PostfixIncrement(..)           => write!(f, "Postfix Increment"),
-			TanukiExpressionVariant::PostfixSaturatingIncrement(..) => write!(f, "Postfix Saturating Increment"),
-			TanukiExpressionVariant::PostfixWrappingIncrement(..)   => write!(f, "Postfix Wrapping Increment"),
-			TanukiExpressionVariant::PostfixDecrement(..)           => write!(f, "Postfix Decrement"),
-			TanukiExpressionVariant::PostfixSaturatingDecrement(..) => write!(f, "Postfix Saturating Decrement"),
-			TanukiExpressionVariant::PostfixWrappingDecrement(..)   => write!(f, "Postfix Wrapping Decrement"),
-			TanukiExpressionVariant::TryPropagate(..)               => write!(f, "Try Propagate"),
-			TanukiExpressionVariant::Unwrap(..)                     => write!(f, "Unwrap"),
-			TanukiExpressionVariant::Read(..)                       => write!(f, "Read"),
-			TanukiExpressionVariant::Not(..)                        => write!(f, "Not"),
-			TanukiExpressionVariant::Reciprocal(..)                 => write!(f, "Reciprocal"),
-			TanukiExpressionVariant::BitshiftRightOne(..)           => write!(f, "Bitshift Right One"),
-			TanukiExpressionVariant::ComplexConjugate(..)           => write!(f, "ComplexConjugate"),
-			TanukiExpressionVariant::Signum(..)                     => write!(f, "Signum"),
-			TanukiExpressionVariant::Negation(..)                   => write!(f, "Negation"),
-			TanukiExpressionVariant::SaturatingNegation(..)         => write!(f, "Saturating Negation"),
-			TanukiExpressionVariant::WrappingNegation(..)           => write!(f, "Wrapping Negation"),
-			TanukiExpressionVariant::TryNegation(..)                => write!(f, "Try Negation"),
-			TanukiExpressionVariant::Square(..)                     => write!(f, "Square"),
-			TanukiExpressionVariant::SaturatingSquare(..)           => write!(f, "Saturating Square"),
-			TanukiExpressionVariant::WrappingSquare(..)             => write!(f, "Wrapping Square"),
-			TanukiExpressionVariant::TrySquare(..)                  => write!(f, "TrySquare"),
-			TanukiExpressionVariant::BitshiftLeftOne(..)            => write!(f, "Bitshift Left One"),
-			TanukiExpressionVariant::SaturatingBitshiftLeftOne(..)  => write!(f, "Saturating Bitshift Left One"),
-			TanukiExpressionVariant::WrappingBitshiftLeftOne(..)    => write!(f, "Wrapping Bitshift Left One"),
-			TanukiExpressionVariant::TryBitshiftLeftOne(..)         => write!(f, "Try Bitshift Left One"),
-			TanukiExpressionVariant::PrefixIncrement(..)            => write!(f, "Prefix Increment"),
-			TanukiExpressionVariant::PrefixSaturatingIncrement(..)  => write!(f, "Prefix Saturating Increment"),
-			TanukiExpressionVariant::PrefixWrappingIncrement(..)    => write!(f, "Prefix Wrapping Increment"),
-			TanukiExpressionVariant::PrefixDecrement(..)            => write!(f, "Prefix Decrement"),
-			TanukiExpressionVariant::PrefixSaturatingDecrement(..)  => write!(f, "Prefix Saturating Decrement"),
-			TanukiExpressionVariant::PrefixWrappingDecrement(..)    => write!(f, "Prefix Wrapping Decrement"),
-			TanukiExpressionVariant::AddressOf(..)                  => write!(f, "Address of"),
-			TanukiExpressionVariant::Dereference(..)                => write!(f, "Dereference"),
-			TanukiExpressionVariant::NthToLast(..)                  => write!(f, "Nth to Last"),
-			TanukiExpressionVariant::RangeToExclusive(..)           => write!(f, "Range to Exclusive"),
-			TanukiExpressionVariant::RangeToInclusive(..)           => write!(f, "Range to Inclusive"),
+			TanukiExpressionVariant::Percent(..)                          => write!(f, "Percent"),
+			TanukiExpressionVariant::Factorial(..)                        => write!(f, "Factorial"),
+			TanukiExpressionVariant::SaturatingFactorial(..)              => write!(f, "Saturating Factorial"),
+			TanukiExpressionVariant::WrappingFactorial(..)                => write!(f, "Wrapping Factorial"),
+			TanukiExpressionVariant::TryFactorial(..)                     => write!(f, "Try Factorial"),
+			TanukiExpressionVariant::PostfixIncrement(..)                 => write!(f, "Postfix Increment"),
+			TanukiExpressionVariant::PostfixSaturatingIncrement(..)       => write!(f, "Postfix Saturating Increment"),
+			TanukiExpressionVariant::PostfixWrappingIncrement(..)         => write!(f, "Postfix Wrapping Increment"),
+			TanukiExpressionVariant::PostfixDecrement(..)                 => write!(f, "Postfix Decrement"),
+			TanukiExpressionVariant::PostfixSaturatingDecrement(..)       => write!(f, "Postfix Saturating Decrement"),
+			TanukiExpressionVariant::PostfixWrappingDecrement(..)         => write!(f, "Postfix Wrapping Decrement"),
+			TanukiExpressionVariant::TryPropagate(..)                     => write!(f, "Try Propagate"),
+			TanukiExpressionVariant::Unwrap(..)                           => write!(f, "Unwrap"),
+			TanukiExpressionVariant::Read(..)                             => write!(f, "Read"),
+			TanukiExpressionVariant::Not(..)                              => write!(f, "Not"),
+			TanukiExpressionVariant::Reciprocal(..)                       => write!(f, "Reciprocal"),
+			TanukiExpressionVariant::BitshiftRightOne(..)                 => write!(f, "Bitshift Right One"),
+			TanukiExpressionVariant::ComplexConjugate(..)                 => write!(f, "ComplexConjugate"),
+			TanukiExpressionVariant::Signum(..)                           => write!(f, "Signum"),
+			TanukiExpressionVariant::Negation(..)                         => write!(f, "Negation"),
+			TanukiExpressionVariant::SaturatingNegation(..)               => write!(f, "Saturating Negation"),
+			TanukiExpressionVariant::WrappingNegation(..)                 => write!(f, "Wrapping Negation"),
+			TanukiExpressionVariant::TryNegation(..)                      => write!(f, "Try Negation"),
+			TanukiExpressionVariant::Square(..)                           => write!(f, "Square"),
+			TanukiExpressionVariant::SaturatingSquare(..)                 => write!(f, "Saturating Square"),
+			TanukiExpressionVariant::WrappingSquare(..)                   => write!(f, "Wrapping Square"),
+			TanukiExpressionVariant::TrySquare(..)                        => write!(f, "TrySquare"),
+			TanukiExpressionVariant::BitshiftLeftOne(..)                  => write!(f, "Bitshift Left One"),
+			TanukiExpressionVariant::SaturatingBitshiftLeftOne(..)        => write!(f, "Saturating Bitshift Left One"),
+			TanukiExpressionVariant::WrappingBitshiftLeftOne(..)          => write!(f, "Wrapping Bitshift Left One"),
+			TanukiExpressionVariant::TryBitshiftLeftOne(..)               => write!(f, "Try Bitshift Left One"),
+			TanukiExpressionVariant::PrefixIncrement(..)                  => write!(f, "Prefix Increment"),
+			TanukiExpressionVariant::PrefixSaturatingIncrement(..)        => write!(f, "Prefix Saturating Increment"),
+			TanukiExpressionVariant::PrefixWrappingIncrement(..)          => write!(f, "Prefix Wrapping Increment"),
+			TanukiExpressionVariant::PrefixDecrement(..)                  => write!(f, "Prefix Decrement"),
+			TanukiExpressionVariant::PrefixSaturatingDecrement(..)        => write!(f, "Prefix Saturating Decrement"),
+			TanukiExpressionVariant::PrefixWrappingDecrement(..)          => write!(f, "Prefix Wrapping Decrement"),
+			TanukiExpressionVariant::AddressOf(..)                        => write!(f, "Address of"),
+			TanukiExpressionVariant::Dereference(..)                      => write!(f, "Dereference"),
+			TanukiExpressionVariant::NthToLast(..)                        => write!(f, "Nth to Last"),
+			TanukiExpressionVariant::RangeToExclusive(..)                 => write!(f, "Range to Exclusive"),
+			TanukiExpressionVariant::RangeToInclusive(..)                 => write!(f, "Range to Inclusive"),
 			//TanukiExpressionVariant::RangeFrom(..)                  => write!(f, "Range From"),
+			TanukiExpressionVariant::MemberAccess(..)                     => write!(f, "Member Access"),
+			TanukiExpressionVariant::As(..)                               => write!(f, "As"),
+			TanukiExpressionVariant::SaturatingAs(..)                     => write!(f, "Saturating As"),
+			TanukiExpressionVariant::WrappingAs(..)                       => write!(f, "Wrapping As"),
+			TanukiExpressionVariant::TryAs(..)                            => write!(f, "Try As"),
+			TanukiExpressionVariant::Exponent(..)                         => write!(f, "Exponent"),
+			TanukiExpressionVariant::SaturatingExponent(..)               => write!(f, "Saturating Exponent"),
+			TanukiExpressionVariant::WrappingExponent(..)                 => write!(f, "Wrapping Exponent"),
+			TanukiExpressionVariant::TryExponent(..)                      => write!(f, "Try Exponent"),
+			TanukiExpressionVariant::Multiplication(..)                   => write!(f, "Multiplication"),
+			TanukiExpressionVariant::SaturatingMultiplication(..)         => write!(f, "Saturating Multiplication"),
+			TanukiExpressionVariant::WrappingMultiplication(..)           => write!(f, "Wrapping Multiplication"),
+			TanukiExpressionVariant::TryMultiplication(..)                => write!(f, "Try Multiplication"),
+			TanukiExpressionVariant::Division(..)                         => write!(f, "Division"),
+			TanukiExpressionVariant::SaturatingDivision(..)               => write!(f, "Saturating Division"),
+			TanukiExpressionVariant::WrappingDivision(..)                 => write!(f, "Wrapping Division"),
+			TanukiExpressionVariant::TryDivision(..)                      => write!(f, "Try Division"),
+			TanukiExpressionVariant::Modulo(..)                           => write!(f, "Modulo"),
+			TanukiExpressionVariant::SaturatingModulo(..)                 => write!(f, "Saturating Modulo"),
+			TanukiExpressionVariant::WrappingModulo(..)                   => write!(f, "Wrapping Modulo"),
+			TanukiExpressionVariant::TryModulo(..)                        => write!(f, "Try Modulo"),
+			TanukiExpressionVariant::Addition(..)                         => write!(f, "Addition"),
+			TanukiExpressionVariant::SaturatingAddition(..)               => write!(f, "Saturating Addition"),
+			TanukiExpressionVariant::WrappingAddition(..)                 => write!(f, "Wrapping Addition"),
+			TanukiExpressionVariant::TryAddition(..)                      => write!(f, "Try Addition"),
+			TanukiExpressionVariant::Subtraction(..)                      => write!(f, "Subtraction"),
+			TanukiExpressionVariant::SaturatingSubtraction(..)            => write!(f, "Saturating Subtraction"),
+			TanukiExpressionVariant::WrappingSubtraction(..)              => write!(f, "Wrapping Subtraction"),
+			TanukiExpressionVariant::TrySubtraction(..)                   => write!(f, "Try Subtraction"),
+			TanukiExpressionVariant::Concatenate(..)                      => write!(f, "Concatenate"),
+			TanukiExpressionVariant::Append(..)                           => write!(f, "Append"),
+			TanukiExpressionVariant::BitshiftLeft(..)                     => write!(f, "Bitshift Left"),
+			TanukiExpressionVariant::SaturatingBitshiftLeft(..)           => write!(f, "Saturating Bitshift Left"),
+			TanukiExpressionVariant::WrappingBitshiftLeft(..)             => write!(f, "Wrapping Bitshift Left"),
+			TanukiExpressionVariant::TryBitshiftLeft(..)                  => write!(f, "Try Bitshift Left"),
+			TanukiExpressionVariant::BitshiftRight(..)                    => write!(f, "Bitshift Right"),
+			TanukiExpressionVariant::ThreeWayCompare(..)                  => write!(f, "Three Way Compare"),
+			TanukiExpressionVariant::LessThan(..)                         => write!(f, "Less Than"),
+			TanukiExpressionVariant::LessThanOrEqualTo(..)                => write!(f, "Less Than or Equal to"),
+			TanukiExpressionVariant::GreaterThan(..)                      => write!(f, "Greater Than"),
+			TanukiExpressionVariant::GreaterThanOrEqualTo(..)             => write!(f, "Greater Than or Equal to"),
+			TanukiExpressionVariant::Equality(..)                         => write!(f, "Equality"),
+			TanukiExpressionVariant::Inequality(..)                       => write!(f, "Inequality"),
+			TanukiExpressionVariant::ReferenceEquality(..)                => write!(f, "Reference Equality"),
+			TanukiExpressionVariant::ReferenceInequality(..)              => write!(f, "Reference Inequality"),
+			TanukiExpressionVariant::NonShortCircuitAnd(..)               => write!(f, "Non Short Circuit And"),
+			TanukiExpressionVariant::NonShortCircuitNand(..)              => write!(f, "Non Short Circuit Nand"),
+			TanukiExpressionVariant::NonShortCircuitXor(..)               => write!(f, "Non Short Circuit Xor"),
+			TanukiExpressionVariant::NonShortCircuitXnor(..)              => write!(f, "Non Short Circuit Xnor"),
+			TanukiExpressionVariant::NonShortCircuitOr(..)                => write!(f, "Non Short Circuit Or"),
+			TanukiExpressionVariant::NonShortCircuitNor(..)               => write!(f, "Non Short Circuit Nor"),
+			TanukiExpressionVariant::Minimum(..)                          => write!(f, "Minimum"),
+			TanukiExpressionVariant::Maximum(..)                          => write!(f, "Maximum"),
+			TanukiExpressionVariant::Pipe(..)                             => write!(f, "Pipe"),
+			TanukiExpressionVariant::ShortCircuitAnd(..)                  => write!(f, "Short Circuit And"),
+			TanukiExpressionVariant::ShortCircuitNand(..)                 => write!(f, "Short Circuit Nand"),
+			TanukiExpressionVariant::ShortCircuitXor(..)                  => write!(f, "Short Circuit Xor"),
+			TanukiExpressionVariant::ShortCircuitXnor(..)                 => write!(f, "Short Circuit Xnor"),
+			TanukiExpressionVariant::ShortCircuitOr(..)                   => write!(f, "Short Circuit Or"),
+			TanukiExpressionVariant::ShortCircuitNor(..)                  => write!(f, "Short Circuit Nor"),
+			TanukiExpressionVariant::NonShortCircuitingNullCoalescing(..) => write!(f, "Non Short Circuiting Null Coalescing"),
+			TanukiExpressionVariant::ShortCircuitingNullCoalescing(..)    => write!(f, "Short Circuiting Null Coalescing"),
+			TanukiExpressionVariant::ExclusiveRange(..)                   => write!(f, "Exclusive Range"),
+			TanukiExpressionVariant::InclusiveRange(..)                   => write!(f, "Inclusive Range"),
 		}
 	}
 
@@ -388,6 +595,73 @@ impl AstNode for TanukiExpression {
 			TanukiExpressionVariant::NthToLast(sub_expression) |
 			TanukiExpressionVariant::RangeToExclusive(sub_expression) |
 			TanukiExpressionVariant::RangeToInclusive(sub_expression) => sub_expression.print(level, f),
+			TanukiExpressionVariant::MemberAccess(lhs, rhs) |
+			TanukiExpressionVariant::As(lhs, rhs) |
+			TanukiExpressionVariant::SaturatingAs(lhs, rhs) |
+			TanukiExpressionVariant::WrappingAs(lhs, rhs) |
+			TanukiExpressionVariant::TryAs(lhs, rhs) |
+			TanukiExpressionVariant::Exponent(lhs, rhs) |
+			TanukiExpressionVariant::SaturatingExponent(lhs, rhs) |
+			TanukiExpressionVariant::WrappingExponent(lhs, rhs) |
+			TanukiExpressionVariant::TryExponent(lhs, rhs) |
+			TanukiExpressionVariant::Multiplication(lhs, rhs) |
+			TanukiExpressionVariant::SaturatingMultiplication(lhs, rhs) |
+			TanukiExpressionVariant::WrappingMultiplication(lhs, rhs) |
+			TanukiExpressionVariant::TryMultiplication(lhs, rhs) |
+			TanukiExpressionVariant::Division(lhs, rhs) |
+			TanukiExpressionVariant::SaturatingDivision(lhs, rhs) |
+			TanukiExpressionVariant::WrappingDivision(lhs, rhs) |
+			TanukiExpressionVariant::TryDivision(lhs, rhs) |
+			TanukiExpressionVariant::Modulo(lhs, rhs) |
+			TanukiExpressionVariant::SaturatingModulo(lhs, rhs) |
+			TanukiExpressionVariant::WrappingModulo(lhs, rhs) |
+			TanukiExpressionVariant::TryModulo(lhs, rhs) |
+			TanukiExpressionVariant::Addition(lhs, rhs) |
+			TanukiExpressionVariant::SaturatingAddition(lhs, rhs) |
+			TanukiExpressionVariant::WrappingAddition(lhs, rhs) |
+			TanukiExpressionVariant::TryAddition(lhs, rhs) |
+			TanukiExpressionVariant::Subtraction(lhs, rhs) |
+			TanukiExpressionVariant::SaturatingSubtraction(lhs, rhs) |
+			TanukiExpressionVariant::WrappingSubtraction(lhs, rhs) |
+			TanukiExpressionVariant::TrySubtraction(lhs, rhs) |
+			TanukiExpressionVariant::Concatenate(lhs, rhs) |
+			TanukiExpressionVariant::Append(lhs, rhs) |
+			TanukiExpressionVariant::BitshiftLeft(lhs, rhs) |
+			TanukiExpressionVariant::SaturatingBitshiftLeft(lhs, rhs) |
+			TanukiExpressionVariant::WrappingBitshiftLeft(lhs, rhs) |
+			TanukiExpressionVariant::TryBitshiftLeft(lhs, rhs) |
+			TanukiExpressionVariant::BitshiftRight(lhs, rhs) |
+			TanukiExpressionVariant::ThreeWayCompare(lhs, rhs) |
+			TanukiExpressionVariant::LessThan(lhs, rhs) |
+			TanukiExpressionVariant::LessThanOrEqualTo(lhs, rhs) |
+			TanukiExpressionVariant::GreaterThan(lhs, rhs) |
+			TanukiExpressionVariant::GreaterThanOrEqualTo(lhs, rhs) |
+			TanukiExpressionVariant::Equality(lhs, rhs) |
+			TanukiExpressionVariant::Inequality(lhs, rhs) |
+			TanukiExpressionVariant::ReferenceEquality(lhs, rhs) |
+			TanukiExpressionVariant::ReferenceInequality(lhs, rhs) |
+			TanukiExpressionVariant::NonShortCircuitAnd(lhs, rhs) |
+			TanukiExpressionVariant::NonShortCircuitNand(lhs, rhs) |
+			TanukiExpressionVariant::NonShortCircuitXor(lhs, rhs) |
+			TanukiExpressionVariant::NonShortCircuitXnor(lhs, rhs) |
+			TanukiExpressionVariant::NonShortCircuitOr(lhs, rhs) |
+			TanukiExpressionVariant::NonShortCircuitNor(lhs, rhs) |
+			TanukiExpressionVariant::Minimum(lhs, rhs) |
+			TanukiExpressionVariant::Maximum(lhs, rhs) |
+			TanukiExpressionVariant::Pipe(lhs, rhs) |
+			TanukiExpressionVariant::ShortCircuitAnd(lhs, rhs) |
+			TanukiExpressionVariant::ShortCircuitNand(lhs, rhs) |
+			TanukiExpressionVariant::ShortCircuitXor(lhs, rhs) |
+			TanukiExpressionVariant::ShortCircuitXnor(lhs, rhs) |
+			TanukiExpressionVariant::ShortCircuitOr(lhs, rhs) |
+			TanukiExpressionVariant::ShortCircuitNor(lhs, rhs) |
+			TanukiExpressionVariant::NonShortCircuitingNullCoalescing(lhs, rhs) |
+			TanukiExpressionVariant::ShortCircuitingNullCoalescing(lhs, rhs) |
+			TanukiExpressionVariant::ExclusiveRange(lhs, rhs) |
+			TanukiExpressionVariant::InclusiveRange(lhs, rhs) => {
+				lhs.print(level, f)?;
+				rhs.print(level, f)
+			}
 		}
 	}
 

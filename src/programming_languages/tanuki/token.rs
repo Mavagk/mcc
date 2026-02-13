@@ -282,7 +282,7 @@ impl PrefixUnaryOperator {
 	}
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InfixBinaryOperator {
 	/// The operator variant of the `operator`
 	None,
@@ -335,7 +335,7 @@ pub enum InfixBinaryOperator {
 
 	// 105 // TODO: Maybe different precedence
 
-	Concatenate, // ++
+	//Concatenate, // ++
 	Append,      // +++
 
 	// 106
@@ -458,7 +458,7 @@ impl InfixBinaryOperator {
 			Self::WrappingSubtraction   => write!(f, "Wrapping Subtraction -%"),
 			Self::TrySubtraction        => write!(f, "Try Subtraction -?"),
 
-			Self::Concatenate => write!(f, "Concatenate ++"),
+			//Self::Concatenate => write!(f, "Concatenate ++"),
 			Self::Append      => write!(f, "Append +++"),
 
 			Self::BitshiftLeft           => write!(f, "Bitshift Left <<"),
@@ -552,7 +552,7 @@ impl InfixBinaryOperator {
 			"-%" => Self::WrappingSubtraction,
 			"-?" => Self::TrySubtraction,
 
-			"++"  => Self::Concatenate,
+			//"++"  => Self::Concatenate,
 			"+++" => Self::Append,
 
 			"<<"  => Self::BitshiftLeft,
