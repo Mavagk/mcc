@@ -1,6 +1,6 @@
 use std::{fmt::{self, Formatter}, num::NonZeroUsize};
 
-use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{constant_value::TanukiConstantValue, token::{PostfixUnaryOperator, PrefixUnaryOperator, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader, traits::{ast_node::AstNode, expression::Expression}};
+use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{constant_value::TanukiConstantValue, token::{InfixBinaryOperator, PostfixUnaryOperator, PrefixUnaryOperator, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader, traits::{ast_node::AstNode, expression::Expression}};
 
 #[derive(Debug, Clone)]
 pub struct TanukiExpression {
@@ -201,8 +201,8 @@ impl TanukiExpression {
 			let operand = maybe_parsed_tokens.remove(x + 1).unwrap_parsed();
 			maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(match maybe_parsed_tokens[x].clone() {
 				MaybeParsedToken::Unparsed(TanukiToken {
-					variant: TanukiTokenVariant::Operator { prefix_unary_operator, symbol, .. }, start_line, start_column, end_line, end_column
-				}) => TanukiExpression { start_line: operand.start_line, start_column: operand.start_column, variant: match prefix_unary_operator {
+					variant: TanukiTokenVariant::Operator { prefix_unary_operator, symbol, .. }, start_line, start_column, ..
+				}) => TanukiExpression { end_line: operand.end_line, end_column: operand.end_column, variant: match prefix_unary_operator {
 					Some(PrefixUnaryOperator::Read) => TanukiExpressionVariant::Read(Box::new(operand)),
 					Some(PrefixUnaryOperator::Not) => TanukiExpressionVariant::Not(Box::new(operand)),
 					Some(PrefixUnaryOperator::Reciprocal) => TanukiExpressionVariant::Reciprocal(Box::new(operand)),
@@ -233,13 +233,39 @@ impl TanukiExpression {
 					Some(PrefixUnaryOperator::RangeToExclusive) => TanukiExpressionVariant::RangeToExclusive(Box::new(operand)),
 					Some(PrefixUnaryOperator::RangeToInclusive) => TanukiExpressionVariant::RangeToInclusive(Box::new(operand)),
 					None => return Err(Error::InvalidPrefixUnaryOperator(symbol.into_string()).at(Some(start_line), Some(start_column), None)),
-				}, end_line, end_column },
+				}, start_line, start_column },
 				MaybeParsedToken::Unparsed(TanukiToken {
 					variant: _, ..
 				}) => unreachable!(),
 				MaybeParsedToken::PartiallyParsed(..) => todo!(),
 				MaybeParsedToken::Parsed(..) => unreachable!(),
 			});
+		}
+		// Parse infix binary operators
+		for precedence_level in InfixBinaryOperator::PRECEDENCE_LEVELS {
+			let mut x = 0;
+			while x < maybe_parsed_tokens.len() - 2 {
+				// Skip if this is not in the order parsed expression, operator, non-parsed_expression
+				if !maybe_parsed_tokens[x].is_parsed() ||
+					!matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { .. }, .. })) ||
+					!maybe_parsed_tokens[x + 2].is_parsed()
+				{
+					x += 1;
+					continue;
+				}
+				// Parse
+				let operator = maybe_parsed_tokens.remove(x + 1).unwrap_unparsed();
+				let rhs = maybe_parsed_tokens.remove(x + 1).unwrap_parsed();
+				maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(match operator {
+					TanukiToken {
+						variant: TanukiTokenVariant::Operator { infix_binary_operator, symbol, .. }, start_line: operator_start_line, start_column: operator_start_column, ..
+					} => match infix_binary_operator {
+						None => return Err(Error::InvalidInfixBinaryOperator(symbol.into_string()).at(Some(operator_start_line), Some(operator_start_column), None)),
+						_ => todo!(),
+					},
+					_ => unreachable!()
+				});
+			}
 		}
 		// There should only be one `MaybeParsedToken`, it should be parsed into an expression
 		if maybe_parsed_tokens.len() == 1 && maybe_parsed_tokens[0].is_parsed() {

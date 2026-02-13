@@ -601,6 +601,32 @@ impl InfixBinaryOperator {
 			_ => return None,
 		})
 	}
+
+	pub const PRECEDENCE_LEVELS: &'static[&'static[Self]; 19] = &[
+		&[Self::As, Self::SaturatingAs, Self::WrappingAs, Self::TryAs],
+		&[Self::Exponent, Self::SaturatingExponent, Self::WrappingExponent, Self::TryExponent],
+		&[
+			Self::Multiplication, Self::SaturatingMultiplication, Self::WrappingMultiplication, Self::TryMultiplication,
+			Self::Division,       Self::SaturatingDivision,       Self::WrappingDivision,       Self::TryDivision,
+			Self::Modulo,         Self::SaturatingModulo,         Self::WrappingModulo,         Self::TryModulo,
+		],
+		&[Self::Addition, Self::SaturatingAddition, Self::WrappingAddition, Self::TryAddition, Self::Subtraction, Self::SaturatingSubtraction, Self::WrappingSubtraction, Self::Subtraction],
+		&[Self::Append],
+		&[Self::BitshiftLeft, Self::SaturatingBitshiftLeft, Self::WrappingBitshiftLeft, Self::TryBitshiftLeft, Self::BitshiftRight],
+		&[Self::ThreeWayCompare],
+		&[Self::LessThan, Self::LessThanOrEqualTo, Self::GreaterThan, Self::GreaterThanOrEqualTo],
+		&[Self::Minimum, Self::Maximum],
+		&[Self::Pipe],
+		&[Self::Equality, Self::Inequality, Self::ReferenceEquality, Self::ReferenceInequality],
+		&[Self::NonShortCircuitAnd, Self::NonShortCircuitNand],
+		&[Self::NonShortCircuitXor, Self::NonShortCircuitXnor],
+		&[Self::NonShortCircuitOr, Self::NonShortCircuitNor],
+		&[Self::ShortCircuitAnd, Self::ShortCircuitNand],
+		&[Self::ShortCircuitXor, Self::ShortCircuitXnor],
+		&[Self::ShortCircuitOr, Self::ShortCircuitNor],
+		&[Self::NonShortCircuitingNullCoalescing, Self::ShortCircuitingNullCoalescing],
+		&[Self::ExclusiveRange, Self::InclusiveRange],
+	];
 }
 
 #[derive(Debug, Clone, Copy)]
