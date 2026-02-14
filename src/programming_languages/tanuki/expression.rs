@@ -136,10 +136,9 @@ impl TanukiExpression {
 		if token_reader.peek().is_none() {
 			return Ok(None);
 		}
-		let expression_start_line = token_reader.peek().unwrap().start_line;
-		let expression_start_column = token_reader.peek().unwrap().start_column;
+		//let expression_start_line = token_reader.peek().unwrap().start_line;
+		//let expression_start_column = token_reader.peek().unwrap().start_column;
 		let mut maybe_parsed_tokens = Vec::new();
-		//let mut bracket_depth = 0usize;
 		// Loop through all tokens until we reach the end of the expression
 		while matches!(token_reader.peek().map(|token| &token.variant), Some(..)) {
 			// If we reach a separator that is'int an opening separator, break
@@ -267,6 +266,10 @@ impl TanukiExpression {
 		if maybe_parsed_tokens.is_empty() {
 			return Ok(None);
 		}
+		Ok(Some(Self::parse_maybe_parsed_tokens(main, maybe_parsed_tokens)?))
+	}
+
+	pub fn parse_maybe_parsed_tokens(_main: &mut Main, mut maybe_parsed_tokens: Vec<MaybeParsedToken<TanukiExpression, TanukiPartiallyParsedToken, TanukiToken>>) -> Result<TanukiExpression, ErrorAt> {
 		// Parse postfix operators
 		let mut x = 0;
 		while x < maybe_parsed_tokens.len() - 1 {
@@ -517,10 +520,20 @@ impl TanukiExpression {
 		}
 		// There should only be one `MaybeParsedToken`, it should be parsed into an expression
 		if maybe_parsed_tokens.len() == 1 && maybe_parsed_tokens[0].is_parsed() {
-			return Ok(Some(maybe_parsed_tokens.pop().unwrap().unwrap_parsed()))
+			return Ok(maybe_parsed_tokens.pop().unwrap().unwrap_parsed())
 		}
 		println!("{maybe_parsed_tokens:?}");
-		Err(Error::NotYetImplemented("Parsing some expressions".into()).at(Some(expression_start_line), Some(expression_start_column), None))
+		Err(Error::NotYetImplemented("Parsing some expressions".into())
+			.at(Some(match maybe_parsed_tokens.first().unwrap() {
+				MaybeParsedToken::Parsed(TanukiExpression { start_line, .. }) => *start_line,
+				MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken { start_line, .. }) => *start_line,
+				MaybeParsedToken::Unparsed(TanukiToken { start_line, .. }) => *start_line,
+			}), Some(match maybe_parsed_tokens.first().unwrap() {
+				MaybeParsedToken::Parsed(TanukiExpression { start_column, .. }) => *start_column,
+				MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken { start_column, .. }) => *start_column,
+				MaybeParsedToken::Unparsed(TanukiToken { start_column, .. }) => *start_column,
+			}), None)
+		)
 	}
 
 	pub fn parse_expected(main: &mut Main, token_reader: &mut TokenReader<TanukiToken>) -> Result<Self, ErrorAt> {

@@ -128,6 +128,7 @@ pub fn tokenize_token(_main: &mut Main, reader: &mut SourceFileReader) -> Result
 		// For operators, the token consists of operator chars
 		'+' | '-' | '*' | '/' | '%' | '!' | '|' | '&' | '^' | '<' | '=' | '>' | ':' | '?' | '.' => {
 				let name = reader.read_string_while(|chr| matches!(chr, '+' | '-' | '*' | '/' | '%' | '!' | '|' | '&' | '^' | '<' | '=' | '>' | ':' | '?' | '.'))?;
+				let is_colon = name == ":";
 				// Get if this is an assignment operator
 				let is_assignment = name.ends_with('=') && !matches!(name.as_str(), "==" | "!=" | "===" | "!==" | "<=" | ">=" | "..=");
 				let name_without_assignment: &str = match is_assignment {
@@ -140,10 +141,10 @@ pub fn tokenize_token(_main: &mut Main, reader: &mut SourceFileReader) -> Result
 				let postfix_unary_operator = PostfixUnaryOperator::from_source(name_without_assignment);
 				let infix_ternary_operator = InfixTernaryOperator::from_source(name_without_assignment);
 				let nullary_operator = NullaryOperator::from_source(name_without_assignment);
-				if prefix_unary_operator.is_none() && infix_binary_operator.is_none() && postfix_unary_operator.is_none() && infix_ternary_operator.is_none() && nullary_operator.is_none() {
+				if prefix_unary_operator.is_none() && infix_binary_operator.is_none() && postfix_unary_operator.is_none() && infix_ternary_operator.is_none() && nullary_operator.is_none() && !is_colon {
 					return Err(Error::InvalidOperatorSymbol(name).at(Some(start_line), Some(start_column), None));
 				}
-				TanukiTokenVariant::Operator { prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator, nullary_operator, is_assignment, symbol: name.into_boxed_str() }
+				TanukiTokenVariant::Operator { prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator, nullary_operator, is_assignment, is_colon, symbol: name.into_boxed_str() }
 			}
 		// TODO: Comments
 		other => return Err(Error::InvalidCharStartingToken(other).at(Some(start_line), Some(start_column), None)),

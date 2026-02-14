@@ -44,12 +44,13 @@ pub enum TanukiTokenVariant {
 	/// Contains the char that has been parsed from a char literal.
 	CharacterLiteral(char),
 	/// Tokenized from an operator literal.
-	Operator { 
+	Operator {
 		prefix_unary_operator: Option<PrefixUnaryOperator>,
 		infix_binary_operator: Option<InfixBinaryOperator>,
 		postfix_unary_operator: Option<PostfixUnaryOperator>,
 		infix_ternary_operator: Option<InfixTernaryOperator>, 
 		nullary_operator: Option<NullaryOperator>,
+		is_colon: bool,
 		is_assignment: bool,
 		symbol: Box<str>,
 	},
@@ -101,7 +102,7 @@ impl Token for TanukiToken {
 			TanukiTokenVariant::StringLiteral(value) => write!(f, "String Literal {value:?}"),
 			TanukiTokenVariant::CharacterLiteral(value) => write!(f, "Character Literal {value:?}"),
 			TanukiTokenVariant::Operator {
-				prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator, nullary_operator, is_assignment, symbol: _
+				prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator, nullary_operator, is_assignment, is_colon, symbol: _
 			} => {
 				write!(f, "Operator")?;
 				if let Some(prefix_unary_operator) = prefix_unary_operator {
@@ -123,6 +124,9 @@ impl Token for TanukiToken {
 				if let Some(nullary_operator) = nullary_operator {
 					write!(f, " Nullary ")?;
 					nullary_operator.print_name(f)?;
+				}
+				if *is_colon {
+					write!(f, " Colon")?;
 				}
 				if *is_assignment {
 					write!(f, " Assignment")?;

@@ -27,3 +27,4 @@ a[b];
 myType myValue;
 (a, b) a + b;
 (MyType a, MyType b) a * b;
+a? b: c;
