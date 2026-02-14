@@ -16,6 +16,9 @@ pub enum TanukiExpressionVariant {
 	Constant(TanukiConstantValue),
 	Block { sub_expressions: Box<[TanukiExpression]>, has_return_value: bool },
 	Variable(Box<str>),
+	FunctionCall { function_pointer: Box<TanukiExpression>, arguments: Box<[TanukiExpression]> },
+	Index(Box<TanukiExpression>, Box<TanukiExpression>),
+	TypeAndValue(Box<TanukiExpression>, Box<TanukiExpression>),
 	// Unary postfix operators
 	Percent(Box<TanukiExpression>),
 	Factorial(Box<TanukiExpression>),
@@ -138,21 +141,11 @@ impl TanukiExpression {
 		//let mut bracket_depth = 0usize;
 		// Loop through all tokens until we reach the end of the expression
 		while matches!(token_reader.peek().map(|token| &token.variant), Some(..)) {
-			// If we reach a separator that is'int an opening separator or nested, break
+			// If we reach a separator that is'int an opening separator, break
 			let token = &token_reader.peek().unwrap().variant;
-			//if matches!(token, /*TanukiTokenVariant::LeftParenthesis | TanukiTokenVariant::LeftCurlyParenthesis | TanukiTokenVariant::LeftSquareParenthesis*/) {
-			//	bracket_depth += 1;
-			//}
 			if matches!(token, TanukiTokenVariant::RightParenthesis | TanukiTokenVariant::RightCurlyParenthesis | TanukiTokenVariant::RightSquareParenthesis | TanukiTokenVariant::Comma | TanukiTokenVariant::Semicolon) {
-				//bracket_depth = match bracket_depth.checked_sub(1) {
-				//	Some(bracket_depth) => bracket_depth,
-				//	None => break,
-				//}
 				break;
 			}
-			//if matches!(token, TanukiTokenVariant::Comma | TanukiTokenVariant::Semicolon) && bracket_depth == 0 {
-			//	break;
-			//}
 			// First parse round
 			let token = token_reader.next().unwrap().clone();
 			let token_start_line = token.start_line;
@@ -269,28 +262,21 @@ impl TanukiExpression {
 				},
 				_ => MaybeParsedToken::Unparsed(token),
 			});
-			//maybe_parsed_tokens.push(match expression_variant {
-			//	Some(expression_variant) => {
-			//		MaybeParsedToken::Parsed(TanukiExpression {
-			//			variant: expression_variant, start_line: token_start_line, start_column: token_start_column, end_line: token_reader.last_token_end_line(), end_column: token_reader.last_token_end_column(), 
-			//		})
-			//	}
-			//	None => MaybeParsedToken::Unparsed(token.clone()),
-			//});
 		}
-		//if bracket_depth > 0 {
-		//	return Err(Error::MoreOpeningParenthesesThanClosingParentheses.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None));
-		//}
 		if maybe_parsed_tokens.is_empty() {
 			return Ok(None);
 		}
 		// Parse postfix operators
 		let mut x = 0;
 		while x < maybe_parsed_tokens.len() - 1 {
-			// Skip if this is not in the order parsed expression, operator, non-parsed_expression
+			// Skip if this is not in the order (parsed expression, operator, non-parsed_expression) or (parsed expression function arguments)
 			if !maybe_parsed_tokens[x].is_parsed() ||
-				!matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { postfix_unary_operator: Some(..), is_assignment: false, .. }, .. })) ||
-				matches!(maybe_parsed_tokens.get(x + 2), Some(token) if token.is_parsed())
+				(
+					(!matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { postfix_unary_operator: Some(..), is_assignment: false, .. }, .. })) ||
+					matches!(maybe_parsed_tokens.get(x + 2), Some(token) if token.is_parsed()))
+				) && !matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken {
+					variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(..) | TanukiPartiallyParsedTokenVariant::SquareParenthesised(..), ..
+				}))
 			{
 				x += 1;
 				continue;
@@ -320,7 +306,18 @@ impl TanukiExpression {
 				MaybeParsedToken::Unparsed(TanukiToken {
 					variant: _, ..
 				}) => unreachable!(),
-				MaybeParsedToken::PartiallyParsed(..) => todo!(),
+				MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken {
+					variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(arguments), end_line, end_column, ..
+				}) => TanukiExpression {
+					start_line: operand.start_line, start_column: operand.start_column, variant: TanukiExpressionVariant::FunctionCall { function_pointer: Box::new(operand), arguments },
+					end_line, end_column,
+				},
+				MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken {
+					variant: TanukiPartiallyParsedTokenVariant::SquareParenthesised(index), end_line, end_column, ..
+				}) => TanukiExpression {
+					start_line: operand.start_line, start_column: operand.start_column, variant: TanukiExpressionVariant::Index(Box::new(operand), index),
+					end_line, end_column,
+				},
 				MaybeParsedToken::Parsed(..) => unreachable!(),
 			});
 		}
@@ -328,9 +325,11 @@ impl TanukiExpression {
 		let mut x = maybe_parsed_tokens.len().saturating_sub(2);
 		loop {
 			// Skip if this is not in the order parsed expression, operator, non-parsed expression
-			if !matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { is_assignment: false, .. }, .. })) ||
-				!maybe_parsed_tokens.get(x + 1).is_some_and(|token| token.is_parsed()) ||
-				(x > 0 && maybe_parsed_tokens[x - 1].is_parsed()) || x == maybe_parsed_tokens.len() - 1
+			if (
+					!matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { is_assignment: false, .. }, .. })) ||
+					((!maybe_parsed_tokens.get(x + 1).is_some_and(|token| token.is_parsed()) ||
+					(x > 0 && maybe_parsed_tokens[x - 1].is_parsed()) || x == maybe_parsed_tokens.len() - 1))
+				) && ((!maybe_parsed_tokens[x].is_parsed() && !maybe_parsed_tokens[x - 1].is_parsed()) || x == maybe_parsed_tokens.len() - 1)
 			{
 				x = match x.checked_sub(1) {
 					Some(x) => x,
@@ -378,8 +377,11 @@ impl TanukiExpression {
 				MaybeParsedToken::Unparsed(TanukiToken {
 					variant: _, ..
 				}) => unreachable!(),
-				MaybeParsedToken::PartiallyParsed(..) => todo!(),
-				MaybeParsedToken::Parsed(..) => unreachable!(),
+				MaybeParsedToken::PartiallyParsed(..) => unreachable!(),
+				MaybeParsedToken::Parsed(type_expression) => TanukiExpression {
+					end_line: operand.end_line, end_column: operand.end_column, start_line: operand.start_line, start_column: operand.start_column,
+					variant: TanukiExpressionVariant::TypeAndValue(Box::new(type_expression), Box::new(operand)),
+				},
 			});
 		}
 		// Parse infix binary operators
@@ -517,7 +519,10 @@ impl AstNode for TanukiExpression {
 				}
 				Ok(())
 			},
-			TanukiExpressionVariant::Variable(name) => write!(f, "Variable {name}"),
+			TanukiExpressionVariant::FunctionCall { .. }                  => write!(f, "Function Call"),
+			TanukiExpressionVariant::Index { .. }                         => write!(f, "Index"),
+			TanukiExpressionVariant::Variable(name)            => write!(f, "Variable {name}"),
+			TanukiExpressionVariant::TypeAndValue(..)                     => write!(f, "Type and Value"),
 			TanukiExpressionVariant::Percent(..)                          => write!(f, "Percent"),
 			TanukiExpressionVariant::Factorial(..)                        => write!(f, "Factorial"),
 			TanukiExpressionVariant::SaturatingFactorial(..)              => write!(f, "Saturating Factorial"),
@@ -637,6 +642,13 @@ impl AstNode for TanukiExpression {
 				}
 				Ok(())
 			}
+			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
+				function_pointer.print(level, f)?;
+				for argument in arguments {
+					argument.print(level, f)?;
+				}
+				Ok(())
+			}
 			TanukiExpressionVariant::Percent(sub_expression) |
 			TanukiExpressionVariant::Factorial(sub_expression) |
 			TanukiExpressionVariant::SaturatingFactorial(sub_expression) |
@@ -679,6 +691,8 @@ impl AstNode for TanukiExpression {
 			TanukiExpressionVariant::NthToLast(sub_expression) |
 			TanukiExpressionVariant::RangeToExclusive(sub_expression) |
 			TanukiExpressionVariant::RangeToInclusive(sub_expression) => sub_expression.print(level, f),
+			TanukiExpressionVariant::Index(lhs, rhs) |
+			TanukiExpressionVariant::TypeAndValue(lhs, rhs) |
 			TanukiExpressionVariant::MemberAccess(lhs, rhs) |
 			TanukiExpressionVariant::As(lhs, rhs) |
 			TanukiExpressionVariant::SaturatingAs(lhs, rhs) |
