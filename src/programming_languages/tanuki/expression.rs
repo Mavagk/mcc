@@ -17,6 +17,7 @@ pub enum TanukiExpressionVariant {
 	Block { sub_expressions: Box<[TanukiExpression]>, has_return_value: bool },
 	Variable(Box<str>),
 	FunctionCall { function_pointer: Box<TanukiExpression>, arguments: Box<[TanukiExpression]> },
+	FunctionDefinition { parameters: Box<[TanukiExpression]>, body_expression: Box<TanukiExpression> },
 	Index(Box<TanukiExpression>, Box<TanukiExpression>),
 	TypeAndValue(Box<TanukiExpression>, Box<TanukiExpression>),
 	// Unary postfix operators
@@ -326,10 +327,10 @@ impl TanukiExpression {
 		loop {
 			// Skip if this is not in the order parsed expression, operator, non-parsed expression
 			if (
-					!matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { is_assignment: false, .. }, .. })) ||
-					((!maybe_parsed_tokens.get(x + 1).is_some_and(|token| token.is_parsed()) ||
-					(x > 0 && maybe_parsed_tokens[x - 1].is_parsed()) || x == maybe_parsed_tokens.len() - 1))
-				) && ((!maybe_parsed_tokens[x].is_parsed() && !maybe_parsed_tokens[x - 1].is_parsed()) || x == maybe_parsed_tokens.len() - 1)
+				!matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { is_assignment: false, .. }, .. })) ||
+				((!maybe_parsed_tokens.get(x + 1).is_some_and(|token| token.is_parsed()) ||
+				(x > 0 && !maybe_parsed_tokens[x - 1].is_unparsed()) || x >= maybe_parsed_tokens.len() - 1))
+			) && (x >= maybe_parsed_tokens.len() - 1 || (!maybe_parsed_tokens[x].is_parsed() || !maybe_parsed_tokens[x + 1].is_parsed()))
 			{
 				x = match x.checked_sub(1) {
 					Some(x) => x,
@@ -488,6 +489,32 @@ impl TanukiExpression {
 				});
 			}
 		}
+		// TODO: Ternary conditional
+		// Parse function definitions
+		let mut x = maybe_parsed_tokens.len().saturating_sub(2);
+		loop {
+			// Skip if this is not in the order parsed expression, operator, non-parsed expression
+			if x >= maybe_parsed_tokens.len().saturating_sub(1) ||
+				!matches!(maybe_parsed_tokens[x], MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken { variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(..), .. })) ||
+				!maybe_parsed_tokens[x + 1].is_parsed()
+			{
+				x = match x.checked_sub(1) {
+					Some(x) => x,
+					None => break,
+				};
+				continue;
+			}
+			// Parse
+			let function_body_expression = maybe_parsed_tokens.remove(x + 1).unwrap_parsed();
+			let function_parameters = maybe_parsed_tokens[x].clone().unwrap_partially_parsed();
+			maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(TanukiExpression {
+				start_line: function_parameters.start_line, start_column: function_parameters.start_column, end_line: function_body_expression.end_line, end_column: function_body_expression.end_column,
+				variant: TanukiExpressionVariant::FunctionDefinition { parameters: match function_parameters {
+					TanukiPartiallyParsedToken { variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(parameters), .. } => parameters,
+					_ => unreachable!(),
+				}, body_expression: Box::new(function_body_expression) }
+			});
+		}
 		// There should only be one `MaybeParsedToken`, it should be parsed into an expression
 		if maybe_parsed_tokens.len() == 1 && maybe_parsed_tokens[0].is_parsed() {
 			return Ok(Some(maybe_parsed_tokens.pop().unwrap().unwrap_parsed()))
@@ -520,6 +547,7 @@ impl AstNode for TanukiExpression {
 				Ok(())
 			},
 			TanukiExpressionVariant::FunctionCall { .. }                  => write!(f, "Function Call"),
+			TanukiExpressionVariant::FunctionDefinition { .. }            => write!(f, "Function Definition"),
 			TanukiExpressionVariant::Index { .. }                         => write!(f, "Index"),
 			TanukiExpressionVariant::Variable(name)            => write!(f, "Variable {name}"),
 			TanukiExpressionVariant::TypeAndValue(..)                     => write!(f, "Type and Value"),
@@ -648,6 +676,12 @@ impl AstNode for TanukiExpression {
 					argument.print(level, f)?;
 				}
 				Ok(())
+			}
+			TanukiExpressionVariant::FunctionDefinition { parameters, body_expression } => {
+				for parameter in parameters {
+					parameter.print(level, f)?;
+				}
+				body_expression.print(level, f)
 			}
 			TanukiExpressionVariant::Percent(sub_expression) |
 			TanukiExpressionVariant::Factorial(sub_expression) |

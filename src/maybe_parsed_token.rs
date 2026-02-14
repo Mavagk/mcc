@@ -24,6 +24,14 @@ impl<P, Q, U: Token> MaybeParsedToken<P, Q, U> {
 		}
 	}
 
+	pub fn unwrap_partially_parsed(self) -> Q {
+		match self {
+			Self::Unparsed(..) => panic!("Unwrapped unparsed token as partially parsed."),
+			Self::PartiallyParsed(partially_parsed) => partially_parsed,
+			Self::Parsed(..) => panic!("Unwrapped parsed token as partially parsed."),
+		}
+	}
+
 	pub fn is_parsed(&self) -> bool {
 		matches!(self, Self::Parsed(..))
 	}
