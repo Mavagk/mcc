@@ -1,6 +1,6 @@
 use std::{fmt::{self, Formatter}, num::NonZeroUsize};
 
-use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{constant_value::TanukiConstantValue, parse::{TanukiPartiallyParsedToken, TanukiPartiallyParsedTokenVariant}, token::{InfixBinaryOperator, PostfixUnaryOperator, PrefixUnaryOperator, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader, traits::{ast_node::AstNode, expression::Expression}};
+use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{constant_value::TanukiConstantValue, parse::{TanukiPartiallyParsedToken, TanukiPartiallyParsedTokenVariant}, token::{InfixBinaryOperator, InfixTernaryOperator, PostfixUnaryOperator, PrefixUnaryOperator, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader, traits::{ast_node::AstNode, expression::Expression}};
 
 #[derive(Debug, Clone)]
 pub struct TanukiExpression {
@@ -129,6 +129,8 @@ pub enum TanukiExpressionVariant {
 	ShortCircuitingNullCoalescing(Box<TanukiExpression>, Box<TanukiExpression>),
 	ExclusiveRange(Box<TanukiExpression>, Box<TanukiExpression>),
 	InclusiveRange(Box<TanukiExpression>, Box<TanukiExpression>),
+	NonShortCircuitingConditional(Box<TanukiExpression>, Box<TanukiExpression>, Box<TanukiExpression>),
+	ShortCircuitingConditional(Box<TanukiExpression>, Box<TanukiExpression>, Box<TanukiExpression>),
 }
 
 impl TanukiExpression {
@@ -136,8 +138,6 @@ impl TanukiExpression {
 		if token_reader.peek().is_none() {
 			return Ok(None);
 		}
-		//let expression_start_line = token_reader.peek().unwrap().start_line;
-		//let expression_start_column = token_reader.peek().unwrap().start_column;
 		let mut maybe_parsed_tokens = Vec::new();
 		// Loop through all tokens until we reach the end of the expression
 		while matches!(token_reader.peek().map(|token| &token.variant), Some(..)) {
@@ -206,7 +206,6 @@ impl TanukiExpression {
 					}
 				},
 				// Function arguments or parameters
-				// If there is a block
 				TanukiTokenVariant::LeftParenthesis => 'a: {
 					// Parse each sub-expression
 					let mut sub_expressions = Vec::new();
@@ -269,7 +268,7 @@ impl TanukiExpression {
 		Ok(Some(Self::parse_maybe_parsed_tokens(main, maybe_parsed_tokens)?))
 	}
 
-	pub fn parse_maybe_parsed_tokens(_main: &mut Main, mut maybe_parsed_tokens: Vec<MaybeParsedToken<TanukiExpression, TanukiPartiallyParsedToken, TanukiToken>>) -> Result<TanukiExpression, ErrorAt> {
+	pub fn parse_maybe_parsed_tokens(main: &mut Main, mut maybe_parsed_tokens: Vec<MaybeParsedToken<TanukiExpression, TanukiPartiallyParsedToken, TanukiToken>>) -> Result<TanukiExpression, ErrorAt> {
 		// Parse postfix operators
 		let mut x = 0;
 		while x < maybe_parsed_tokens.len() - 1 {
@@ -304,7 +303,6 @@ impl TanukiExpression {
 					Some(PostfixUnaryOperator::WrappingDecrement) => TanukiExpressionVariant::PostfixWrappingDecrement(Box::new(operand)),
 					Some(PostfixUnaryOperator::TryPropagate) => TanukiExpressionVariant::TryPropagate(Box::new(operand)),
 					Some(PostfixUnaryOperator::Unwrap) => TanukiExpressionVariant::Unwrap(Box::new(operand)),
-					//Some(PostfixUnaryOperator::RangeFrom) => TanukiExpressionVariant::RangeFrom(Box::new(operand)),
 					None => return Err(Error::InvalidPostfixUnaryOperator(symbol.into_string()).at(Some(start_line), Some(start_column), None)),
 				}, end_line, end_column },
 				MaybeParsedToken::Unparsed(TanukiToken {
@@ -322,8 +320,56 @@ impl TanukiExpression {
 					start_line: operand.start_line, start_column: operand.start_column, variant: TanukiExpressionVariant::Index(Box::new(operand), index),
 					end_line, end_column,
 				},
+				MaybeParsedToken::PartiallyParsed(..) => unreachable!(),
 				MaybeParsedToken::Parsed(..) => unreachable!(),
 			});
+		}
+		// Partially parse ternary conditional operators
+		let mut x = maybe_parsed_tokens.len().saturating_sub(1);
+		loop {
+			// Skip if this is not a colon
+			if !matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { is_colon: true, .. }, .. })) {
+				x = match x.checked_sub(1) {
+					Some(x) => x,
+					None => break,
+				};
+				continue;
+			}
+			// Remove colon
+			let colon_token = maybe_parsed_tokens.remove(x).unwrap_unparsed();
+			// Make sure we are not at the end or start of the tokens
+			if x == maybe_parsed_tokens.len() {
+				return Err(Error::ColonAtExpressionEnd.at(Some(colon_token.start_line), Some(colon_token.start_column), None))
+			}
+			if x == 0 {
+				return Err(Error::ColonWithoutMatchingTernaryOperator.at(Some(colon_token.start_line), Some(colon_token.start_column), None))
+			}
+			//
+			let mut y = x - 1;
+			let mut depth = 0usize;
+			loop {
+				match maybe_parsed_tokens[y] {
+					MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { is_colon: true, .. }, ..}) => depth += 1,
+					MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Operator { infix_ternary_operator: Some(..), .. }, ..}) if depth > 0 => depth -= 1,
+					MaybeParsedToken::Unparsed(TanukiToken {
+						variant: TanukiTokenVariant::Operator { infix_ternary_operator: Some(ternary_operator), .. }, start_line, start_column, ..
+					}) => {
+						let middle_expression_maybe_parsed_tokens = maybe_parsed_tokens.drain(y + 1..x).collect();
+						let middle_expression = Self::parse_maybe_parsed_tokens(main, middle_expression_maybe_parsed_tokens)?;
+						x = y;
+						maybe_parsed_tokens[x] = MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken {
+							variant: TanukiPartiallyParsedTokenVariant::TernaryOperatorCenter(ternary_operator, Box::new(middle_expression)),
+							start_line, start_column, end_line: colon_token.end_line, end_column: colon_token.end_column
+						});
+						break;
+					}
+					_ => {},
+				}
+				y = match y.checked_sub(1) {
+					Some(y) => y,
+					None => return Err(Error::ColonWithoutMatchingTernaryOperator.at(Some(colon_token.start_line), Some(colon_token.start_column), None)),
+				};
+			}
 		}
 		// Parse prefix operators
 		let mut x = maybe_parsed_tokens.len().saturating_sub(2);
@@ -492,7 +538,48 @@ impl TanukiExpression {
 				});
 			}
 		}
-		// TODO: Ternary conditional
+		// Parse ternary conditional operators
+		let mut x = maybe_parsed_tokens.len().saturating_sub(1);
+		loop {
+			// Skip if this is not a partially parsed ternary conditional operator
+			if x >= maybe_parsed_tokens.len() ||
+				!matches!(maybe_parsed_tokens[x], MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken { variant: TanukiPartiallyParsedTokenVariant::TernaryOperatorCenter(..), .. }))
+			{
+				x = match x.checked_sub(1) {
+					Some(x) => x,
+					None => break,
+				};
+				continue;
+			}
+			// Get operator and operands
+			let operator = maybe_parsed_tokens.remove(x).unwrap_partially_parsed();
+			if x == maybe_parsed_tokens.len() {
+				return Err(Error::ColonAtExpressionEnd.at(Some(operator.end_line), Some(operator.end_column), None));
+			}
+			let rhs = maybe_parsed_tokens.remove(x);
+			if x == 0 {
+				return Err(Error::ExpectedExpression.at(Some(operator.start_line), Some(operator.start_column), None));
+			}
+			x -= 1;
+			let lhs = maybe_parsed_tokens[x].clone();
+			// Make sure the operands are correct
+			let lhs = match lhs {
+				MaybeParsedToken::Parsed(lhs) => lhs,
+				_ => return Err(Error::ExpectedExpression.at(Some(operator.start_line), Some(operator.start_column), None)),
+			};
+			let rhs = match rhs {
+				MaybeParsedToken::Parsed(rhs) => rhs,
+				_ => return Err(Error::ExpectedExpression.at(Some(operator.end_line), Some(operator.end_column), None)),
+			};
+			// Parse
+			maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(TanukiExpression { start_line: lhs.start_line, start_column: lhs.start_column, end_line: rhs.end_line, end_column: rhs.end_column, variant: match operator {
+				TanukiPartiallyParsedToken { variant: TanukiPartiallyParsedTokenVariant::TernaryOperatorCenter(ternary_operator, middle_operand), .. } => match ternary_operator {
+					InfixTernaryOperator::ShortCircuitingConditional => TanukiExpressionVariant::ShortCircuitingConditional(Box::new(lhs), middle_operand, Box::new(rhs)),
+					InfixTernaryOperator::NonShortCircuitingConditional => TanukiExpressionVariant::NonShortCircuitingConditional(Box::new(lhs), middle_operand, Box::new(rhs)),
+				}
+				_ => unreachable!(),
+			} })
+		}
 		// Parse function definitions
 		let mut x = maybe_parsed_tokens.len().saturating_sub(2);
 		loop {
@@ -518,6 +605,8 @@ impl TanukiExpression {
 				}, body_expression: Box::new(function_body_expression) }
 			});
 		}
+		// Parse assignments
+		
 		// There should only be one `MaybeParsedToken`, it should be parsed into an expression
 		if maybe_parsed_tokens.len() == 1 && maybe_parsed_tokens[0].is_parsed() {
 			return Ok(maybe_parsed_tokens.pop().unwrap().unwrap_parsed())
@@ -671,6 +760,8 @@ impl AstNode for TanukiExpression {
 			TanukiExpressionVariant::ShortCircuitingNullCoalescing(..)    => write!(f, "Short Circuiting Null Coalescing"),
 			TanukiExpressionVariant::ExclusiveRange(..)                   => write!(f, "Exclusive Range"),
 			TanukiExpressionVariant::InclusiveRange(..)                   => write!(f, "Inclusive Range"),
+			TanukiExpressionVariant::NonShortCircuitingConditional(..)    => write!(f, "Non Short Circuiting Conditional"),
+			TanukiExpressionVariant::ShortCircuitingConditional(..)       => write!(f, "Short Circuiting Conditional"),
 		}
 	}
 
@@ -805,6 +896,12 @@ impl AstNode for TanukiExpression {
 			TanukiExpressionVariant::ExclusiveRange(lhs, rhs) |
 			TanukiExpressionVariant::InclusiveRange(lhs, rhs) => {
 				lhs.print(level, f)?;
+				rhs.print(level, f)
+			}
+			TanukiExpressionVariant::NonShortCircuitingConditional(lhs, mhs, rhs) |
+			TanukiExpressionVariant::ShortCircuitingConditional(lhs, mhs, rhs) => {
+				lhs.print(level, f)?;
+				mhs.print(level, f)?;
 				rhs.print(level, f)
 			}
 		}

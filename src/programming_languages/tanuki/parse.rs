@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use crate::programming_languages::tanuki::expression::TanukiExpression;
+use crate::programming_languages::tanuki::{expression::TanukiExpression, token::InfixTernaryOperator};
 
 #[derive(Debug, Clone)]
 pub struct TanukiPartiallyParsedToken {
@@ -15,4 +15,6 @@ pub struct TanukiPartiallyParsedToken {
 pub enum TanukiPartiallyParsedTokenVariant {
 	FunctionArgumentsOrParameters(Box<[TanukiExpression]>),
 	SquareParenthesised(Box<TanukiExpression>),
+	/// A ternary operator, the matching colon and the expression in between.
+	TernaryOperatorCenter(InfixTernaryOperator, Box<TanukiExpression>),
 }

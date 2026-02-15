@@ -44,6 +44,8 @@ pub enum Error {
 	InvalidPostfixUnaryOperator(String),
 	InvalidPrefixUnaryOperator(String),
 	InvalidInfixBinaryOperator(String),
+	ColonAtExpressionEnd,
+	ColonWithoutMatchingTernaryOperator,
 }
 
 impl Error {
@@ -96,6 +98,8 @@ impl Display for Error {
 			Self::InvalidPostfixUnaryOperator(symbol) => write!(f, "Invalid postfix unary operator {symbol}"),
 			Self::InvalidPrefixUnaryOperator(symbol) => write!(f, "Invalid prefix unary operator {symbol}"),
 			Self::InvalidInfixBinaryOperator(symbol) => write!(f, "Invalid infix binary operator {symbol}"),
+			Self::ColonAtExpressionEnd => write!(f, "Colon at expression end, expected expression after colon"),
+			Self::ColonWithoutMatchingTernaryOperator => write!(f, "Colon without matching ternary operator"),
 		}
 	}
 }
