@@ -1,6 +1,6 @@
 use num::{BigUint, Num};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::token::{InfixBinaryOperator, InfixTernaryOperator, Keyword, NullaryOperator, PostfixUnaryOperator, PrefixUnaryOperator, TanukiToken, TanukiTokenVariant}, source_file_reader::SourceFileReader};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiKeyword, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator, TanukiToken, TanukiTokenVariant}, source_file_reader::SourceFileReader};
 
 pub fn tokenize_token(_main: &mut Main, reader: &mut SourceFileReader) -> Result<Option<TanukiToken>, ErrorAt> {
 	// Strip leading whitespaces
@@ -35,7 +35,7 @@ pub fn tokenize_token(_main: &mut Main, reader: &mut SourceFileReader) -> Result
 		'@' => {
 			reader.read_char()?;
 			let name = reader.read_string_while(|chr| matches!(chr, 'A'..='Z' | 'a'..='z' | '_' | '0'..='9'))?;
-			let keyword = Keyword::from_name(&name)
+			let keyword = TanukiKeyword::from_name(&name)
 				.ok_or_else(|| Error::InvalidKeyword(format!("@{name}")).at(Some(start_line), Some(start_column), None))?;
 			TanukiTokenVariant::Keyword(keyword)
 		}
@@ -136,11 +136,11 @@ pub fn tokenize_token(_main: &mut Main, reader: &mut SourceFileReader) -> Result
 					false => name.as_str(),
 				};
 				// Parse
-				let prefix_unary_operator = PrefixUnaryOperator::from_source(name_without_assignment);
-				let infix_binary_operator = InfixBinaryOperator::from_source(name_without_assignment);
-				let postfix_unary_operator = PostfixUnaryOperator::from_source(name_without_assignment);
-				let infix_ternary_operator = InfixTernaryOperator::from_source(name_without_assignment);
-				let nullary_operator = NullaryOperator::from_source(name_without_assignment);
+				let prefix_unary_operator = TanukiPrefixUnaryOperator::from_source(name_without_assignment);
+				let infix_binary_operator = TanukiInfixBinaryOperator::from_source(name_without_assignment);
+				let postfix_unary_operator = TanukiPostfixUnaryOperator::from_source(name_without_assignment);
+				let infix_ternary_operator = TanukiInfixTernaryOperator::from_source(name_without_assignment);
+				let nullary_operator = TanukiNullaryOperator::from_source(name_without_assignment);
 				if prefix_unary_operator.is_none() && infix_binary_operator.is_none() && postfix_unary_operator.is_none() && infix_ternary_operator.is_none() && nullary_operator.is_none() && !is_colon {
 					return Err(Error::InvalidOperatorSymbol(name).at(Some(start_line), Some(start_column), None));
 				}

@@ -34,7 +34,7 @@ pub enum TanukiTokenVariant {
 	/// An identifier for naming variables, consists of letters, digits, underscores and all but the first char can be digits.
 	Identifier(Box<str>),
 	/// Tokenized from a keyword that started with an `@` sign.
-	Keyword(Keyword),
+	Keyword(TanukiKeyword),
 	/// A label for naming block expressions that started with a `'` char, contained string is the source code literal without the leading `'`.
 	BlockLabel(Box<str>),
 	/// Contains a numeric literal tokenized to int and float types if they are valid for each types.
@@ -45,11 +45,11 @@ pub enum TanukiTokenVariant {
 	CharacterLiteral(char),
 	/// Tokenized from an operator literal.
 	Operator {
-		prefix_unary_operator: Option<PrefixUnaryOperator>,
-		infix_binary_operator: Option<InfixBinaryOperator>,
-		postfix_unary_operator: Option<PostfixUnaryOperator>,
-		infix_ternary_operator: Option<InfixTernaryOperator>, 
-		nullary_operator: Option<NullaryOperator>,
+		prefix_unary_operator: Option<TanukiPrefixUnaryOperator>,
+		infix_binary_operator: Option<TanukiInfixBinaryOperator>,
+		postfix_unary_operator: Option<TanukiPostfixUnaryOperator>,
+		infix_ternary_operator: Option<TanukiInfixTernaryOperator>, 
+		nullary_operator: Option<TanukiNullaryOperator>,
 		is_colon: bool,
 		is_assignment: bool,
 		symbol: Box<str>,
@@ -144,7 +144,7 @@ impl Debug for TanukiToken {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum PrefixUnaryOperator {
+pub enum TanukiPrefixUnaryOperator {
 	/// Reads an l-value and converts it to an r-value. This operator is a no-op when used on r-values.
 	Read,             // +
 	Not,              // !
@@ -202,7 +202,7 @@ pub enum PrefixUnaryOperator {
 	RangeToInclusive, // ..=
 }
 
-impl PrefixUnaryOperator {
+impl TanukiPrefixUnaryOperator {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self {
 			Self::Read             => write!(f, "Read +"),
@@ -287,7 +287,7 @@ impl PrefixUnaryOperator {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InfixBinaryOperator {
+pub enum TanukiInfixBinaryOperator {
 	/// The operator variant of the `operator`
 	None,
 
@@ -420,7 +420,7 @@ pub enum InfixBinaryOperator {
 	InclusiveRange,
 }
 
-impl InfixBinaryOperator {
+impl TanukiInfixBinaryOperator {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self {
 			Self::None => write!(f, "None"),
@@ -634,7 +634,7 @@ impl InfixBinaryOperator {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum PostfixUnaryOperator {
+pub enum TanukiPostfixUnaryOperator {
 	/// Returns x / 100, floats only.
 	Percent, // %
 
@@ -662,7 +662,7 @@ pub enum PostfixUnaryOperator {
 	//RangeFrom,    // ..
 }
 
-impl PostfixUnaryOperator {
+impl TanukiPostfixUnaryOperator {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self {
 			Self::Percent => write!(f, "Percent %"),
@@ -713,12 +713,12 @@ impl PostfixUnaryOperator {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum InfixTernaryOperator {
+pub enum TanukiInfixTernaryOperator {
 	NonShortCircuitingConditional,
 	ShortCircuitingConditional,
 }
 
-impl InfixTernaryOperator {
+impl TanukiInfixTernaryOperator {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self {
 			Self::NonShortCircuitingConditional => write!(f, "Non-Short Circuiting Conditional ?"),
@@ -737,7 +737,7 @@ impl InfixTernaryOperator {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum NullaryOperator {
+pub enum TanukiNullaryOperator {
 	/// Returns a random number value from the output type.
 	Roll, // ?
 
@@ -745,7 +745,7 @@ pub enum NullaryOperator {
 	Last, // ^
 }
 
-impl NullaryOperator {
+impl TanukiNullaryOperator {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self {
 			Self::Roll => write!(f, "Roll ?"),
@@ -766,19 +766,50 @@ impl NullaryOperator {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Keyword {
-	
+pub enum TanukiKeyword {
+	Import,
+	Export,
+	Link,
+	U,
+	I,
+	F,
+	True,
+	False,
+	Break,
+	Continue,
+	Redo,
 }
 
-impl Keyword {
-	fn print_name(&self, _f: &mut Formatter<'_>) -> fmt::Result {
+impl TanukiKeyword {
+	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self {
-			_ => todo!()
+			Self::Import   => write!(f, "Import"),
+			Self::Export   => write!(f, "Export"),
+			Self::Link     => write!(f, "Link"),
+			Self::U        => write!(f, "U"),
+			Self::I        => write!(f, "I"),
+			Self::F        => write!(f, "F"),
+			Self::True     => write!(f, "True"),
+			Self::False    => write!(f, "False"),
+			Self::Break    => write!(f, "Break"),
+			Self::Continue => write!(f, "Continue"),
+			Self::Redo     => write!(f, "Redo"),
 		}
 	}
 
 	pub fn from_name(name: &str) -> Option<Self> {
 		match name {
+			"import"   => Some(Self::Import),
+			"export"   => Some(Self::Export),
+			"link"     => Some(Self::Link),
+			"u"        => Some(Self::U),
+			"i"        => Some(Self::I),
+			"f"        => Some(Self::F),
+			"true"     => Some(Self::True),
+			"false"    => Some(Self::False),
+			"break"    => Some(Self::Break),
+			"continue" => Some(Self::Continue),
+			"redo"     => Some(Self::Redo),
 			_ => None,
 		}
 	}
