@@ -34,3 +34,5 @@ a += b;
 a = b;
 a = b = c;
 a = @export (x) x * 2;
+b = @import("file");
+b = @link("file");

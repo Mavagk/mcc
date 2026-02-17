@@ -181,11 +181,21 @@ impl TanukiExpression {
 				if matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Keyword(TanukiKeyword::Import | TanukiKeyword::Link), .. })) {
 					let operand = maybe_parsed_tokens[x].clone().unwrap_unparsed();
 					let (keyword, start_line, start_column) = match operand {
-						TanukiToken { variant: TanukiTokenVariant::Keyword(keyword), start_line, start_column, end_line, end_column } => (keyword, start_line, start_column),
+						TanukiToken { variant: TanukiTokenVariant::Keyword(keyword), start_line, start_column, .. } => (keyword, start_line, start_column),
 						_ => unreachable!()
 					};
+					let (arguments, end_line, end_column) = match maybe_parsed_tokens.remove(x + 1).unwrap_partially_parsed() {
+						TanukiPartiallyParsedToken { variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(arguments), end_line, end_column, .. } => {
+							(arguments, end_line, end_column)
+						}
+						_ => unreachable!(),
+					};
+					maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(TanukiExpression { variant: match keyword {
+						TanukiKeyword::Import => TanukiExpressionVariant::Import(arguments),
+						TanukiKeyword::Link => TanukiExpressionVariant::Link(arguments),
+						_ => unreachable!(),
+					}, start_line, start_column, end_column, end_line });
 					break 'a;
-					//maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(TanukiExpression { variant: match, start_line, start_column, end_line: (), end_column: () });
 				}
 				let operand = maybe_parsed_tokens[x].clone().unwrap_parsed();
 				maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(match maybe_parsed_tokens.remove(x + 1) {
