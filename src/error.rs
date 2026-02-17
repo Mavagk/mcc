@@ -47,6 +47,7 @@ pub enum Error {
 	ColonAtExpressionEnd,
 	ColonWithoutMatchingTernaryOperator,
 	InvalidAssignmentOperator(String),
+	UnexpectedReturnType,
 }
 
 impl Error {
@@ -102,6 +103,7 @@ impl Display for Error {
 			Self::InvalidAssignmentOperator(symbol) => write!(f, "Invalid assignment operator {symbol}"),
 			Self::ColonAtExpressionEnd => write!(f, "Colon at expression end, expected expression after colon"),
 			Self::ColonWithoutMatchingTernaryOperator => write!(f, "Colon without matching ternary operator"),
+			Self::UnexpectedReturnType => write!(f, "Unexpected return type"),
 		}
 	}
 }

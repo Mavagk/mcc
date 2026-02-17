@@ -13,7 +13,7 @@ pub struct TanukiPartiallyParsedToken {
 
 #[derive(Debug, Clone)]
 pub enum TanukiPartiallyParsedTokenVariant {
-	FunctionArgumentsOrParameters(Box<[TanukiExpression]>),
+	FunctionArgumentsOrParameters(Box<[TanukiExpression]>, Option<Box<TanukiExpression>>),
 	SquareParenthesised(Box<TanukiExpression>),
 	/// A ternary operator, the matching colon and the expression in between.
 	TernaryOperatorCenter(TanukiInfixTernaryOperator, Box<TanukiExpression>),
@@ -95,32 +95,52 @@ impl TanukiExpression {
 				TanukiTokenVariant::LeftParenthesis => 'a: {
 					// Parse each sub-expression
 					let mut sub_expressions = Vec::new();
+					let mut return_type_expression = None;
+					let mut is_return_type_expression = false;
 					loop {
 						// Parse expression
-						let expression_is_empty;
+						let mut expression_is_empty = false;
 						if let Some(sub_expression) = Self::parse(main, token_reader)? {
-							sub_expressions.push(sub_expression);
-							expression_is_empty = false;
+							if !is_return_type_expression {
+								sub_expressions.push(sub_expression);
+							}
+							else {
+								return_type_expression = Some(Box::new(sub_expression));
+							}
 						}
 						else {
-							expression_is_empty = true;
+							if !is_return_type_expression {
+								expression_is_empty = true;
+							}
+							else {
+								return Err(Error::ExpectedExpression.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None));
+							}
 						}
-						// Next token should be a } or ; token
+						// Next token should be a ) token
 						match token_reader.next() {
-							// Right curly bracket ends the block expression
+							Some(token) if is_return_type_expression && !matches!(token, TanukiToken { variant: TanukiTokenVariant::RightParenthesis, .. }) =>
+								return Err(Error::ExpectedClosingParenthesis.at(Some(token.start_line), Some(token.start_column), None)),
+							// Right bracket ends the block expression
 							Some(TanukiToken { variant: TanukiTokenVariant::RightParenthesis, end_line, end_column, .. })
 								=> break 'a MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken
 							{
-								variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(sub_expressions.into()),
+								variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(sub_expressions.into(), return_type_expression),
 								start_line: token_start_line, start_column: token_start_column, end_line: *end_line, end_column: *end_column,
 							}),
 							// The token stream should not just stop
-							None => return Err(Error::ExpectedCurlyClosingParenthesis.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None)),
-							// Move on to the next sub-expression if we read a semicolon
+							None => return Err(Error::ExpectedClosingParenthesis.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None)),
+							// Move on to the next sub-expression if we read a comma
 							Some(TanukiToken { variant: TanukiTokenVariant::Comma, start_line, start_column, .. }) => {
 								if expression_is_empty {
 									return Err(Error::ExpectedExpression.at(Some(*start_line), Some(*start_column), None));
 								}
+							},
+							// Move on to reading the return type if we reach a semicolon
+							Some(TanukiToken { variant: TanukiTokenVariant::Semicolon, start_line, start_column, .. }) => {
+								if expression_is_empty && sub_expressions.is_empty() {
+									return Err(Error::ExpectedExpression.at(Some(*start_line), Some(*start_column), None));
+								}
+								is_return_type_expression = true;
 							},
 							// Else an error
 							Some(TanukiToken { start_column, end_column, .. })
@@ -185,7 +205,10 @@ impl TanukiExpression {
 						_ => unreachable!()
 					};
 					let (arguments, end_line, end_column) = match maybe_parsed_tokens.remove(x + 1).unwrap_partially_parsed() {
-						TanukiPartiallyParsedToken { variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(arguments), end_line, end_column, .. } => {
+						TanukiPartiallyParsedToken { variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(arguments, return_type), end_line, end_column, .. } => {
+							if let Some(return_type) = return_type {
+								return Err(Error::UnexpectedReturnType.at(Some(return_type.start_line), Some(return_type.start_column), None));
+							}
 							(arguments, end_line, end_column)
 						}
 						_ => unreachable!(),
@@ -221,10 +244,15 @@ impl TanukiExpression {
 						variant: _, ..
 					}) => unreachable!(),
 					MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken {
-						variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(arguments), end_line, end_column, ..
-					}) => TanukiExpression {
-						start_line: operand.start_line, start_column: operand.start_column, variant: TanukiExpressionVariant::FunctionCall { function_pointer: Box::new(operand), arguments },
-						end_line, end_column,
+						variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(arguments, return_type), end_line, end_column, ..
+					}) => {
+						if let Some(return_type) = return_type {
+							return Err(Error::UnexpectedReturnType.at(Some(return_type.start_line), Some(return_type.start_column), None));
+						}
+						TanukiExpression {
+							start_line: operand.start_line, start_column: operand.start_column, variant: TanukiExpressionVariant::FunctionCall { function_pointer: Box::new(operand), arguments },
+							end_line, end_column,
+						}
 					},
 					MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken {
 						variant: TanukiPartiallyParsedTokenVariant::SquareParenthesised(index), end_line, end_column, ..
@@ -514,12 +542,14 @@ impl TanukiExpression {
 				// Parse
 				let function_body_expression = maybe_parsed_tokens.remove(x + 1).unwrap_parsed();
 				let function_parameters = maybe_parsed_tokens[x].clone().unwrap_partially_parsed();
+				let (parameters, return_type) = match function_parameters {
+					TanukiPartiallyParsedToken { variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(parameters, return_type), .. } =>
+						(parameters, return_type) ,
+					_ => unreachable!(),
+				};
 				maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(TanukiExpression {
 					start_line: function_parameters.start_line, start_column: function_parameters.start_column, end_line: function_body_expression.end_line, end_column: function_body_expression.end_column,
-					variant: TanukiExpressionVariant::FunctionDefinition { parameters: match function_parameters {
-						TanukiPartiallyParsedToken { variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(parameters), .. } => parameters,
-						_ => unreachable!(),
-					}, body_expression: Box::new(function_body_expression) }
+					variant: TanukiExpressionVariant::FunctionDefinition { parameters, return_type, body_expression: Box::new(function_body_expression) }
 				});
 			}
 			// Parse assignments

@@ -17,7 +17,7 @@ pub enum TanukiExpressionVariant {
 	Block { sub_expressions: Box<[TanukiExpression]>, has_return_value: bool },
 	Variable(Box<str>),
 	FunctionCall { function_pointer: Box<TanukiExpression>, arguments: Box<[TanukiExpression]> },
-	FunctionDefinition { parameters: Box<[TanukiExpression]>, body_expression: Box<TanukiExpression> },
+	FunctionDefinition { parameters: Box<[TanukiExpression]>, return_type: Option<Box<TanukiExpression>>, body_expression: Box<TanukiExpression> },
 	Index(Box<TanukiExpression>, Box<TanukiExpression>),
 	TypeAndValue(Box<TanukiExpression>, Box<TanukiExpression>),
 	Import(Box<[TanukiExpression]>),
@@ -195,7 +195,13 @@ impl AstNode for TanukiExpression {
 				Ok(())
 			},
 			TanukiExpressionVariant::FunctionCall { .. }                            => write!(f, "Function Call"),
-			TanukiExpressionVariant::FunctionDefinition { .. }                      => write!(f, "Function Definition"),
+			TanukiExpressionVariant::FunctionDefinition { return_type, .. } => {
+				write!(f, "Function Definition")?;
+				if return_type.is_some() {
+					write!(f, ", Has Return Type")?;
+				}
+				Ok(())
+			},
 			TanukiExpressionVariant::Index { .. }                                   => write!(f, "Index"),
 			TanukiExpressionVariant::Variable(name)                      => write!(f, "Variable {name}"),
 			TanukiExpressionVariant::TypeAndValue(..)                               => write!(f, "Type and Value"),
@@ -374,9 +380,12 @@ impl AstNode for TanukiExpression {
 				}
 				Ok(())
 			}
-			TanukiExpressionVariant::FunctionDefinition { parameters, body_expression } => {
+			TanukiExpressionVariant::FunctionDefinition { parameters, return_type, body_expression } => {
 				for parameter in parameters {
 					parameter.print(level, f)?;
+				}
+				if let Some(return_type) = return_type {
+					return_type.print(level, f)?;
 				}
 				body_expression.print(level, f)
 			}
