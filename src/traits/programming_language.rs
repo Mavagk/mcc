@@ -8,6 +8,10 @@ pub trait ProgrammingLanguage<T, M>: Debug where T: Token, M: Module {
 	/// Parses tokens into a module with its abstract syntax tree.
 	fn parse_tokens(main: &mut Main, token_reader: TokenReader<T>) -> Result<M, ErrorAt>;
 
+	fn post_parse(_main: &mut Main, _module: &mut M) -> Result<(), ErrorAt> {
+		Ok(())
+	}
+
 	/// Reads from a file reader and tokenizes it to tokens.
 	fn tokenize(main: &mut Main, reader: &mut SourceFileReader) -> Result<Box<[T]>, ErrorAt> {
 		let mut tokens = Vec::new();
@@ -33,9 +37,15 @@ pub trait ProgrammingLanguage<T, M>: Debug where T: Token, M: Module {
 		}
 		// Parse
 		let token_reader = TokenReader::new(&tokens);
-		let module = Self::parse_tokens(main, token_reader)?;
-		if args.print_ast {
-			println!("AST of {}", filepath.as_os_str().to_string_lossy());
+		let mut module = Self::parse_tokens(main, token_reader)?;
+		if args.print_ast_after_parse {
+			println!("AST of {} after parse", filepath.as_os_str().to_string_lossy());
+			println!("{module:?}");
+		}
+		// Post parse
+		Self::post_parse(main, &mut module)?;
+		if args.print_ast_after_post_parse {
+			println!("AST of {} after post-parse", filepath.as_os_str().to_string_lossy());
 			println!("{module:?}");
 		}
 		// Return

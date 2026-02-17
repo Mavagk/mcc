@@ -13,7 +13,8 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 	let mut print_version = false;
 	let mut print_source = false;
 	let mut print_tokens = false;
-	let mut print_ast = false;
+	let mut print_ast_after_parse = false;
+	let mut print_ast_after_post_parse = false;
 	let mut print_source_to_source_c = false;
 	let mut execute_interpreted = false;
 	let mut is_entrypoint_module = false;
@@ -58,10 +59,16 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 							print_tokens = true;
 						}
 						"-print-ast" => {
-							if print_ast {
+							if print_ast_after_parse {
 								return Err(Error::RepeatedArgument(arg_str.into()));
 							}
-							print_ast = true;
+							print_ast_after_parse = true;
+						}
+						"-print-ast-post-parse" => {
+							if print_ast_after_post_parse {
+								return Err(Error::RepeatedArgument(arg_str.into()));
+							}
+							print_ast_after_post_parse = true;
 						}
 						"-execute-interpreted" => {
 							if execute_interpreted {
@@ -145,7 +152,7 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 	// Assemble into arguments struct
 	Ok(Arguments {
 		source_files: source_files.into_boxed_slice(), home_directory, output_directory, source_directory, output_file,
-		print_help, print_version, print_source, print_tokens, print_ast, execute_interpreted, print_source_to_source_c, do_stop_after_parse,
+		print_help, print_version, print_source, print_tokens, print_ast_after_parse, print_ast_after_post_parse, execute_interpreted, print_source_to_source_c, do_stop_after_parse,
 		optimization_level,
 	})
 }
@@ -162,7 +169,8 @@ pub struct Arguments {
 	pub print_version: bool,
 	pub print_source: bool,
 	pub print_tokens: bool,
-	pub print_ast: bool,
+	pub print_ast_after_parse: bool,
+	pub print_ast_after_post_parse: bool,
 	pub execute_interpreted: bool,
 	pub print_source_to_source_c: bool,
 	pub optimization_level: Option<u8>,
