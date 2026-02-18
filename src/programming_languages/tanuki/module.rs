@@ -1,32 +1,11 @@
 use std::{fmt::{self, Debug, Formatter}, num::NonZeroUsize};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::{c::module::CModule, tanuki::{expression::TanukiExpression, token::{TanukiToken, TanukiTokenVariant}}}, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module}};
+use crate::{Main, error::ErrorAt, programming_languages::{c::module::CModule, tanuki::{constant_value::TanukiConstantValue, expression::TanukiExpression, function::TanukiFunction}}, traits::{ast_node::AstNode, module::Module}};
 
 pub struct TanukiModule {
-	pub expressions: Box<[TanukiExpression]>,
-}
-
-impl TanukiModule {
-	/// Parse tokens received from tokenizing a file into a `TanukiModule` containing an AST.
-	pub fn parse(main: &mut Main, token_reader: &mut TokenReader<TanukiToken>) -> Result<Self, ErrorAt> {
-		// Parse expressions until there are none left
-		let mut expressions = Vec::new();
-		while !token_reader.is_empty() {
-			// Parse expression
-			if let Some(expression) = TanukiExpression::parse(main, token_reader)? {
-				expressions.push(expression);
-			}
-			// Expect a semicolon
-			match token_reader.next() {
-				Some(TanukiToken { variant: TanukiTokenVariant::Semicolon, .. }) => {},
-				Some(TanukiToken { start_line, start_column, .. }) => return Err(Error::ExpectedSemicolon.at(Some(*start_line), Some(*start_column), None)),
-				None => return Err(Error::ExpectedSemicolon.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None)),
-			}
-		}
-		Ok(Self {
-			expressions: expressions.into_boxed_slice(),
-		})
-	}
+	pub parsed_expressions: Box<[TanukiExpression]>,
+	pub functions: Vec<TanukiFunction>,
+	pub global_constants: Vec<TanukiConstantValue>,
 }
 
 impl Module for TanukiModule {
@@ -45,26 +24,32 @@ impl AstNode for TanukiModule {
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
-		for expression in &self.expressions {
+		for expression in &self.parsed_expressions {
 			expression.print(level, f)?;
+		}
+		for function in self.functions.iter() {
+			function.print(level, f)?;
+		}
+		for global_constant in self.global_constants.iter() {
+			global_constant.print(level, f)?;
 		}
 		Ok(())
 	}
 
 	fn start_line(&self) -> Option<NonZeroUsize> {
-		Some(self.expressions.first().map(|expression| expression.start_line).unwrap_or(NonZeroUsize::new(1).unwrap()))
+		Some(self.parsed_expressions.first().map(|expression| expression.start_line).unwrap_or(NonZeroUsize::new(1).unwrap()))
 	}
 
 	fn start_column(&self) -> Option<NonZeroUsize> {
-		Some(self.expressions.first().map(|expression| expression.start_column).unwrap_or(NonZeroUsize::new(1).unwrap()))
+		Some(self.parsed_expressions.first().map(|expression| expression.start_column).unwrap_or(NonZeroUsize::new(1).unwrap()))
 	}
 
 	fn end_line(&self) -> Option<NonZeroUsize> {
-		Some(self.expressions.last().map(|expression| expression.end_line).unwrap_or(NonZeroUsize::new(1).unwrap()))
+		Some(self.parsed_expressions.last().map(|expression| expression.end_line).unwrap_or(NonZeroUsize::new(1).unwrap()))
 	}
 
 	fn end_column(&self) -> Option<NonZeroUsize> {
-		Some(self.expressions.last().map(|expression| expression.end_column).unwrap_or(NonZeroUsize::new(1).unwrap()))
+		Some(self.parsed_expressions.last().map(|expression| expression.end_column).unwrap_or(NonZeroUsize::new(1).unwrap()))
 	}
 }
 

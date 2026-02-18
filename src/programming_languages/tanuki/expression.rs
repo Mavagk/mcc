@@ -186,7 +186,7 @@ impl Expression for TanukiExpression {}
 impl AstNode for TanukiExpression {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self.variant {
-			TanukiExpressionVariant::Constant(value) => write!(f, "Constant {value:?}"),
+			TanukiExpressionVariant::Constant(..) => write!(f, "Constant"),
 			TanukiExpressionVariant::Block { has_return_value, .. } => {
 				write!(f, "Block")?;
 				if *has_return_value {
@@ -366,7 +366,8 @@ impl AstNode for TanukiExpression {
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self.variant {
-			TanukiExpressionVariant::Constant(..) | TanukiExpressionVariant::Variable(..) => Ok(()),
+			TanukiExpressionVariant::Constant(value) => value.print(level, f),
+			TanukiExpressionVariant::Variable(..) => Ok(()),
 			TanukiExpressionVariant::Block { sub_expressions, ..} => {
 				for sub_expression in sub_expressions {
 					sub_expression.print(level, f)?;

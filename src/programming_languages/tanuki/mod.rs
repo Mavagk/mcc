@@ -7,6 +7,10 @@ pub mod tokenize;
 pub mod parse;
 pub mod expression;
 pub mod constant_value;
+pub mod post_parse;
+pub mod t_type;
+pub mod function;
+pub mod global_constant;
 
 #[derive(Debug)]
 pub struct Tanuki {}
@@ -24,5 +28,9 @@ impl ProgrammingLanguage<TanukiToken, TanukiModule> for Tanuki {
 
 	fn parse_tokens(main: &mut Main, mut token_reader: TokenReader<TanukiToken>) -> Result<TanukiModule, ErrorAt> {
 		TanukiModule::parse(main, &mut token_reader)
+	}
+
+	fn post_parse(main: &mut Main, module: &mut TanukiModule) -> Result<(), ErrorAt> {
+		module.post_parse(main)
 	}
 }

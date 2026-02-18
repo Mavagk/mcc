@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{constant_value::TanukiConstantValue, expression::{TanukiExpression, TanukiExpressionVariant}, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiKeyword, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader};
+use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{constant_value::TanukiConstantValue, expression::{TanukiExpression, TanukiExpressionVariant}, module::TanukiModule, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiKeyword, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader};
 
 #[derive(Debug, Clone)]
 pub struct TanukiPartiallyParsedToken {
@@ -17,6 +17,29 @@ pub enum TanukiPartiallyParsedTokenVariant {
 	SquareParenthesised(Box<TanukiExpression>),
 	/// A ternary operator, the matching colon and the expression in between.
 	TernaryOperatorCenter(TanukiInfixTernaryOperator, Box<TanukiExpression>),
+}
+
+impl TanukiModule {
+	/// Parse tokens received from tokenizing a file into a `TanukiModule` containing an AST.
+	pub fn parse(main: &mut Main, token_reader: &mut TokenReader<TanukiToken>) -> Result<Self, ErrorAt> {
+		// Parse expressions until there are none left
+		let mut expressions = Vec::new();
+		while !token_reader.is_empty() {
+			// Parse expression
+			if let Some(expression) = TanukiExpression::parse(main, token_reader)? {
+				expressions.push(expression);
+			}
+			// Expect a semicolon
+			match token_reader.next() {
+				Some(TanukiToken { variant: TanukiTokenVariant::Semicolon, .. }) => {},
+				Some(TanukiToken { start_line, start_column, .. }) => return Err(Error::ExpectedSemicolon.at(Some(*start_line), Some(*start_column), None)),
+				None => return Err(Error::ExpectedSemicolon.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None)),
+			}
+		}
+		Ok(Self {
+			parsed_expressions: expressions.into_boxed_slice(), functions: Vec::new(), global_constants: Vec::new(),
+		})
+	}
 }
 
 impl TanukiExpression {
@@ -40,20 +63,20 @@ impl TanukiExpression {
 			let token_end_column = token.end_column;
 			maybe_parsed_tokens.push(match &token.variant {
 				TanukiTokenVariant::NumericLiteral(None, Some(float_value)) => MaybeParsedToken::Parsed(TanukiExpression {
-					variant: TanukiExpressionVariant::Constant(TanukiConstantValue::Float(*float_value)),
+					variant: TanukiExpressionVariant::Constant(TanukiConstantValue::CompileTimeFloat(*float_value)),
 					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
 				}),
 				TanukiTokenVariant::NumericLiteral(Some(int_value), _) => MaybeParsedToken::Parsed(TanukiExpression {
-					variant: TanukiExpressionVariant::Constant(TanukiConstantValue::Integer(int_value.clone().into())),
+					variant: TanukiExpressionVariant::Constant(TanukiConstantValue::CompileTimeInt(int_value.clone().into())),
 					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
 				}),
 				TanukiTokenVariant::NumericLiteral(None, None) => unreachable!(),
 				TanukiTokenVariant::CharacterLiteral(value) => MaybeParsedToken::Parsed(TanukiExpression {
-					variant: TanukiExpressionVariant::Constant(TanukiConstantValue::Character(*value)),
+					variant: TanukiExpressionVariant::Constant(TanukiConstantValue::CompileTimeChar(*value)),
 					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
 				}),
 				TanukiTokenVariant::StringLiteral(value) => MaybeParsedToken::Parsed(TanukiExpression {
-					variant: TanukiExpressionVariant::Constant(TanukiConstantValue::String(value.clone())),
+					variant: TanukiExpressionVariant::Constant(TanukiConstantValue::CompileTimeString(value.clone())),
 					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
 				}),
 				TanukiTokenVariant::Identifier(name) => MaybeParsedToken::Parsed(TanukiExpression {
