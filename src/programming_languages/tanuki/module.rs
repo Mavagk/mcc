@@ -1,11 +1,11 @@
 use std::{fmt::{self, Debug, Formatter}, num::NonZeroUsize};
 
-use crate::{Main, error::ErrorAt, programming_languages::{c::module::CModule, tanuki::{constant_value::TanukiConstantValue, expression::TanukiExpression, function::TanukiFunction}}, traits::{ast_node::AstNode, module::Module}};
+use crate::{Main, error::ErrorAt, programming_languages::{c::module::CModule, tanuki::{expression::TanukiExpression, function::TanukiFunction, global_constant::TanukiGlobalConstant}}, traits::{ast_node::AstNode, module::Module}};
 
 pub struct TanukiModule {
 	pub parsed_expressions: Box<[TanukiExpression]>,
 	pub functions: Vec<TanukiFunction>,
-	pub global_constants: Vec<TanukiConstantValue>,
+	pub global_constants: Vec<TanukiGlobalConstant>,
 }
 
 impl Module for TanukiModule {

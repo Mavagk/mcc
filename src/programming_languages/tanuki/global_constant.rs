@@ -1,11 +1,11 @@
 use std::{fmt::{self, Formatter}, num::NonZeroUsize};
 
-use crate::{programming_languages::tanuki::{constant_value::TanukiType, expression::TanukiExpression}, traits::ast_node::AstNode};
+use crate::{programming_languages::tanuki::expression::TanukiExpression, traits::ast_node::AstNode};
 
 pub struct TanukiGlobalConstant {
 	pub value: TanukiExpression,
 	pub name: Box<str>,
-	pub t_type: TanukiType,
+	pub t_type: Option<TanukiExpression>,
 	pub start_line: NonZeroUsize,
 	pub start_column: NonZeroUsize,
 	pub end_line: NonZeroUsize,

@@ -181,6 +181,15 @@ pub enum TanukiExpressionVariant {
 	ShortCircuitingNullCoalescingAssignment(Box<TanukiExpression>, Box<TanukiExpression>),
 }
 
+impl Default for TanukiExpression {
+	fn default() -> Self {
+		Self {
+			variant: TanukiExpressionVariant::Constant(TanukiConstantValue::Void),
+			start_line: 1.try_into().unwrap(), start_column: 1.try_into().unwrap(), end_line: 1.try_into().unwrap(), end_column: 1.try_into().unwrap(),
+		}
+	}
+}
+
 impl Expression for TanukiExpression {}
 
 impl AstNode for TanukiExpression {

@@ -65,6 +65,7 @@ pub enum TanukiType {
 	U(u8),
 	I(u8),
 	F(u8),
+	Any,
 }
 
 impl AstNode for TanukiType {
@@ -79,12 +80,13 @@ impl AstNode for TanukiType {
 			Self::U(bit_width) => write!(f, "U{bit_width}"),
 			Self::I(bit_width) => write!(f, "I{bit_width}"),
 			Self::F(bit_width) => write!(f, "F{bit_width}"),
+			Self::Any               => write!(f, "Any"),
 		}
 	}
 
 	fn print_sub_nodes(&self, _level: usize, _f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::CompileTimeInt | Self::CompileTimeFloat | Self::CompileTimeBool | Self::CompileTimeChar | Self::CompileTimeString | Self::Void | Self::U(_) | Self::I(_) | Self::F(_) => Ok(()),
+			Self::CompileTimeInt | Self::CompileTimeFloat | Self::CompileTimeBool | Self::CompileTimeChar | Self::CompileTimeString | Self::Void | Self::U(_) | Self::I(_) | Self::F(_) | Self::Any => Ok(()),
 		}
 	}
 }
