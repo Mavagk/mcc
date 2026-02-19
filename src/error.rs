@@ -52,6 +52,8 @@ pub enum Error {
 	AugmentedAssignmentUsedOnGlobalVariable,
 	VariableStartsWithTnk,
 	CannotBeInsideBlockOrFunction,
+	ExpressionCannotBeLValue,
+	ExpressionCannotBeRValue,
 }
 
 impl Error {
@@ -112,6 +114,8 @@ impl Display for Error {
 			Self::AugmentedAssignmentUsedOnGlobalVariable => write!(f, "Augmented assignment used on global"),
 			Self::VariableStartsWithTnk => write!(f, "Variable starts with \"_tnk_\""),
 			Self::CannotBeInsideBlockOrFunction => write!(f, "Cannot be inside block or function"),
+			Self::ExpressionCannotBeLValue => write!(f, "Expression cannot be l-value"),
+			Self::ExpressionCannotBeRValue => write!(f, "Expression cannot be r-value"),
 		}
 	}
 }

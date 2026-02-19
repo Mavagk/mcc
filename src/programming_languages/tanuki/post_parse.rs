@@ -1,4 +1,4 @@
-use std::mem::take;
+use std::{collections::HashSet, mem::take};
 
 use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{constant_value::TanukiConstantValue, export::TanukiExport, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionArgument}, global_constant::TanukiGlobalConstant, import::TanukiImport, link::TanukiLink, module::TanukiModule}};
 
@@ -18,7 +18,7 @@ impl TanukiModule {
 			exports: &mut self.exports, imports: &mut self.imports, links: &mut self.links
 		};
 		for expression in self.parsed_expressions.iter_mut() {
-			expression.post_parse(main, &mut post_parse_data, false, None)?;
+			expression.post_parse(main, &mut post_parse_data, false, None, false, &mut HashSet::new(), &mut Vec::new())?;
 		}
 		self.parsed_expressions = Default::default();
 		Ok(())
@@ -26,14 +26,18 @@ impl TanukiModule {
 }
 
 impl TanukiExpression {
-	pub fn post_parse(&mut self, main: &mut Main, post_parse_data: &mut TanukiModulePostParseData, is_inside_function_or_block: bool, assigned_to_name: Option<&str>) -> Result<(), ErrorAt> {
-		match (&mut self.variant, is_inside_function_or_block) {
-			(TanukiExpressionVariant::Assignment(lhs, rhs), false) => {
+	pub fn post_parse(
+		&mut self, main: &mut Main, post_parse_data: &mut TanukiModulePostParseData, is_inside_function_or_block: bool, assigned_to_name: Option<&str>, is_l_value: bool,
+		global_variables_dependent_on: &mut HashSet<Box<str>>, local_variables: &mut Vec<HashSet<Box<str>>>
+	) -> Result<(), ErrorAt> {
+		match (&mut self.variant, is_inside_function_or_block, is_l_value) {
+			// Assignment
+			(TanukiExpressionVariant::Assignment(lhs, rhs), false, _) => {
 				let start_line = lhs.start_line;
 				let start_column = lhs.start_column;
 				let end_line = rhs.end_line;
 				let end_column = rhs.end_column;
-				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
+				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, true, todo!(), local_variables)?;
 				let lhs = take(lhs);
 				let (name, t_type) = match lhs.clone().variant {
 					TanukiExpressionVariant::Variable(name) => {
@@ -45,23 +49,21 @@ impl TanukiExpression {
 					},
 					_ => return Err(Error::ExpectedVariable.at(Some(lhs.start_line), Some(lhs.end_column), None)),
 				};
-				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, Some(&name))?;
+				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, Some(&name), false, todo!(), local_variables)?;
 				let rhs = take(rhs);
 				if !matches!(rhs.variant, TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Link(..)) {
 					let global_constant = TanukiGlobalConstant {
-						value: *rhs, name, t_type: t_type.map(|t_type| *t_type), start_line, start_column, end_line, end_column,
+						value_expression: *rhs, name, t_type: t_type.map(|t_type| *t_type), start_line, start_column, end_line, end_column, depends_on: HashSet::new(),
 					};
 					post_parse_data.global_constants.push(global_constant);
 				}
 				*self = *lhs.clone();
 			}
+			// Unary operators taking a argument of the same l/r rating
 			(TanukiExpressionVariant::Percent(sub_expression) | TanukiExpressionVariant::Factorial(sub_expression) |
 			TanukiExpressionVariant::SaturatingFactorial(sub_expression) | TanukiExpressionVariant::WrappingFactorial(sub_expression) |
-			TanukiExpressionVariant::TryFactorial(sub_expression) | TanukiExpressionVariant::PostfixIncrement(sub_expression) |
-			TanukiExpressionVariant::PostfixSaturatingIncrement(sub_expression) | TanukiExpressionVariant::PostfixWrappingIncrement(sub_expression) |
-			TanukiExpressionVariant::PostfixDecrement(sub_expression) | TanukiExpressionVariant::PostfixSaturatingDecrement(sub_expression) |
-			TanukiExpressionVariant::PostfixWrappingDecrement(sub_expression) | TanukiExpressionVariant::TryPropagate(sub_expression) |
-			TanukiExpressionVariant::Unwrap(sub_expression) | TanukiExpressionVariant::Read(sub_expression) |
+			TanukiExpressionVariant::TryFactorial(sub_expression) | TanukiExpressionVariant::TryPropagate(sub_expression) |
+			TanukiExpressionVariant::Unwrap(sub_expression) |
 			TanukiExpressionVariant::Not(sub_expression) | TanukiExpressionVariant::Reciprocal(sub_expression) |
 			TanukiExpressionVariant::BitshiftRightOne(sub_expression) | TanukiExpressionVariant::ComplexConjugate(sub_expression) |
 			TanukiExpressionVariant::Signum(sub_expression) | TanukiExpressionVariant::Negation(sub_expression) |
@@ -70,17 +72,32 @@ impl TanukiExpression {
 			TanukiExpressionVariant::SaturatingSquare(sub_expression) | TanukiExpressionVariant::WrappingSquare(sub_expression) |
 			TanukiExpressionVariant::TrySquare(sub_expression) | TanukiExpressionVariant::BitshiftLeftOne(sub_expression) |
 			TanukiExpressionVariant::SaturatingBitshiftLeftOne(sub_expression) | TanukiExpressionVariant::WrappingBitshiftLeftOne(sub_expression) |
-			TanukiExpressionVariant::TryBitshiftLeftOne(sub_expression) | TanukiExpressionVariant::PrefixIncrement(sub_expression) |
+			TanukiExpressionVariant::TryBitshiftLeftOne(sub_expression) | TanukiExpressionVariant::NthToLast(sub_expression) |
+			TanukiExpressionVariant::RangeToInclusive(sub_expression) | TanukiExpressionVariant::RangeToExclusive(sub_expression), _, _)
+				=> sub_expression.post_parse(main, post_parse_data, is_inside_function_or_block, None, is_l_value, global_variables_dependent_on, local_variables)?,
+			// L-value unary operators taking a l-value
+			(TanukiExpressionVariant::Read(sub_expression), _, false)
+				=> sub_expression.post_parse(main, post_parse_data, is_inside_function_or_block, None, false, global_variables_dependent_on, local_variables)?,
+			// R-value unary operators taking a l-value
+			(TanukiExpressionVariant::AddressOf(sub_expression), _, false)
+				=> sub_expression.post_parse(main, post_parse_data, is_inside_function_or_block, None, true, global_variables_dependent_on, local_variables)?,
+			// Unary operators taking a l-value
+			(TanukiExpressionVariant::PostfixIncrement(sub_expression) |
+			TanukiExpressionVariant::PostfixSaturatingIncrement(sub_expression) | TanukiExpressionVariant::PostfixWrappingIncrement(sub_expression) |
+			TanukiExpressionVariant::PostfixDecrement(sub_expression) | TanukiExpressionVariant::PostfixSaturatingDecrement(sub_expression) |
+			TanukiExpressionVariant::PostfixWrappingDecrement(sub_expression) | TanukiExpressionVariant::PrefixIncrement(sub_expression) |
 			TanukiExpressionVariant::PrefixSaturatingIncrement(sub_expression) | TanukiExpressionVariant::PrefixWrappingIncrement(sub_expression) |
 			TanukiExpressionVariant::PrefixDecrement(sub_expression) | TanukiExpressionVariant::PrefixSaturatingDecrement(sub_expression) |
-			TanukiExpressionVariant::PrefixWrappingDecrement(sub_expression) | TanukiExpressionVariant::AddressOf(sub_expression) |
-			TanukiExpressionVariant::Dereference(sub_expression) | TanukiExpressionVariant::NthToLast(sub_expression) |
-			TanukiExpressionVariant::RangeToExclusive(sub_expression) | TanukiExpressionVariant::RangeToInclusive(sub_expression), _)
-				=> sub_expression.post_parse(main, post_parse_data, is_inside_function_or_block, None)?,
-			(TanukiExpressionVariant::MemberAccess(lhs, rhs) | TanukiExpressionVariant::As(lhs, rhs) |
-			TanukiExpressionVariant::Index(lhs, rhs) | TanukiExpressionVariant::TypeAndValue(lhs, rhs) |
-			TanukiExpressionVariant::SaturatingAs(lhs, rhs) | TanukiExpressionVariant::WrappingAs(lhs, rhs) |
-			TanukiExpressionVariant::TryAs(lhs, rhs) | TanukiExpressionVariant::Exponent(lhs, rhs) |
+			TanukiExpressionVariant::PrefixWrappingDecrement(sub_expression), _, _)
+				=> sub_expression.post_parse(main, post_parse_data, is_inside_function_or_block, None, true, global_variables_dependent_on, local_variables)?,
+			// Unary operators taking a r-value
+			(TanukiExpressionVariant::Dereference(sub_expression), _, _)
+				=> sub_expression.post_parse(main, post_parse_data, is_inside_function_or_block, None, true, global_variables_dependent_on, local_variables)?,
+			// Invalid unary operators as a l-value
+			(TanukiExpressionVariant::AddressOf(_) | TanukiExpressionVariant::Read(_), _, true)
+				=> return Err(Error::ExpressionCannotBeLValue.at(Some(self.start_line), Some(self.start_column), None)),
+			// Binary operators that take arguments of the same l/r value rating
+			(TanukiExpressionVariant::Exponent(lhs, rhs) |
 			TanukiExpressionVariant::SaturatingExponent(lhs, rhs) | TanukiExpressionVariant::WrappingExponent(lhs, rhs) |
 			TanukiExpressionVariant::TryExponent(lhs, rhs) | TanukiExpressionVariant::Multiplication(lhs, rhs) |
 			TanukiExpressionVariant::SaturatingMultiplication(lhs, rhs) | TanukiExpressionVariant::WrappingMultiplication(lhs, rhs) |
@@ -110,15 +127,25 @@ impl TanukiExpression {
 			TanukiExpressionVariant::ShortCircuitOr(lhs, rhs) | TanukiExpressionVariant::ShortCircuitNor(lhs, rhs) |
 			TanukiExpressionVariant::NonShortCircuitingNullCoalescing(lhs, rhs) |
 			TanukiExpressionVariant::ShortCircuitingNullCoalescing(lhs, rhs) | TanukiExpressionVariant::ExclusiveRange(lhs, rhs) |
-			TanukiExpressionVariant::InclusiveRange(lhs, rhs), _) => {
-				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
-				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
+			TanukiExpressionVariant::InclusiveRange(lhs, rhs), _, _) => {
+				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, is_l_value, global_variables_dependent_on, local_variables)?;
+				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, is_l_value, global_variables_dependent_on, local_variables)?;
 			}
-			(TanukiExpressionVariant::NonShortCircuitingConditional(lhs, mhs, rhs) | TanukiExpressionVariant::ShortCircuitingConditional(lhs, mhs, rhs), _) => {
-				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
-				mhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
-				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
+			// Binary operators that take a left argument of the same l/r value rating and a right r-value argument
+			(TanukiExpressionVariant::As(lhs, rhs) | TanukiExpressionVariant::TypeAndValue(lhs, rhs) |
+			TanukiExpressionVariant::SaturatingAs(lhs, rhs) | TanukiExpressionVariant::WrappingAs(lhs, rhs) |
+			TanukiExpressionVariant::TryAs(lhs, rhs) | TanukiExpressionVariant::Index(lhs, rhs) |
+			TanukiExpressionVariant::MemberAccess(lhs, rhs), _, _) => {
+				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, is_l_value, global_variables_dependent_on, local_variables)?;
+				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, false, global_variables_dependent_on, local_variables)?;
 			}
+			// Ternary
+			(TanukiExpressionVariant::NonShortCircuitingConditional(lhs, mhs, rhs) | TanukiExpressionVariant::ShortCircuitingConditional(lhs, mhs, rhs), _, _) => {
+				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, false, global_variables_dependent_on, local_variables)?;
+				mhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, is_l_value, global_variables_dependent_on, local_variables)?;
+				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, is_l_value, global_variables_dependent_on, local_variables)?;
+			}
+			// Augmented assignments cannot be used outside a block or function
 			(TanukiExpressionVariant::ExponentAssignment(_, _) | TanukiExpressionVariant::SaturatingExponentAssignment(_, _) | TanukiExpressionVariant::WrappingExponentAssignment(_, _) |
 			TanukiExpressionVariant::MultiplicationAssignment(_, _) | TanukiExpressionVariant::SaturatingMultiplicationAssignment(_, _) |
 			TanukiExpressionVariant::WrappingMultiplicationAssignment(_, _) | TanukiExpressionVariant::DivisionAssignment(_, _) |
@@ -135,8 +162,9 @@ impl TanukiExpression {
 			TanukiExpressionVariant::PipeAssignment(_, _) | TanukiExpressionVariant::ShortCircuitAndAssignment(_, _) | TanukiExpressionVariant::ShortCircuitNandAssignment(_, _) |
 			TanukiExpressionVariant::ShortCircuitXorAssignment(_, _) | TanukiExpressionVariant::ShortCircuitXnorAssignment(_, _) | TanukiExpressionVariant::ShortCircuitOrAssignment(_, _) |
 			TanukiExpressionVariant::ShortCircuitNorAssignment(_, _) | TanukiExpressionVariant::NonShortCircuitingNullCoalescingAssignment(_, _) |
-			TanukiExpressionVariant::ShortCircuitingNullCoalescingAssignment(_, _), false)
+			TanukiExpressionVariant::ShortCircuitingNullCoalescingAssignment(_, _), false, _)
 				=> return Err(Error::AugmentedAssignmentUsedOnGlobalVariable.at(Some(self.start_line), Some(self.start_column), None)),
+			// Augmented assignments
 			(TanukiExpressionVariant::ExponentAssignment(lhs, rhs) | TanukiExpressionVariant::SaturatingExponentAssignment(lhs, rhs) |
 			TanukiExpressionVariant::WrappingExponentAssignment(lhs, rhs) |
 			TanukiExpressionVariant::MultiplicationAssignment(lhs, rhs) | TanukiExpressionVariant::SaturatingMultiplicationAssignment(lhs, rhs) |
@@ -162,35 +190,45 @@ impl TanukiExpression {
 			TanukiExpressionVariant::ShortCircuitXorAssignment(lhs, rhs) | TanukiExpressionVariant::ShortCircuitXnorAssignment(lhs, rhs) |
 			TanukiExpressionVariant::ShortCircuitOrAssignment(lhs, rhs) |
 			TanukiExpressionVariant::ShortCircuitNorAssignment(lhs, rhs) | TanukiExpressionVariant::NonShortCircuitingNullCoalescingAssignment(lhs, rhs) |
-			TanukiExpressionVariant::ShortCircuitingNullCoalescingAssignment(lhs, rhs) | TanukiExpressionVariant::Assignment(lhs, rhs), true) => {
-				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
-				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
+			TanukiExpressionVariant::ShortCircuitingNullCoalescingAssignment(lhs, rhs) | TanukiExpressionVariant::Assignment(lhs, rhs), true, _) => {
+				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, true, global_variables_dependent_on, local_variables)?;
+				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, false, global_variables_dependent_on, local_variables)?;
 			}
-			(TanukiExpressionVariant::Block { sub_expressions, has_return_value: _ }, _) => {
-				for sub_expression in sub_expressions {
-					sub_expression.post_parse(main, post_parse_data, true, None)?;
+			(TanukiExpressionVariant::Block { sub_expressions, has_return_value: _ }, _, _) => {
+				let sub_expressions_length = sub_expressions.len();
+				for (index, sub_expression) in sub_expressions.iter_mut().enumerate() {
+					if index == sub_expressions_length - 1 {
+						sub_expression.post_parse(main, post_parse_data, true, None, is_l_value, global_variables_dependent_on, todo!())?;
+					}
+					else {
+						sub_expression.post_parse(main, post_parse_data, true, None, false, global_variables_dependent_on, todo!())?;
+					}
 				}
 			}
-			(TanukiExpressionVariant::FunctionCall { function_pointer, arguments }, _) => {
-				function_pointer.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
+			(TanukiExpressionVariant::FunctionCall { function_pointer, arguments }, _, _) => {
+				if is_l_value {
+					return Err(Error::NotYetImplemented("Functions that return l-values".into()).at(Some(self.start_line), Some(self.start_column), None));
+				}
+				function_pointer.post_parse(main, post_parse_data, is_inside_function_or_block, None, false, global_variables_dependent_on, local_variables)?;
 				for argument in arguments {
-					argument.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
+					argument.post_parse(main, post_parse_data, is_inside_function_or_block, None, false, global_variables_dependent_on, local_variables)?;
 				}
 			}
-			(TanukiExpressionVariant::Variable(name), _) => {
+			(TanukiExpressionVariant::Variable(name), _, _) => {
+				// TODO
 				if name.starts_with("_tnk_") {
 					return Err(Error::VariableStartsWithTnk.at(Some(self.start_line), Some(self.start_column), None));
 				}
 			}
-			(TanukiExpressionVariant::FunctionDefinition { parameters, return_type, body_expression }, _) => {
+			(TanukiExpressionVariant::FunctionDefinition { parameters, return_type, body_expression }, _, false) => {
 				// Parse sub-expressions
 				for parameter in parameters.iter_mut() {
-					parameter.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
+					parameter.post_parse(main, post_parse_data, is_inside_function_or_block, None, true, todo!(), todo!())?;
 				}
 				if let Some(return_type) = return_type {
-					return_type.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
+					return_type.post_parse(main, post_parse_data, is_inside_function_or_block, None, false, todo!(), todo!())?;
 				}
-				body_expression.post_parse(main, post_parse_data, true, None)?;
+				body_expression.post_parse(main, post_parse_data, true, None, false, todo!(), todo!())?;
 				//
 				let mut new_parameters = Vec::new();
 				for parameter in take(parameters) {
@@ -210,16 +248,18 @@ impl TanukiExpression {
 				let module_function_index = post_parse_data.functions.len();
 				post_parse_data.functions.push(TanukiFunction {
 					name: format!("_tnk_fn_{module_function_index}").into_boxed_str(), parameters: new_parameters.into_boxed_slice(), return_type: take(return_type).map(|return_type| *return_type),
-					body: take(body_expression), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
+					body: take(body_expression), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column, depends_on_for_execution: todo!()
 				});
 				*self = TanukiExpression {
 					variant: TanukiExpressionVariant::ModuleFunction { module_function_index }, start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
 				};
 			}
-			(TanukiExpressionVariant::Constant(..), _) => {},
-			(TanukiExpressionVariant::ModuleFunction { .. }, _) => unreachable!(),
-			(TanukiExpressionVariant::Export(to_export), false) => {
-				to_export.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
+			(TanukiExpressionVariant::FunctionDefinition { .. }, _, true) =>
+				return Err(Error::ExpressionCannotBeLValue.at(Some(self.start_line), Some(self.start_column), None)),
+			(TanukiExpressionVariant::Constant(..), _, _) => {},
+			(TanukiExpressionVariant::ModuleFunction { .. }, _, _) => unreachable!(),
+			(TanukiExpressionVariant::Export(to_export), false, _) => {
+				to_export.post_parse(main, post_parse_data, is_inside_function_or_block, None, is_l_value, global_variables_dependent_on, local_variables)?;
 				match &mut to_export.variant {
 					TanukiExpressionVariant::Variable(name) => {
 						post_parse_data.exports.push(TanukiExport { name: name.clone(), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column });
@@ -228,7 +268,7 @@ impl TanukiExpression {
 					_ => return Err(Error::ExpectedVariable.at(Some(self.start_line), Some(self.start_column), None)),
 				}
 			},
-			(TanukiExpressionVariant::Import(arguments), false) => {
+			(TanukiExpressionVariant::Import(arguments), false, _) => {
 				if arguments.len() != 1 {
 					return Err(Error::Unimplemented("@import with argument count that is not one".into()).at(Some(self.start_line), Some(self.start_column), None));
 				}
@@ -245,7 +285,7 @@ impl TanukiExpression {
 					name: assigned_to_name.into(), module_from: module.into_boxed_path(), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
 				});
 			},
-			(TanukiExpressionVariant::Link(arguments), false) => {
+			(TanukiExpressionVariant::Link(arguments), false, _) => {
 				if arguments.len() != 1 {
 					return Err(Error::Unimplemented("@link with argument count that is not one".into()).at(Some(self.start_line), Some(self.start_column), None));
 				}
@@ -262,7 +302,7 @@ impl TanukiExpression {
 					start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
 				});
 			},
-			(TanukiExpressionVariant::Export(..) | TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Link(..), true)
+			(TanukiExpressionVariant::Export(..) | TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Link(..), true, _)
 				=> return Err(Error::CannotBeInsideBlockOrFunction.at(Some(self.start_line), Some(self.start_column), None)),
 		}
 		Ok(())

@@ -1,15 +1,16 @@
-use std::{fmt::{self, Formatter}, num::NonZeroUsize};
+use std::{collections::HashSet, fmt::{self, Formatter}, num::NonZeroUsize};
 
 use crate::{programming_languages::tanuki::expression::TanukiExpression, traits::ast_node::AstNode};
 
 pub struct TanukiGlobalConstant {
-	pub value: TanukiExpression,
+	pub value_expression: TanukiExpression,
 	pub name: Box<str>,
 	pub t_type: Option<TanukiExpression>,
 	pub start_line: NonZeroUsize,
 	pub start_column: NonZeroUsize,
 	pub end_line: NonZeroUsize,
 	pub end_column: NonZeroUsize,
+	pub depends_on: HashSet<Box<str>>,
 }
 
 
@@ -19,7 +20,7 @@ impl AstNode for TanukiGlobalConstant {
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
-		self.value.print(level, f)
+		self.value_expression.print(level, f)
 	}
 
 	fn start_line(&self) -> Option<NonZeroUsize> {
