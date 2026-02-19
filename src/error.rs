@@ -37,6 +37,7 @@ pub enum Error {
 	ExpectedSemicolon,
 	ExpectedComma,
 	ExpectedExpression,
+	ExpectedVariable,
 	InvalidEscapeChars(String),
 	InvalidUnicodeCodePoint,
 	InvalidOperatorSymbol(String),
@@ -48,6 +49,8 @@ pub enum Error {
 	ColonWithoutMatchingTernaryOperator,
 	InvalidAssignmentOperator(String),
 	UnexpectedReturnType,
+	AugmentedAssignmentUsedOnGlobalVariable,
+	VariableStartsWithTnk,
 }
 
 impl Error {
@@ -95,6 +98,7 @@ impl Display for Error {
 			Self::ExpectedSemicolon => write!(f, "Expected semicolon"),
 			Self::ExpectedComma => write!(f, "Expected comma"),
 			Self::ExpectedExpression => write!(f, "Expected an expression"),
+			Self::ExpectedVariable => write!(f, "Expected a variable"),
 			Self::InvalidOperatorSymbol(name) => write!(f, "Invalid operator symbol \"{name}\""),
 			Self::InvalidCharStartingToken(chr) => write!(f, "Invalid char '{chr}' starting token"),
 			Self::InvalidPostfixUnaryOperator(symbol) => write!(f, "Invalid postfix unary operator {symbol}"),
@@ -104,6 +108,8 @@ impl Display for Error {
 			Self::ColonAtExpressionEnd => write!(f, "Colon at expression end, expected expression after colon"),
 			Self::ColonWithoutMatchingTernaryOperator => write!(f, "Colon without matching ternary operator"),
 			Self::UnexpectedReturnType => write!(f, "Unexpected return type"),
+			Self::AugmentedAssignmentUsedOnGlobalVariable => write!(f, "Augmented assignment used on global"),
+			Self::VariableStartsWithTnk => write!(f, "variable starts with \"_tnk_\""),
 		}
 	}
 }
