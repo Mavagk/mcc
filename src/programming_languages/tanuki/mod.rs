@@ -11,6 +11,9 @@ pub mod post_parse;
 pub mod t_type;
 pub mod function;
 pub mod global_constant;
+pub mod export;
+pub mod import;
+pub mod link;
 
 #[derive(Debug)]
 pub struct Tanuki {}

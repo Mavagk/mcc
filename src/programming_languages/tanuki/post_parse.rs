@@ -1,10 +1,13 @@
 use std::mem::take;
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionArgument}, global_constant::TanukiGlobalConstant, module::TanukiModule}};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{export::TanukiExport, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionArgument}, global_constant::TanukiGlobalConstant, import::TanukiImport, link::TanukiLink, module::TanukiModule}};
 
 pub struct TanukiModulePostParseData<'a> {
 	pub functions: &'a mut Vec<TanukiFunction>,
 	pub global_constants: &'a mut Vec<TanukiGlobalConstant>,
+	pub exports: &'a mut Vec<TanukiExport>,
+	pub imports: &'a mut Vec<TanukiImport>,
+	pub links: &'a mut Vec<TanukiLink>,
 }
 
 impl TanukiModule {
@@ -12,6 +15,7 @@ impl TanukiModule {
 		let mut post_parse_data = TanukiModulePostParseData {
 			functions: &mut self.functions,
 			global_constants: &mut self.global_constants,
+			exports: &mut self.exports, imports: &mut self.imports, links: &mut self.links
 		};
 		for expression in self.parsed_expressions.iter_mut() {
 			expression.post_parse(main, &mut post_parse_data, false)?;
@@ -212,7 +216,19 @@ impl TanukiExpression {
 			}
 			(TanukiExpressionVariant::Constant(..), _) => {},
 			(TanukiExpressionVariant::ModuleFunction { .. }, _) => unreachable!(),
-			(TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Export(..) | TanukiExpressionVariant::Link(..), _) => todo!(),
+			(TanukiExpressionVariant::Export(to_export), false) => {
+				to_export.post_parse(main, post_parse_data, is_inside_function_or_block)?;
+				match &mut to_export.variant {
+					TanukiExpressionVariant::Variable(name) => {
+						post_parse_data.exports.push(TanukiExport { name: name.clone(), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column });
+						*self = take(to_export);
+					},
+					_ => return Err(Error::ExpectedVariable.at(Some(self.start_line), Some(self.start_column), None)),
+				}
+			},
+			(TanukiExpressionVariant::Export(..) | TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Link(..), true)
+				=> return Err(Error::CannotBeInsideBlockOrFunction.at(Some(self.start_line), Some(self.start_column), None)),
+			(TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Link(..), _) => todo!(),
 		}
 		Ok(())
 	}

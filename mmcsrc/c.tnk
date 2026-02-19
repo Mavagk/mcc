@@ -4,3 +4,5 @@ C = D = 1;
 G = E = F / 2;
 A = 0;
 A = (a, b) 5;
+@export A;
+@export H = 4;

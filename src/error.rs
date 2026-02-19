@@ -51,6 +51,7 @@ pub enum Error {
 	UnexpectedReturnType,
 	AugmentedAssignmentUsedOnGlobalVariable,
 	VariableStartsWithTnk,
+	CannotBeInsideBlockOrFunction,
 }
 
 impl Error {
@@ -109,7 +110,8 @@ impl Display for Error {
 			Self::ColonWithoutMatchingTernaryOperator => write!(f, "Colon without matching ternary operator"),
 			Self::UnexpectedReturnType => write!(f, "Unexpected return type"),
 			Self::AugmentedAssignmentUsedOnGlobalVariable => write!(f, "Augmented assignment used on global"),
-			Self::VariableStartsWithTnk => write!(f, "variable starts with \"_tnk_\""),
+			Self::VariableStartsWithTnk => write!(f, "Variable starts with \"_tnk_\""),
+			Self::CannotBeInsideBlockOrFunction => write!(f, "Cannot be inside block or function"),
 		}
 	}
 }
