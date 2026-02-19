@@ -6,3 +6,5 @@ A = 0;
 A = (a, b) 5;
 @export A;
 @export H = 4;
+IMP = @import("a.tnk");
+LNK = @link("a.dll");

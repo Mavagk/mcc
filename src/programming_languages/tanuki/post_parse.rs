@@ -1,6 +1,6 @@
 use std::mem::take;
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{export::TanukiExport, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionArgument}, global_constant::TanukiGlobalConstant, import::TanukiImport, link::TanukiLink, module::TanukiModule}};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{constant_value::TanukiConstantValue, export::TanukiExport, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionArgument}, global_constant::TanukiGlobalConstant, import::TanukiImport, link::TanukiLink, module::TanukiModule}};
 
 pub struct TanukiModulePostParseData<'a> {
 	pub functions: &'a mut Vec<TanukiFunction>,
@@ -18,7 +18,7 @@ impl TanukiModule {
 			exports: &mut self.exports, imports: &mut self.imports, links: &mut self.links
 		};
 		for expression in self.parsed_expressions.iter_mut() {
-			expression.post_parse(main, &mut post_parse_data, false)?;
+			expression.post_parse(main, &mut post_parse_data, false, None)?;
 		}
 		self.parsed_expressions = Default::default();
 		Ok(())
@@ -26,15 +26,14 @@ impl TanukiModule {
 }
 
 impl TanukiExpression {
-	pub fn post_parse(&mut self, main: &mut Main, post_parse_data: &mut TanukiModulePostParseData, is_inside_function_or_block: bool) -> Result<(), ErrorAt> {
+	pub fn post_parse(&mut self, main: &mut Main, post_parse_data: &mut TanukiModulePostParseData, is_inside_function_or_block: bool, assigned_to_name: Option<&str>) -> Result<(), ErrorAt> {
 		match (&mut self.variant, is_inside_function_or_block) {
 			(TanukiExpressionVariant::Assignment(lhs, rhs), false) => {
 				let start_line = lhs.start_line;
 				let start_column = lhs.start_column;
 				let end_line = rhs.end_line;
 				let end_column = rhs.end_column;
-				lhs.post_parse(main, post_parse_data, is_inside_function_or_block)?;
-				rhs.post_parse(main, post_parse_data, is_inside_function_or_block)?;
+				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
 				let lhs = take(lhs);
 				let (name, t_type) = match lhs.clone().variant {
 					TanukiExpressionVariant::Variable(name) => {
@@ -46,12 +45,15 @@ impl TanukiExpression {
 					},
 					_ => return Err(Error::ExpectedVariable.at(Some(lhs.start_line), Some(lhs.end_column), None)),
 				};
+				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, Some(&name))?;
 				let rhs = take(rhs);
-				let global_constant = TanukiGlobalConstant {
-					value: *rhs, name, t_type: t_type.map(|t_type| *t_type), start_line, start_column, end_line, end_column,
-				};
+				if !matches!(rhs.variant, TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Link(..)) {
+					let global_constant = TanukiGlobalConstant {
+						value: *rhs, name, t_type: t_type.map(|t_type| *t_type), start_line, start_column, end_line, end_column,
+					};
+					post_parse_data.global_constants.push(global_constant);
+				}
 				*self = *lhs.clone();
-				post_parse_data.global_constants.push(global_constant);
 			}
 			(TanukiExpressionVariant::Percent(sub_expression) | TanukiExpressionVariant::Factorial(sub_expression) |
 			TanukiExpressionVariant::SaturatingFactorial(sub_expression) | TanukiExpressionVariant::WrappingFactorial(sub_expression) |
@@ -74,7 +76,7 @@ impl TanukiExpression {
 			TanukiExpressionVariant::PrefixWrappingDecrement(sub_expression) | TanukiExpressionVariant::AddressOf(sub_expression) |
 			TanukiExpressionVariant::Dereference(sub_expression) | TanukiExpressionVariant::NthToLast(sub_expression) |
 			TanukiExpressionVariant::RangeToExclusive(sub_expression) | TanukiExpressionVariant::RangeToInclusive(sub_expression), _)
-				=> sub_expression.post_parse(main, post_parse_data, is_inside_function_or_block)?,
+				=> sub_expression.post_parse(main, post_parse_data, is_inside_function_or_block, None)?,
 			(TanukiExpressionVariant::MemberAccess(lhs, rhs) | TanukiExpressionVariant::As(lhs, rhs) |
 			TanukiExpressionVariant::Index(lhs, rhs) | TanukiExpressionVariant::TypeAndValue(lhs, rhs) |
 			TanukiExpressionVariant::SaturatingAs(lhs, rhs) | TanukiExpressionVariant::WrappingAs(lhs, rhs) |
@@ -109,13 +111,13 @@ impl TanukiExpression {
 			TanukiExpressionVariant::NonShortCircuitingNullCoalescing(lhs, rhs) |
 			TanukiExpressionVariant::ShortCircuitingNullCoalescing(lhs, rhs) | TanukiExpressionVariant::ExclusiveRange(lhs, rhs) |
 			TanukiExpressionVariant::InclusiveRange(lhs, rhs), _) => {
-				lhs.post_parse(main, post_parse_data, is_inside_function_or_block)?;
-				rhs.post_parse(main, post_parse_data, is_inside_function_or_block)?;
+				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
+				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
 			}
 			(TanukiExpressionVariant::NonShortCircuitingConditional(lhs, mhs, rhs) | TanukiExpressionVariant::ShortCircuitingConditional(lhs, mhs, rhs), _) => {
-				lhs.post_parse(main, post_parse_data, is_inside_function_or_block)?;
-				mhs.post_parse(main, post_parse_data, is_inside_function_or_block)?;
-				rhs.post_parse(main, post_parse_data, is_inside_function_or_block)?;
+				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
+				mhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
+				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
 			}
 			(TanukiExpressionVariant::ExponentAssignment(_, _) | TanukiExpressionVariant::SaturatingExponentAssignment(_, _) | TanukiExpressionVariant::WrappingExponentAssignment(_, _) |
 			TanukiExpressionVariant::MultiplicationAssignment(_, _) | TanukiExpressionVariant::SaturatingMultiplicationAssignment(_, _) |
@@ -161,18 +163,18 @@ impl TanukiExpression {
 			TanukiExpressionVariant::ShortCircuitOrAssignment(lhs, rhs) |
 			TanukiExpressionVariant::ShortCircuitNorAssignment(lhs, rhs) | TanukiExpressionVariant::NonShortCircuitingNullCoalescingAssignment(lhs, rhs) |
 			TanukiExpressionVariant::ShortCircuitingNullCoalescingAssignment(lhs, rhs) | TanukiExpressionVariant::Assignment(lhs, rhs), true) => {
-				lhs.post_parse(main, post_parse_data, is_inside_function_or_block)?;
-				rhs.post_parse(main, post_parse_data, is_inside_function_or_block)?;
+				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
+				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
 			}
 			(TanukiExpressionVariant::Block { sub_expressions, has_return_value: _ }, _) => {
 				for sub_expression in sub_expressions {
-					sub_expression.post_parse(main, post_parse_data, true)?;
+					sub_expression.post_parse(main, post_parse_data, true, None)?;
 				}
 			}
 			(TanukiExpressionVariant::FunctionCall { function_pointer, arguments }, _) => {
-				function_pointer.post_parse(main, post_parse_data, is_inside_function_or_block)?;
+				function_pointer.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
 				for argument in arguments {
-					argument.post_parse(main, post_parse_data, is_inside_function_or_block)?;
+					argument.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
 				}
 			}
 			(TanukiExpressionVariant::Variable(name), _) => {
@@ -183,12 +185,12 @@ impl TanukiExpression {
 			(TanukiExpressionVariant::FunctionDefinition { parameters, return_type, body_expression }, _) => {
 				// Parse sub-expressions
 				for parameter in parameters.iter_mut() {
-					parameter.post_parse(main, post_parse_data, is_inside_function_or_block)?;
+					parameter.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
 				}
 				if let Some(return_type) = return_type {
-					return_type.post_parse(main, post_parse_data, is_inside_function_or_block)?;
+					return_type.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
 				}
-				body_expression.post_parse(main, post_parse_data, true)?;
+				body_expression.post_parse(main, post_parse_data, true, None)?;
 				//
 				let mut new_parameters = Vec::new();
 				for parameter in take(parameters) {
@@ -217,7 +219,7 @@ impl TanukiExpression {
 			(TanukiExpressionVariant::Constant(..), _) => {},
 			(TanukiExpressionVariant::ModuleFunction { .. }, _) => unreachable!(),
 			(TanukiExpressionVariant::Export(to_export), false) => {
-				to_export.post_parse(main, post_parse_data, is_inside_function_or_block)?;
+				to_export.post_parse(main, post_parse_data, is_inside_function_or_block, None)?;
 				match &mut to_export.variant {
 					TanukiExpressionVariant::Variable(name) => {
 						post_parse_data.exports.push(TanukiExport { name: name.clone(), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column });
@@ -226,9 +228,42 @@ impl TanukiExpression {
 					_ => return Err(Error::ExpectedVariable.at(Some(self.start_line), Some(self.start_column), None)),
 				}
 			},
+			(TanukiExpressionVariant::Import(arguments), false) => {
+				if arguments.len() != 1 {
+					return Err(Error::Unimplemented("@import with argument count that is not one".into()).at(Some(self.start_line), Some(self.start_column), None));
+				}
+				let assigned_to_name = assigned_to_name.unwrap();
+				let argument = &arguments[0];
+				let argument = match &argument.variant {
+					TanukiExpressionVariant::Constant(TanukiConstantValue::CompileTimeString(path)) => &**path,
+					_ => return Err(Error::Unimplemented("@import with argument that is not a string".into()).at(Some(argument.start_line), Some(argument.start_column), None)),
+				};
+				let mut module = main.module_being_processed.parent().unwrap().to_path_buf();
+				module.push(argument);
+				main.add_module_to_compile((module.clone().into_boxed_path(), false));
+				post_parse_data.imports.push(TanukiImport {
+					name: assigned_to_name.into(), module_from: module.into_boxed_path(), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
+				});
+			},
+			(TanukiExpressionVariant::Link(arguments), false) => {
+				if arguments.len() != 1 {
+					return Err(Error::Unimplemented("@link with argument count that is not one".into()).at(Some(self.start_line), Some(self.start_column), None));
+				}
+				let assigned_to_name = assigned_to_name.unwrap();
+				let argument = &arguments[0];
+				let argument = match &argument.variant {
+					TanukiExpressionVariant::Constant(TanukiConstantValue::CompileTimeString(path)) => &**path,
+					_ => return Err(Error::Unimplemented("@link with argument that is not a string".into()).at(Some(argument.start_line), Some(argument.start_column), None)),
+				};
+				let mut dynamic_library_path = main.module_being_processed.parent().unwrap().to_path_buf();
+				dynamic_library_path.push(argument);
+				post_parse_data.links.push(TanukiLink {
+					name: assigned_to_name.into(), dynamic_library_path: dynamic_library_path.into_boxed_path(),
+					start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
+				});
+			},
 			(TanukiExpressionVariant::Export(..) | TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Link(..), true)
 				=> return Err(Error::CannotBeInsideBlockOrFunction.at(Some(self.start_line), Some(self.start_column), None)),
-			(TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Link(..), _) => todo!(),
 		}
 		Ok(())
 	}

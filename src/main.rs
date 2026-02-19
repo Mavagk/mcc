@@ -59,6 +59,7 @@ fn main() {
 		main_struct.modules_to_compile.remove(&module_path);
 		main_struct.modules_compiled.insert(module_path.0.clone());
 		// Process
+		main_struct.module_being_processed = module_path.0.clone();
 		let module = match parse_module_to_ast(&mut main_struct, &args, &module_path.0) {
 			Err(mut error) => {
 				if error.file.is_none() {
@@ -78,6 +79,7 @@ fn main() {
 	// Execute entrypoint modules if "--execute-interpreted" is set
 	if args.execute_interpreted {
 		for ((path, is_entrypoint), module) in parsed_modules.iter() {
+			main_struct.module_being_processed = path.clone();
 			if *is_entrypoint {
 				match module.interpreted_execute_entrypoint(&mut main_struct) {
 					Err(mut error) => {
@@ -97,6 +99,7 @@ fn main() {
 		_ = create_dir_all(&main_struct.output_directory);
 		let mut c_files_to_compile = HashSet::new();
 		for ((path, is_entrypoint), module) in parsed_modules.iter() {
+			main_struct.module_being_processed = path.clone();
 			// Source to source compile module to C module
 			let c_module = match module.to_c_module(&mut main_struct, *is_entrypoint) {
 				Err(mut error) => {
@@ -179,6 +182,7 @@ pub struct Main {
 	modules_to_compile: HashSet<(Box<Path>, bool)>,
 	/// Modules that have been compiled or are being compiled right now.
 	modules_compiled: HashSet<Box<Path>>,
+	pub module_being_processed: Box<Path>,
 	pub print_source: bool,
 	pub home_directory: Box<Path>,
 	pub source_directory: Box<Path>,
@@ -213,6 +217,7 @@ impl Main {
 			home_directory,
 			source_directory: source_directory.into_boxed_path(),
 			output_directory: output_directory.into_boxed_path(),
+			module_being_processed: PathBuf::new().into_boxed_path(),
 		})
 	}
 
