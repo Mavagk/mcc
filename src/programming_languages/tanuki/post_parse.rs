@@ -242,15 +242,16 @@ impl TanukiExpression {
 			(TanukiExpressionVariant::FunctionDefinition { parameters, return_type, body_expression }, _, false) => {
 				let mut function_depends_on_globals_for_execution = HashSet::new();
 				let mut function_local_variables = Vec::new();
+				function_local_variables.push(HashSet::new());
 				// Parse sub-expressions
 				for parameter in parameters.iter_mut() {
 					parameter.post_parse(
-						main, post_parse_data, is_inside_function_or_block, None, true, &mut function_depends_on_globals_for_execution, &mut function_local_variables
+						main, post_parse_data, true, None, true, &mut function_depends_on_globals_for_execution, &mut function_local_variables
 					)?;
 				}
 				if let Some(return_type) = return_type {
 					return_type.post_parse(
-						main, post_parse_data, is_inside_function_or_block, None, false, &mut function_depends_on_globals_for_execution, &mut function_local_variables
+						main, post_parse_data, true, None, false, &mut function_depends_on_globals_for_execution, &mut function_local_variables
 					)?;
 				}
 				body_expression.post_parse(main, post_parse_data, true, None, false, &mut function_depends_on_globals_for_execution, &mut function_local_variables)?;

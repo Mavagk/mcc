@@ -3,8 +3,12 @@ B = A;
 C = D = 1;
 G = E = F / 2;
 A = 0;
-A = (a, b) 5;
+A = (a, b) 5 + a + b + B;
 @export A;
 @export H = 4;
 IMP = @import("a.tnk");
 LNK = @link("a.dll");
+A = {
+	a = 2;
+	a + A + 4
+};
