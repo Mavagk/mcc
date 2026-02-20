@@ -14,7 +14,7 @@
 					"--bin=mcc"
 				]
 			},
-			"args": ["--version", "--help", "--print-tokens", "--print-ast", "--print-ast-post-parse", "--source-dir", "mmcsrc", "--entrypoint-module", "c.tnk", "--print-c", "-O3", "--stop-after-parse"]
+			"args": ["--version", "--help", "--print-tokens", "--print-ast", "--print-ast-after-const-compile", "--print-ast-post-parse", "--source-dir", "mmcsrc", "--entrypoint-module", "c.tnk", "--print-c", "-O3", "--stop-after-const-compile"]
 		},
 		{
 			"name": "Debug unit tests in executable 'mcc'",

@@ -15,11 +15,13 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 	let mut print_tokens = false;
 	let mut print_ast_after_parse = false;
 	let mut print_ast_after_post_parse = false;
+	let mut print_ast_after_const_compile = false;
 	let mut print_source_to_source_c = false;
 	let mut execute_interpreted = false;
 	let mut is_entrypoint_module = false;
 	let mut optimization_level = None;
 	let mut do_stop_after_parse = false;
+	let mut do_stop_after_const_compile = false;
 	// Process each argument
 	for arg in args {
 		match parse_state {
@@ -70,6 +72,12 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 							}
 							print_ast_after_post_parse = true;
 						}
+						"-print-ast-after-const-compile" => {
+							if print_ast_after_const_compile {
+								return Err(Error::RepeatedArgument(arg_str.into()));
+							}
+							print_ast_after_const_compile = true;
+						}
 						"-execute-interpreted" => {
 							if execute_interpreted {
 								return Err(Error::RepeatedArgument(arg_str.into()));
@@ -93,6 +101,12 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 								return Err(Error::RepeatedArgument(arg_str.into()));
 							}
 							do_stop_after_parse = true;
+						}
+						"-stop-after-const-compile" => {
+							if do_stop_after_const_compile {
+								return Err(Error::RepeatedArgument(arg_str.into()));
+							}
+							do_stop_after_const_compile = true;
 						}
 						_ if matches!(arg_str.chars().next(), Some('O')) => {
 							if optimization_level.is_some() {
@@ -153,7 +167,7 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 	Ok(Arguments {
 		source_files: source_files.into_boxed_slice(), home_directory, output_directory, source_directory, output_file,
 		print_help, print_version, print_source, print_tokens, print_ast_after_parse, print_ast_after_post_parse, execute_interpreted, print_source_to_source_c, do_stop_after_parse,
-		optimization_level,
+		optimization_level, do_stop_after_const_compile, print_ast_after_const_compile,
 	})
 }
 
@@ -175,6 +189,8 @@ pub struct Arguments {
 	pub print_source_to_source_c: bool,
 	pub optimization_level: Option<u8>,
 	pub do_stop_after_parse: bool,
+	pub print_ast_after_const_compile: bool,
+	pub do_stop_after_const_compile: bool,
 }
 
 enum ParseState {

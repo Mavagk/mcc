@@ -8,7 +8,6 @@ pub mod parse;
 pub mod expression;
 pub mod constant_value;
 pub mod post_parse;
-pub mod t_type;
 pub mod function;
 pub mod global_constant;
 pub mod export;

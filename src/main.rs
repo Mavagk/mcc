@@ -76,6 +76,38 @@ fn main() {
 	if args.do_stop_after_parse {
 		return;
 	}
+	// Const-compile, loop over the modules repeatedly and const-compile until const-complication is complete
+	let mut global_items_const_compiled = HashSet::new();
+	let mut is_all_const_compiled = false;
+	loop {
+		let global_items_const_compiled_len = global_items_const_compiled.len();
+		// Const-compile all modules
+		for ((path, _), module) in parsed_modules.iter_mut() {
+			match module.const_compile(&mut main_struct, &mut global_items_const_compiled) {
+				Ok(is_module_all_const_compiled) => is_all_const_compiled |= is_module_all_const_compiled,
+				Err(error) => {
+					println!("Error while const-compiling module \"{}\": {error}.", path.to_string_lossy());
+					return;
+				}
+			}
+		}
+		// Break if all modules are const-compiled
+		if is_all_const_compiled {
+			break;
+		}
+		// Else if we stall
+		if global_items_const_compiled_len == global_items_const_compiled.len() {
+			println!("Error: dependency loop.");
+			return;
+		}
+	}
+	for ((path, _), module) in parsed_modules.iter() {
+		println!("AST of {} after const-compile:", path.to_string_lossy());
+		print!("{module:?}");
+	}
+	if args.do_stop_after_const_compile {
+		return;
+	}
 	// Execute entrypoint modules if "--execute-interpreted" is set
 	if args.execute_interpreted {
 		for ((path, is_entrypoint), module) in parsed_modules.iter() {
