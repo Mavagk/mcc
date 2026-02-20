@@ -4,7 +4,7 @@ use num::BigInt;
 
 use crate::traits::ast_node::AstNode;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TanukiConstantValue {
 	CompileTimeInt(BigInt),
 	CompileTimeFloat(f64),
@@ -59,7 +59,7 @@ impl AstNode for TanukiConstantValue {
 	}
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TanukiType {
 	CompileTimeInt,
 	CompileTimeFloat,

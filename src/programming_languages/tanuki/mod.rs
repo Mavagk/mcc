@@ -13,6 +13,7 @@ pub mod global_constant;
 pub mod export;
 pub mod import;
 pub mod link;
+pub mod const_compile;
 
 #[derive(Debug)]
 pub struct Tanuki {}

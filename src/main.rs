@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet}, env::{args_os, current_dir}, ffi::OsString, fs::{File, create_dir_all, remove_file}, hash::{DefaultHasher, Hash, Hasher}, io::{BufWriter, Write}, mem::take, path::{Path, PathBuf}, process::Command};
+use std::{collections::HashSet, env::{args_os, current_dir}, ffi::OsString, fs::{File, create_dir_all, remove_file}, hash::{DefaultHasher, Hash, Hasher}, io::{BufWriter, Write}, iter::repeat_n, mem::take, path::{Path, PathBuf}, process::Command};
 
 use crate::{arguments::{Arguments, parse_arguments}, error::{Error, ErrorAt}, programming_languages::{branflakes::Branflakes, tanuki::Tanuki}, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage}};
 
@@ -49,7 +49,7 @@ fn main() {
 		println!("--print-c\t\t\t\t\t\tPrint out modules once they have been source to source compiled to C.");
 	}
 	// Parse each module to an AST.
-	let mut parsed_modules = HashMap::new();
+	let mut parsed_modules = Vec::new();
 	loop {
 		// Remove module from "to process" and add it to "processed".
 		let module_path = match main_struct.modules_to_compile.iter().next() {
@@ -71,25 +71,45 @@ fn main() {
 			Ok(module) => module,
 		};
 		// Insert into parsed module list
-		parsed_modules.insert(module_path, module);
+		parsed_modules.push((module_path.0, module_path.1, Some(module)));
 	}
 	if args.do_stop_after_parse {
 		return;
 	}
 	// Const-compile, loop over the modules repeatedly and const-compile until const-complication is complete
 	let mut global_items_const_compiled = HashSet::new();
+	let mut global_items_to_const_compile: Box<[HashSet<Box<str>>]> = repeat_n(HashSet::new(), parsed_modules.len()).collect();
 	let mut is_all_const_compiled = false;
+	for (x, (path, _, module)) in parsed_modules.iter().enumerate() {
+		match module.as_ref().unwrap().get_global_items(&mut global_items_to_const_compile[x]) {
+			Ok(_) => {},
+			Err(mut error) => {
+				if error.file.is_none() {
+					error.file = Some(path.clone().to_string_lossy().into());
+				}
+				println!("Error while const-compiling module \"{}\": {error}.", path.to_string_lossy());
+				return;
+			}
+		}
+	}
 	loop {
 		let global_items_const_compiled_len = global_items_const_compiled.len();
 		// Const-compile all modules
-		for ((path, _), module) in parsed_modules.iter_mut() {
-			match module.const_compile(&mut main_struct, &mut global_items_const_compiled) {
+		for x in 0..parsed_modules.len() {
+			let path = parsed_modules[x].0.clone();
+			let mut module = take(&mut parsed_modules[x].2).unwrap();
+			let global_items_to_const_compile_for_this_module = &mut global_items_to_const_compile[x];
+			match module.const_compile(&mut main_struct, &mut global_items_const_compiled, global_items_to_const_compile_for_this_module, (&parsed_modules).as_slice(), &path) {
 				Ok(is_module_all_const_compiled) => is_all_const_compiled |= is_module_all_const_compiled,
-				Err(error) => {
+				Err(mut error) => {
+					if error.file.is_none() {
+						error.file = Some(path.clone().to_string_lossy().into());
+					}
 					println!("Error while const-compiling module \"{}\": {error}.", path.to_string_lossy());
 					return;
 				}
 			}
+			parsed_modules[x].2 = Some(module);
 		}
 		// Break if all modules are const-compiled
 		if is_all_const_compiled {
@@ -97,23 +117,35 @@ fn main() {
 		}
 		// Else if we stall
 		if global_items_const_compiled_len == global_items_const_compiled.len() {
-			println!("Error: dependency loop.");
+			let mut broken_item = None;
+			let mut broken_item_path = None;
+			for (x, global_item_to_const_compile_for_module) in global_items_to_const_compile.iter().enumerate() {
+				broken_item = global_item_to_const_compile_for_module.iter().next().cloned();
+				if broken_item.is_some() {
+					broken_item_path = Some(&parsed_modules[x].0).clone();
+					break;
+				}
+			}
+			match broken_item {
+				Some(broken_item) => println!("Error: dependency loop for item {}:{broken_item}.", broken_item_path.unwrap().to_string_lossy()),
+				None => println!("Error: dependency loop."),
+			}
 			return;
 		}
 	}
-	for ((path, _), module) in parsed_modules.iter() {
-		println!("AST of {} after const-compile:", path.to_string_lossy());
-		print!("{module:?}");
+	for (path, _, module) in parsed_modules.iter() {
+		println!("AST of {} after const-compile", path.to_string_lossy());
+		println!("{:?}", (&module).as_ref().unwrap());
 	}
 	if args.do_stop_after_const_compile {
 		return;
 	}
 	// Execute entrypoint modules if "--execute-interpreted" is set
 	if args.execute_interpreted {
-		for ((path, is_entrypoint), module) in parsed_modules.iter() {
+		for (path, is_entrypoint, module) in parsed_modules.iter() {
 			main_struct.module_being_processed = path.clone();
 			if *is_entrypoint {
-				match module.interpreted_execute_entrypoint(&mut main_struct) {
+				match module.as_ref().unwrap().interpreted_execute_entrypoint(&mut main_struct) {
 					Err(mut error) => {
 						if error.file.is_none() {
 							error.file = Some(path.to_string_lossy().into())
@@ -130,10 +162,10 @@ fn main() {
 		// Source to source compile to C if "--execute-interpreted" is not set
 		_ = create_dir_all(&main_struct.output_directory);
 		let mut c_files_to_compile = HashSet::new();
-		for ((path, is_entrypoint), module) in parsed_modules.iter() {
+		for (path, is_entrypoint, module) in parsed_modules.iter() {
 			main_struct.module_being_processed = path.clone();
 			// Source to source compile module to C module
-			let c_module = match module.to_c_module(&mut main_struct, *is_entrypoint) {
+			let c_module = match module.as_ref().unwrap().to_c_module(&mut main_struct, *is_entrypoint) {
 				Err(mut error) => {
 					if error.file.is_none() {
 						error.file = Some(path.to_string_lossy().into())

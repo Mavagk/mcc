@@ -1,4 +1,4 @@
-use std::{fmt::{self, Debug, Formatter}, num::NonZeroUsize};
+use std::{collections::HashSet, fmt::{self, Debug, Formatter}, num::NonZeroUsize, path::Path};
 
 use crate::{Main, error::ErrorAt, programming_languages::{c::module::CModule, tanuki::{export::TanukiExport, expression::TanukiExpression, function::TanukiFunction, global_constant::TanukiGlobalConstant, import::TanukiImport, link::TanukiLink}}, traits::{ast_node::AstNode, module::Module}};
 
@@ -18,6 +18,17 @@ impl Module for TanukiModule {
 
 	fn to_c_module(&self, _main: &mut Main, _is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
 		todo!()
+	}
+
+	fn get_global_items(&self, global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>) -> Result<(), ErrorAt> {
+		self.get_global_items_for_module(global_items_to_const_compile_for_this_module)
+	}
+
+	fn const_compile(
+		&mut self, main: &mut Main, global_items_const_compiled: &mut HashSet<(Box<str>, Box<Path>)>, global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>,
+		modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], module_path: &Path,
+	) -> Result<bool, ErrorAt> {
+		self.const_compile_globals(main, global_items_const_compiled, global_items_to_const_compile_for_this_module, modules, module_path)
 	}
 }
 

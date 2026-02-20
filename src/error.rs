@@ -54,6 +54,8 @@ pub enum Error {
 	CannotBeInsideBlockOrFunction,
 	ExpressionCannotBeLValue,
 	ExpressionCannotBeRValue,
+	DuplicateGlobalVariableWithDifferentValues,
+	UnableToConstCompile,
 }
 
 impl Error {
@@ -116,6 +118,8 @@ impl Display for Error {
 			Self::CannotBeInsideBlockOrFunction => write!(f, "Cannot be inside block or function"),
 			Self::ExpressionCannotBeLValue => write!(f, "Expression cannot be l-value"),
 			Self::ExpressionCannotBeRValue => write!(f, "Expression cannot be r-value"),
+			Self::DuplicateGlobalVariableWithDifferentValues => write!(f, "Duplicate global variable with different values"),
+			Self::UnableToConstCompile => write!(f, "Unable to const-compile"),
 		}
 	}
 }
