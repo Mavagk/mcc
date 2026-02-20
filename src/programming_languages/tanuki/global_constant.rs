@@ -16,7 +16,7 @@ pub struct TanukiGlobalConstant {
 
 impl AstNode for TanukiGlobalConstant {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		write!(f, "Global Constant {}", self.name)
+		write!(f, "Global Constant {} depending on {:?}", self.name, self.depends_on)
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {

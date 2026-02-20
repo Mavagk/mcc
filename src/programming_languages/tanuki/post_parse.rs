@@ -37,7 +37,7 @@ impl TanukiExpression {
 				let start_column = lhs.start_column;
 				let end_line = rhs.end_line;
 				let end_column = rhs.end_column;
-				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, true, todo!(), local_variables)?;
+				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, true, &mut HashSet::new(), &mut Vec::new())?;
 				let lhs = take(lhs);
 				let (name, t_type) = match lhs.clone().variant {
 					TanukiExpressionVariant::Variable(name) => {
@@ -49,11 +49,14 @@ impl TanukiExpression {
 					},
 					_ => return Err(Error::ExpectedVariable.at(Some(lhs.start_line), Some(lhs.end_column), None)),
 				};
-				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, Some(&name), false, todo!(), local_variables)?;
+				*global_variables_dependent_on = HashSet::new();
+				global_variables_dependent_on.insert(name.clone());
+				let mut global_variables_dependent_on = HashSet::new();
+				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, Some(&name), false, &mut global_variables_dependent_on, local_variables)?;
 				let rhs = take(rhs);
 				if !matches!(rhs.variant, TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Link(..)) {
 					let global_constant = TanukiGlobalConstant {
-						value_expression: *rhs, name, t_type: t_type.map(|t_type| *t_type), start_line, start_column, end_line, end_column, depends_on: HashSet::new(),
+						value_expression: *rhs, name, t_type: t_type.map(|t_type| *t_type), start_line, start_column, end_line, end_column, depends_on: global_variables_dependent_on,
 					};
 					post_parse_data.global_constants.push(global_constant);
 				}
@@ -196,14 +199,16 @@ impl TanukiExpression {
 			}
 			(TanukiExpressionVariant::Block { sub_expressions, has_return_value: _ }, _, _) => {
 				let sub_expressions_length = sub_expressions.len();
+				local_variables.push(HashSet::new());
 				for (index, sub_expression) in sub_expressions.iter_mut().enumerate() {
 					if index == sub_expressions_length - 1 {
-						sub_expression.post_parse(main, post_parse_data, true, None, is_l_value, global_variables_dependent_on, todo!())?;
+						sub_expression.post_parse(main, post_parse_data, true, None, is_l_value, global_variables_dependent_on, local_variables)?;
 					}
 					else {
-						sub_expression.post_parse(main, post_parse_data, true, None, false, global_variables_dependent_on, todo!())?;
+						sub_expression.post_parse(main, post_parse_data, true, None, false, global_variables_dependent_on, local_variables)?;
 					}
 				}
+				local_variables.pop();
 			}
 			(TanukiExpressionVariant::FunctionCall { function_pointer, arguments }, _, _) => {
 				if is_l_value {
@@ -215,20 +220,40 @@ impl TanukiExpression {
 				}
 			}
 			(TanukiExpressionVariant::Variable(name), _, _) => {
-				// TODO
 				if name.starts_with("_tnk_") {
 					return Err(Error::VariableStartsWithTnk.at(Some(self.start_line), Some(self.start_column), None));
 				}
+				let mut local_variable_exists = false;
+				for local_variable_level in local_variables.iter() {
+					if local_variable_level.contains(name) {
+						local_variable_exists = true;
+						break;
+					}
+				}
+				if !local_variable_exists {
+					if is_l_value && is_inside_function_or_block {
+						local_variables.last_mut().unwrap().insert(name.clone());
+					}
+					if !is_l_value {
+						global_variables_dependent_on.insert(name.clone());
+					}
+				}
 			}
 			(TanukiExpressionVariant::FunctionDefinition { parameters, return_type, body_expression }, _, false) => {
+				let mut function_depends_on_globals_for_execution = HashSet::new();
+				let mut function_local_variables = Vec::new();
 				// Parse sub-expressions
 				for parameter in parameters.iter_mut() {
-					parameter.post_parse(main, post_parse_data, is_inside_function_or_block, None, true, todo!(), todo!())?;
+					parameter.post_parse(
+						main, post_parse_data, is_inside_function_or_block, None, true, &mut function_depends_on_globals_for_execution, &mut function_local_variables
+					)?;
 				}
 				if let Some(return_type) = return_type {
-					return_type.post_parse(main, post_parse_data, is_inside_function_or_block, None, false, todo!(), todo!())?;
+					return_type.post_parse(
+						main, post_parse_data, is_inside_function_or_block, None, false, &mut function_depends_on_globals_for_execution, &mut function_local_variables
+					)?;
 				}
-				body_expression.post_parse(main, post_parse_data, true, None, false, todo!(), todo!())?;
+				body_expression.post_parse(main, post_parse_data, true, None, false, &mut function_depends_on_globals_for_execution, &mut function_local_variables)?;
 				//
 				let mut new_parameters = Vec::new();
 				for parameter in take(parameters) {
@@ -246,9 +271,13 @@ impl TanukiExpression {
 					});
 				}
 				let module_function_index = post_parse_data.functions.len();
+				let mangled_function_name = format!("_tnk_fn_{module_function_index}").into_boxed_str();
+				global_variables_dependent_on.insert(mangled_function_name.clone());
 				post_parse_data.functions.push(TanukiFunction {
-					name: format!("_tnk_fn_{module_function_index}").into_boxed_str(), parameters: new_parameters.into_boxed_slice(), return_type: take(return_type).map(|return_type| *return_type),
-					body: take(body_expression), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column, depends_on_for_execution: todo!()
+					name: mangled_function_name, parameters: new_parameters.into_boxed_slice(),
+					return_type: take(return_type).map(|return_type| *return_type),
+					body: take(body_expression), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column,
+					depends_on_for_execution: function_depends_on_globals_for_execution
 				});
 				*self = TanukiExpression {
 					variant: TanukiExpressionVariant::ModuleFunction { module_function_index }, start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column

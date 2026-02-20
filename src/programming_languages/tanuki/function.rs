@@ -16,7 +16,7 @@ pub struct TanukiFunction {
 
 impl AstNode for TanukiFunction {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		write!(f, "Function {}", self.name)
+		write!(f, "Function {} depending on {:?}", self.name, self.depends_on_for_execution)
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
