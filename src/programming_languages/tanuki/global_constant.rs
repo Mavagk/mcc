@@ -1,6 +1,6 @@
 use std::{collections::HashSet, fmt::{self, Formatter}, num::NonZeroUsize};
 
-use crate::{error::ErrorAt, programming_languages::tanuki::expression::TanukiExpression, traits::ast_node::AstNode};
+use crate::{programming_languages::tanuki::expression::TanukiExpression, traits::ast_node::AstNode};
 
 pub struct TanukiGlobalConstant {
 	pub value_expression: TanukiExpression,
@@ -12,12 +12,6 @@ pub struct TanukiGlobalConstant {
 	pub end_column: NonZeroUsize,
 	pub depends_on: HashSet<Box<str>>,
 	pub has_been_const_compiled: bool
-}
-
-impl TanukiGlobalConstant {
-	pub fn const_compile(&mut self) -> Result<(), ErrorAt> {
-		Ok(())
-	}
 }
 
 

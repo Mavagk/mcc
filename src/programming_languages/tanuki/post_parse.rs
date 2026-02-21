@@ -4,7 +4,7 @@ use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{const
 
 pub struct TanukiModulePostParseData<'a> {
 	pub functions: &'a mut Vec<TanukiFunction>,
-	pub global_constants: &'a mut Vec<TanukiGlobalConstant>,
+	pub global_constants: &'a mut Vec<Option<TanukiGlobalConstant>>,
 	pub exports: &'a mut Vec<TanukiExport>,
 	pub imports: &'a mut Vec<TanukiImport>,
 	pub links: &'a mut Vec<TanukiLink>,
@@ -59,7 +59,7 @@ impl TanukiExpression {
 						value_expression: *rhs, name, t_type: t_type.map(|t_type| *t_type), start_line, start_column, end_line, end_column, depends_on: global_variables_dependent_on,
 						has_been_const_compiled: false,
 					};
-					post_parse_data.global_constants.push(global_constant);
+					post_parse_data.global_constants.push(Some(global_constant));
 				}
 				*self = *lhs.clone();
 			}

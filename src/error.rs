@@ -56,6 +56,7 @@ pub enum Error {
 	ExpressionCannotBeRValue,
 	DuplicateGlobalVariableWithDifferentValues,
 	UnableToConstCompile,
+	VariableNotFound,
 }
 
 impl Error {
@@ -120,6 +121,7 @@ impl Display for Error {
 			Self::ExpressionCannotBeRValue => write!(f, "Expression cannot be r-value"),
 			Self::DuplicateGlobalVariableWithDifferentValues => write!(f, "Duplicate global variable with different values"),
 			Self::UnableToConstCompile => write!(f, "Unable to const-compile"),
+			Self::VariableNotFound => write!(f, "Variable not found"),
 		}
 	}
 }
