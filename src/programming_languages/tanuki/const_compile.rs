@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet}, mem::take, path::Path};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{constant_value::{TanukiConstantValue, TanukiType}, expression::{TanukiExpression, TanukiExpressionVariant}, global_constant::TanukiGlobalConstant, module::TanukiModule}, traits::module::Module};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, global_constant::TanukiGlobalConstant, module::TanukiModule, t_type::TanukiType}, traits::module::Module};
 
 impl TanukiModule {
 	pub fn get_global_items_for_module(&self, global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>) -> Result<(), ErrorAt> {
@@ -93,9 +93,9 @@ impl TanukiGlobalConstant {
 
 impl TanukiExpression {
 	pub fn const_compile_r_value(
-		&mut self, module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>], local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, TanukiConstantValue)>>,
+		&mut self, module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>], local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, TanukiCompileTimeValue)>>,
 		result_type: &TanukiType,
-	) -> Result<Option<TanukiConstantValue>, ErrorAt> {
+	) -> Result<Option<TanukiCompileTimeValue>, ErrorAt> {
 		// Unpack
 		let Self { variant, start_line, start_column, .. } = self;
 		// Try to const-compile
@@ -136,7 +136,7 @@ impl TanukiExpression {
 				let sub_expression = &mut sub_expressions[0];
 				let argument = sub_expression.const_compile_r_value_forced(module_global_items_const_compiled, local_variables, &TanukiType::CompileTimeInt)?;
 				let argument = match argument {
-					TanukiConstantValue::CompileTimeInt(argument) => argument,
+					TanukiCompileTimeValue::CompileTimeInt(argument) => argument,
 					_ => unreachable!(),
 				};
 				match variant {
@@ -148,7 +148,7 @@ impl TanukiExpression {
 						if !matches!(bit_width, 8 | 16 | 32 | 64) {
 							return Err(Error::InvalidIntegerBitWidth(argument).at(Some(*start_line), Some(*start_column), None));
 						}
-						Some(TanukiConstantValue::Type(TanukiType::U(bit_width)))
+						Some(TanukiCompileTimeValue::Type(TanukiType::U(bit_width)))
 					}
 					TanukiExpressionVariant::I(_) => {
 						let bit_width: u8 = match (&argument).try_into() {
@@ -158,7 +158,7 @@ impl TanukiExpression {
 						if !matches!(bit_width, 8 | 16 | 32 | 64) {
 							return Err(Error::InvalidIntegerBitWidth(argument).at(Some(*start_line), Some(*start_column), None));
 						}
-						Some(TanukiConstantValue::Type(TanukiType::I(bit_width)))
+						Some(TanukiCompileTimeValue::Type(TanukiType::I(bit_width)))
 					}
 					TanukiExpressionVariant::F(_) => {
 						let bit_width: u8 = match (&argument).try_into() {
@@ -168,25 +168,38 @@ impl TanukiExpression {
 						if !matches!(bit_width, 32 | 64) {
 							return Err(Error::InvalidFloatBitWidth(argument).at(Some(*start_line), Some(*start_column), None));
 						}
-						Some(TanukiConstantValue::Type(TanukiType::F(bit_width)))
+						Some(TanukiCompileTimeValue::Type(TanukiType::F(bit_width)))
 					}
 					_ => unreachable!(),
 				}
 			}
+			TanukiExpressionVariant::TypeAndValue(type_expression, castee_expression) => {
+				let type_expression_parsed = match type_expression.const_compile_r_value_forced(module_global_items_const_compiled, local_variables, &TanukiType::Type)? {
+					TanukiCompileTimeValue::Type(type_expression_parsed) => type_expression_parsed,
+					_ => unreachable!(),
+				};
+				let castee_expression_parsed = castee_expression.const_compile_r_value(module_global_items_const_compiled, local_variables, &TanukiType::Any)?;
+				match castee_expression_parsed {
+					Some(castee_expression_parsed) => Some(castee_expression_parsed.cast_to(&type_expression_parsed, false)?),
+					None => None,
+				}
+			}
 			_ => None,
 		};
+		// Cast
+		let const_compiled_value = match const_compiled_value {
+			Some(const_compiled_value) => Some(const_compiled_value.cast_to(result_type, false)?),
+			None => None,
+		};
 		// If complication was done, replace this with the compiled constant
-		if let Some(const_compiled_value) = &const_compiled_value && !matches!(variant, TanukiExpressionVariant::Constant(..)) {
+		if let Some(const_compiled_value) = &const_compiled_value {
 			self.variant = TanukiExpressionVariant::Constant(const_compiled_value.clone());
-		}
-		if let Some(const_compiled_value) = &const_compiled_value && !const_compiled_value.is_of_type(result_type) {
-			return Err(Error::UnexpectedValueType { value: const_compiled_value.clone(), expected_type: Some(result_type.clone()) }.at(Some(*start_line), Some(*start_column), None));
 		}
 		// Return
 		Ok(const_compiled_value)
 	}
 
-	pub fn const_compile_l_value(&mut self, local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, TanukiConstantValue)>>) -> Result<Option<CompileTimeLValue>, ErrorAt> {
+	pub fn const_compile_l_value(&mut self, local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, TanukiCompileTimeValue)>>) -> Result<Option<CompileTimeLValue>, ErrorAt> {
 		let Self { variant, .. } = self;
 		Ok(match variant {
 			TanukiExpressionVariant::Constant(_) => todo!(),
@@ -204,7 +217,7 @@ impl TanukiExpression {
 				//
 				match variable {
 					None => {
-						local_variables.last_mut().unwrap().insert(name.clone(), (TanukiType::Any, TanukiConstantValue::Void));
+						local_variables.last_mut().unwrap().insert(name.clone(), (TanukiType::Any, TanukiCompileTimeValue::Void));
 						Some(CompileTimeLValue::LocalVariable { name: name.clone(), block_level: local_variables.len() })
 					}
 					_ => Some(CompileTimeLValue::LocalVariable { name: name.clone(), block_level })
@@ -215,9 +228,9 @@ impl TanukiExpression {
 	}
 
 	pub fn const_compile_r_value_forced(
-		&mut self, module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>], local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, TanukiConstantValue)>>,
+		&mut self, module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>], local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, TanukiCompileTimeValue)>>,
 		result_type: &TanukiType,
-	) -> Result<TanukiConstantValue, ErrorAt> {
+	) -> Result<TanukiCompileTimeValue, ErrorAt> {
 		match self.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)? {
 			Some(value) => Ok(value),
 			None => Err(Error::UnableToConstCompile.at(Some(self.start_line), Some(self.start_column), None)),

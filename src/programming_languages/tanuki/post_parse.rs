@@ -1,6 +1,6 @@
 use std::{collections::HashSet, mem::take};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{constant_value::TanukiConstantValue, export::TanukiExport, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionArgument}, global_constant::TanukiGlobalConstant, import::TanukiImport, link::TanukiLink, module::TanukiModule}};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, export::TanukiExport, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionArgument}, global_constant::TanukiGlobalConstant, import::TanukiImport, link::TanukiLink, module::TanukiModule}};
 
 pub struct TanukiModulePostParseData<'a> {
 	pub functions: &'a mut Vec<TanukiFunction>,
@@ -306,7 +306,7 @@ impl TanukiExpression {
 				let assigned_to_name = assigned_to_name.unwrap();
 				let argument = &arguments[0];
 				let argument = match &argument.variant {
-					TanukiExpressionVariant::Constant(TanukiConstantValue::CompileTimeString(path)) => &**path,
+					TanukiExpressionVariant::Constant(TanukiCompileTimeValue::CompileTimeString(path)) => &**path,
 					_ => return Err(Error::Unimplemented("@import with argument that is not a string".into()).at(Some(argument.start_line), Some(argument.start_column), None)),
 				};
 				let mut module = main.module_being_processed.parent().unwrap().to_path_buf();
@@ -323,7 +323,7 @@ impl TanukiExpression {
 				let assigned_to_name = assigned_to_name.unwrap();
 				let argument = &arguments[0];
 				let argument = match &argument.variant {
-					TanukiExpressionVariant::Constant(TanukiConstantValue::CompileTimeString(path)) => &**path,
+					TanukiExpressionVariant::Constant(TanukiCompileTimeValue::CompileTimeString(path)) => &**path,
 					_ => return Err(Error::Unimplemented("@link with argument that is not a string".into()).at(Some(argument.start_line), Some(argument.start_column), None)),
 				};
 				let mut dynamic_library_path = main.module_being_processed.parent().unwrap().to_path_buf();

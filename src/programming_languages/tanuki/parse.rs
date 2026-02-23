@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{constant_value::TanukiConstantValue, expression::{TanukiExpression, TanukiExpressionVariant}, module::TanukiModule, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiKeyword, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader};
+use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, module::TanukiModule, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiKeyword, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader};
 
 #[derive(Debug, Clone)]
 pub struct TanukiPartiallyParsedToken {
@@ -63,20 +63,20 @@ impl TanukiExpression {
 			let token_end_column = token.end_column;
 			maybe_parsed_tokens.push(match &token.variant {
 				TanukiTokenVariant::NumericLiteral(None, Some(float_value)) => MaybeParsedToken::Parsed(TanukiExpression {
-					variant: TanukiExpressionVariant::Constant(TanukiConstantValue::CompileTimeFloat(*float_value)),
+					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::CompileTimeFloat(*float_value)),
 					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
 				}),
 				TanukiTokenVariant::NumericLiteral(Some(int_value), _) => MaybeParsedToken::Parsed(TanukiExpression {
-					variant: TanukiExpressionVariant::Constant(TanukiConstantValue::CompileTimeInt(int_value.clone().into())),
+					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::CompileTimeInt(int_value.clone().into())),
 					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
 				}),
 				TanukiTokenVariant::NumericLiteral(None, None) => unreachable!(),
 				TanukiTokenVariant::CharacterLiteral(value) => MaybeParsedToken::Parsed(TanukiExpression {
-					variant: TanukiExpressionVariant::Constant(TanukiConstantValue::CompileTimeChar(*value)),
+					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::CompileTimeChar(*value)),
 					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
 				}),
 				TanukiTokenVariant::StringLiteral(value) => MaybeParsedToken::Parsed(TanukiExpression {
-					variant: TanukiExpressionVariant::Constant(TanukiConstantValue::CompileTimeString(value.clone())),
+					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::CompileTimeString(value.clone())),
 					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
 				}),
 				TanukiTokenVariant::Identifier(name) => MaybeParsedToken::Parsed(TanukiExpression {

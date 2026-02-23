@@ -6,7 +6,7 @@ pub mod token;
 pub mod tokenize;
 pub mod parse;
 pub mod expression;
-pub mod constant_value;
+pub mod compile_time_value;
 pub mod post_parse;
 pub mod function;
 pub mod global_constant;
@@ -14,6 +14,7 @@ pub mod export;
 pub mod import;
 pub mod link;
 pub mod const_compile;
+pub mod t_type;
 
 #[derive(Debug)]
 pub struct Tanuki {}

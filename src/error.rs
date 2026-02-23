@@ -3,7 +3,7 @@ use std::{fmt::{Display, Formatter}, num::NonZeroUsize};
 
 use num::BigInt;
 
-use crate::{programming_languages::tanuki::constant_value::{TanukiConstantValue, TanukiType}, traits::ast_node::AstNode};
+use crate::{programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, t_type::TanukiType}, traits::ast_node::AstNode};
 
 #[derive(Clone, Debug)]
 pub enum Error {
@@ -62,7 +62,7 @@ pub enum Error {
 	UnableToConstCompile,
 	VariableNotFound,
 	UnexpectedBuiltinFunctionArgumentCount { expected_min: Option<usize>, expected_max: Option<usize>, got: usize },
-	UnexpectedValueType { value: TanukiConstantValue, expected_type: Option<TanukiType> },
+	UnexpectedValueType { value: TanukiCompileTimeValue, expected_type: Option<TanukiType> },
 	InvalidIntegerBitWidth(BigInt),
 	InvalidFloatBitWidth(BigInt),
 }

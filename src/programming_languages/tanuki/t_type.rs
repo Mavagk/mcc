@@ -1,0 +1,43 @@
+use std::fmt::{self, Formatter};
+
+use crate::traits::ast_node::AstNode;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TanukiType {
+	CompileTimeInt,
+	CompileTimeFloat,
+	CompileTimeBool,
+	CompileTimeChar,
+	CompileTimeString,
+	Void,
+	U(u8),
+	I(u8),
+	F(u8),
+	Type,
+	Any,
+}
+
+impl AstNode for TanukiType {
+	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::CompileTimeInt    => write!(f, "Compile Time Integer"),
+			Self::CompileTimeFloat  => write!(f, "Compile Time Float"),
+			Self::CompileTimeBool   => write!(f, "Compile Time Bool"),
+			Self::CompileTimeChar   => write!(f, "Compile Time Char"),
+			Self::CompileTimeString => write!(f, "Compile Time String"),
+			Self::Void              => write!(f, "Void"),
+			Self::U(bit_width) => write!(f, "U{bit_width}"),
+			Self::I(bit_width) => write!(f, "I{bit_width}"),
+			Self::F(bit_width) => write!(f, "F{bit_width}"),
+			Self::Any               => write!(f, "Any"),
+			Self::Type              => write!(f, "Type"),
+		}
+	}
+
+	fn print_sub_nodes(&self, _level: usize, _f: &mut Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::CompileTimeInt | Self::CompileTimeFloat | Self::CompileTimeBool | Self::CompileTimeChar | Self::CompileTimeString | Self::Void | Self::U(_) | Self::I(_) | Self::F(_) |
+			Self::Any | Self::Type => Ok(()),
+		}
+	}
+}

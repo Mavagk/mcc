@@ -1,6 +1,6 @@
 use std::{fmt::{self, Formatter}, num::NonZeroUsize};
 
-use crate::{programming_languages::tanuki::constant_value::TanukiConstantValue, traits::{ast_node::AstNode, expression::Expression}};
+use crate::{programming_languages::tanuki::compile_time_value::TanukiCompileTimeValue, traits::{ast_node::AstNode, expression::Expression}};
 
 #[derive(Debug, Clone)]
 pub struct TanukiExpression {
@@ -13,7 +13,7 @@ pub struct TanukiExpression {
 
 #[derive(Debug, Clone)]
 pub enum TanukiExpressionVariant {
-	Constant(TanukiConstantValue),
+	Constant(TanukiCompileTimeValue),
 	Block { sub_expressions: Box<[TanukiExpression]>, has_return_value: bool },
 	Variable(Box<str>),
 	FunctionCall { function_pointer: Box<TanukiExpression>, arguments: Box<[TanukiExpression]> },
@@ -188,7 +188,7 @@ pub enum TanukiExpressionVariant {
 impl Default for TanukiExpression {
 	fn default() -> Self {
 		Self {
-			variant: TanukiExpressionVariant::Constant(TanukiConstantValue::Void),
+			variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Void),
 			start_line: 1.try_into().unwrap(), start_column: 1.try_into().unwrap(), end_line: 1.try_into().unwrap(), end_column: 1.try_into().unwrap(),
 		}
 	}
