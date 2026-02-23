@@ -211,7 +211,8 @@ impl TanukiExpression {
 						matches!(maybe_parsed_tokens.get(x + 2), Some(token) if token.is_parsed()))
 					) && (!maybe_parsed_tokens[x].is_parsed() || (!matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken {
 						variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(..) | TanukiPartiallyParsedTokenVariant::SquareParenthesised(..), ..
-					})))) && (!matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Keyword(TanukiKeyword::Import | TanukiKeyword::Link), .. })) ||
+					})))) && (!matches!(maybe_parsed_tokens[x], 
+						MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Keyword(TanukiKeyword::Import | TanukiKeyword::Link | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F), .. })) ||
 						!matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken
 						{
 							variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(..) | TanukiPartiallyParsedTokenVariant::SquareParenthesised(..), ..
@@ -221,7 +222,9 @@ impl TanukiExpression {
 					continue;
 				}
 				// Parse
-				if matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Keyword(TanukiKeyword::Import | TanukiKeyword::Link), .. })) {
+				if matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken {
+					variant: TanukiTokenVariant::Keyword(TanukiKeyword::Import | TanukiKeyword::Link | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F), ..
+				})) {
 					let operand = maybe_parsed_tokens[x].clone().unwrap_unparsed();
 					let (keyword, start_line, start_column) = match operand {
 						TanukiToken { variant: TanukiTokenVariant::Keyword(keyword), start_line, start_column, .. } => (keyword, start_line, start_column),
@@ -239,6 +242,9 @@ impl TanukiExpression {
 					maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(TanukiExpression { variant: match keyword {
 						TanukiKeyword::Import => TanukiExpressionVariant::Import(arguments),
 						TanukiKeyword::Link => TanukiExpressionVariant::Link(arguments),
+						TanukiKeyword::U => TanukiExpressionVariant::U(arguments),
+						TanukiKeyword::I => TanukiExpressionVariant::I(arguments),
+						TanukiKeyword::F => TanukiExpressionVariant::F(arguments),
 						_ => unreachable!(),
 					}, start_line, start_column, end_column, end_line });
 					break 'a;

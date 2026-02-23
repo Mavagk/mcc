@@ -1,6 +1,10 @@
 use core::fmt;
 use std::{fmt::{Display, Formatter}, num::NonZeroUsize};
 
+use num::BigInt;
+
+use crate::{programming_languages::tanuki::constant_value::{TanukiConstantValue, TanukiType}, traits::ast_node::AstNode};
+
 #[derive(Clone, Debug)]
 pub enum Error {
 	InvalidSourcePath(String),
@@ -57,6 +61,10 @@ pub enum Error {
 	DuplicateGlobalVariableWithDifferentValues,
 	UnableToConstCompile,
 	VariableNotFound,
+	UnexpectedBuiltinFunctionArgumentCount { expected_min: Option<usize>, expected_max: Option<usize>, got: usize },
+	UnexpectedValueType { value: TanukiConstantValue, expected_type: Option<TanukiType> },
+	InvalidIntegerBitWidth(BigInt),
+	InvalidFloatBitWidth(BigInt),
 }
 
 impl Error {
@@ -122,6 +130,34 @@ impl Display for Error {
 			Self::DuplicateGlobalVariableWithDifferentValues => write!(f, "Duplicate global variable with different values"),
 			Self::UnableToConstCompile => write!(f, "Unable to const-compile"),
 			Self::VariableNotFound => write!(f, "Variable not found"),
+			Self::UnexpectedBuiltinFunctionArgumentCount { expected_min, expected_max, got } => {
+				write!(f, "Unexpected built-in function argument count of {got}")?;
+				if let Some(expected) = expected_min && expected_min == expected_max {
+					write!(f, ", expected: {expected}")?;
+				}
+				else {
+					if let Some(expected_min) = expected_min {
+						write!(f, ", expected min: {expected_min}")?;
+					}
+					if let Some(expected_max) = expected_max {
+						write!(f, ", expected max: {expected_max}")?;
+					}
+				}
+				Ok(())
+			}
+			Self::UnexpectedValueType { value, expected_type } => {
+				write!(f, "Unexpected value type for value: ")?;
+				value.print_name(f)?;
+				write!(f, ", of type:")?;
+				value.get_type().print_name(f)?;
+				if let Some(expected_type) = expected_type {
+					write!(f, ", expected type:")?;
+					expected_type.print_name(f)?;
+				}
+				Ok(())
+			}
+			Self::InvalidIntegerBitWidth(width) => write!(f, "Invalid integer bit width {width}, must be 8, 16, 32 or 64"),
+			Self::InvalidFloatBitWidth(width) => write!(f, "Invalid float bit width {width}, must be 32 or 64"),
 		}
 	}
 }

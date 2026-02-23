@@ -33,6 +33,13 @@ impl TanukiConstantValue {
 			Self::Type(_)              => TanukiType::Type,
 		}
 	}
+
+	pub fn is_of_type(&self, t_type: &TanukiType) -> bool {
+		match t_type {
+			TanukiType::Any => true,
+			_ => &self.get_type() == t_type,
+		}
+	}
 }
 
 impl AstNode for TanukiConstantValue {

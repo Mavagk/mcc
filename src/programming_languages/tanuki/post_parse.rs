@@ -333,6 +333,12 @@ impl TanukiExpression {
 					start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
 				});
 			},
+			(TanukiExpressionVariant::U(arguments) | TanukiExpressionVariant::I(arguments) |
+			TanukiExpressionVariant::F(arguments), _, _) => {
+				for argument in arguments.iter_mut() {
+					argument.post_parse(main, post_parse_data, is_inside_function_or_block, assigned_to_name, is_l_value, global_variables_dependent_on, local_variables)?;
+				}
+			}
 			(TanukiExpressionVariant::Export(..) | TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Link(..), true, _)
 				=> return Err(Error::CannotBeInsideBlockOrFunction.at(Some(self.start_line), Some(self.start_column), None)),
 		}

@@ -24,6 +24,9 @@ pub enum TanukiExpressionVariant {
 	Import(Box<[TanukiExpression]>),
 	Export(Box<TanukiExpression>),
 	Link(Box<[TanukiExpression]>),
+	U(Box<[TanukiExpression]>),
+	I(Box<[TanukiExpression]>),
+	F(Box<[TanukiExpression]>),
 	// Unary postfix operators
 	Percent(Box<TanukiExpression>),
 	Factorial(Box<TanukiExpression>),
@@ -212,6 +215,9 @@ impl AstNode for TanukiExpression {
 				}
 				Ok(())
 			},
+			TanukiExpressionVariant::U { .. }                                         => write!(f, "U"),
+			TanukiExpressionVariant::I { .. }                                         => write!(f, "I"),
+			TanukiExpressionVariant::F { .. }                                         => write!(f, "F"),
 			TanukiExpressionVariant::ModuleFunction { module_function_index } => write!(f, "Module Function {module_function_index}"),
 			TanukiExpressionVariant::Index { .. }                                     => write!(f, "Index"),
 			TanukiExpressionVariant::Variable(name)                        => write!(f, "Variable {name}"),
@@ -401,7 +407,8 @@ impl AstNode for TanukiExpression {
 				}
 				body_expression.print(level, f)
 			}
-			TanukiExpressionVariant::Import(arguments) | TanukiExpressionVariant::Link(arguments) => {
+			TanukiExpressionVariant::Import(arguments) | TanukiExpressionVariant::Link(arguments) |
+			TanukiExpressionVariant::U(arguments) | TanukiExpressionVariant::I(arguments) | TanukiExpressionVariant::F(arguments) => {
 				for argument in arguments {
 					argument.print(level, f)?;
 				}
