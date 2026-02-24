@@ -4,7 +4,7 @@ use crate::{Main, error::ErrorAt, programming_languages::{c::module::CModule, ta
 
 pub struct TanukiModule {
 	pub parsed_expressions: Box<[TanukiExpression]>,
-	pub functions: Vec<TanukiFunction>,
+	pub functions: Vec<Option<TanukiFunction>>,
 	pub global_constants: Vec<Option<TanukiGlobalConstant>>,
 	pub exports: Vec<TanukiExport>,
 	pub imports: Vec<TanukiImport>,
@@ -51,7 +51,7 @@ impl AstNode for TanukiModule {
 			expression.print(level, f)?;
 		}
 		for function in self.functions.iter() {
-			function.print(level, f)?;
+			function.as_ref().unwrap().print(level, f)?;
 		}
 		for global_constant in self.global_constants.iter() {
 			global_constant.as_ref().unwrap().print(level, f)?;

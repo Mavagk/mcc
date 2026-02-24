@@ -3,7 +3,7 @@ use std::{collections::HashSet, mem::take};
 use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, export::TanukiExport, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionArgument}, global_constant::TanukiGlobalConstant, import::TanukiImport, link::TanukiLink, module::TanukiModule}};
 
 pub struct TanukiModulePostParseData<'a> {
-	pub functions: &'a mut Vec<TanukiFunction>,
+	pub functions: &'a mut Vec<Option<TanukiFunction>>,
 	pub global_constants: &'a mut Vec<Option<TanukiGlobalConstant>>,
 	pub exports: &'a mut Vec<TanukiExport>,
 	pub imports: &'a mut Vec<TanukiImport>,
@@ -275,20 +275,24 @@ impl TanukiExpression {
 				let module_function_index = post_parse_data.functions.len();
 				let mangled_function_name = format!("_tnk_fn_{module_function_index}").into_boxed_str();
 				global_variables_dependent_on.insert(mangled_function_name.clone());
-				post_parse_data.functions.push(TanukiFunction {
-					name: mangled_function_name, parameters: new_parameters.into_boxed_slice(),
+				post_parse_data.functions.push(Some(TanukiFunction {
+					name: mangled_function_name.clone(), parameters: new_parameters.into_boxed_slice(),
 					return_type: take(return_type).map(|return_type| *return_type),
 					body: take(body_expression), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column,
-					depends_on_for_execution: function_depends_on_globals_for_execution, is_pure: false,
-				});
+					depends_on_for_execution: function_depends_on_globals_for_execution, is_pure: true, is_const_compiled: false,
+				}));
+				//*self = TanukiExpression {
+				//	variant: TanukiExpressionVariant::ModuleFunction { module_function_index }, start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
+				//};
 				*self = TanukiExpression {
-					variant: TanukiExpressionVariant::ModuleFunction { module_function_index }, start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
+					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Function(mangled_function_name, main.module_being_processed.clone())),
+					start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
 				};
 			}
 			(TanukiExpressionVariant::FunctionDefinition { .. }, _, true) =>
 				return Err(Error::ExpressionCannotBeLValue.at(Some(self.start_line), Some(self.start_column), None)),
 			(TanukiExpressionVariant::Constant(..), _, _) => {},
-			(TanukiExpressionVariant::ModuleFunction { .. }, _, _) => unreachable!(),
+			//(TanukiExpressionVariant::ModuleFunction { .. }, _, _) => unreachable!(),
 			(TanukiExpressionVariant::Export(to_export), false, _) => {
 				to_export.post_parse(main, post_parse_data, is_inside_function_or_block, None, is_l_value, global_variables_dependent_on, local_variables)?;
 				match &mut to_export.variant {

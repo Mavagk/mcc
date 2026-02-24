@@ -18,7 +18,7 @@ pub enum TanukiExpressionVariant {
 	Variable(Box<str>),
 	FunctionCall { function_pointer: Box<TanukiExpression>, arguments: Box<[TanukiExpression]> },
 	FunctionDefinition { parameters: Box<[TanukiExpression]>, return_type: Option<Box<TanukiExpression>>, body_expression: Box<TanukiExpression> },
-	ModuleFunction { module_function_index: usize },
+	//ModuleFunction { module_function_index: usize },
 	Index(Box<TanukiExpression>, Box<TanukiExpression>),
 	TypeAndValue(Box<TanukiExpression>, Box<TanukiExpression>),
 	Import(Box<[TanukiExpression]>),
@@ -218,7 +218,7 @@ impl AstNode for TanukiExpression {
 			TanukiExpressionVariant::U { .. }                                         => write!(f, "U"),
 			TanukiExpressionVariant::I { .. }                                         => write!(f, "I"),
 			TanukiExpressionVariant::F { .. }                                         => write!(f, "F"),
-			TanukiExpressionVariant::ModuleFunction { module_function_index } => write!(f, "Module Function {module_function_index}"),
+			//TanukiExpressionVariant::ModuleFunction { module_function_index } => write!(f, "Module Function {module_function_index}"),
 			TanukiExpressionVariant::Index { .. }                                     => write!(f, "Index"),
 			TanukiExpressionVariant::Variable(name)                        => write!(f, "Variable {name}"),
 			TanukiExpressionVariant::TypeAndValue(..)                                 => write!(f, "Type and Value"),
@@ -384,7 +384,7 @@ impl AstNode for TanukiExpression {
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self.variant {
 			TanukiExpressionVariant::Constant(value) => value.print(level, f),
-			TanukiExpressionVariant::Variable(..) | TanukiExpressionVariant::ModuleFunction { .. } => Ok(()),
+			TanukiExpressionVariant::Variable(..) => Ok(()), // | TanukiExpressionVariant::ModuleFunction { .. } => Ok(()),
 			TanukiExpressionVariant::Block { sub_expressions, ..} => {
 				for sub_expression in sub_expressions {
 					sub_expression.print(level, f)?;

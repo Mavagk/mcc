@@ -1,4 +1,4 @@
-use std::{fmt::{self, Formatter}, ops::{Add, Div, Mul, Neg, Sub}, u64};
+use std::{fmt::{self, Formatter}, ops::{Add, Div, Mul, Neg, Sub}, path::Path, u64};
 
 use num::{BigInt, Signed, Zero};
 
@@ -16,6 +16,7 @@ pub enum TanukiCompileTimeValue {
 	I(u8, i64),
 	F(u8, f64),
 	Type(TanukiType),
+	Function(Box<str>, Box<Path>),
 }
 
 impl TanukiCompileTimeValue {
@@ -31,6 +32,7 @@ impl TanukiCompileTimeValue {
 			Self::I(bit_width, _) => TanukiType::I(*bit_width),
 			Self::F(bit_width, _) => TanukiType::F(*bit_width),
 			Self::Type(_)              => TanukiType::Type,
+			Self::Function(_, _)       => TanukiType::Function,
 		}
 	}
 
@@ -98,22 +100,24 @@ impl TanukiCompileTimeValue {
 impl AstNode for TanukiCompileTimeValue {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::CompileTimeInt(value)      => write!(f, "Compile Time Integer {value}"),
-			Self::CompileTimeFloat(value)       => write!(f, "Compile Time Float {value}"),
-			Self::CompileTimeBool(value)       => write!(f, "Compile Time Bool {value}"),
-			Self::CompileTimeChar(value)       => write!(f, "Compile Time Char {value:?}"),
-			Self::CompileTimeString(value) => write!(f, "Compile Time String {value:?}"),
-			Self::Void                                => write!(f, "Void"),
-			Self::U(bit_width, value)      => write!(f, "U{bit_width} {value}"),
-			Self::I(bit_width, value)      => write!(f, "I{bit_width} {value}"),
-			Self::F(bit_width, value)      => write!(f, "F{bit_width} {value}"),
-			Self::Type(_)                             => write!(f, "Type"),
+			Self::CompileTimeInt(value)                     => write!(f, "Compile Time Integer {value}"),
+			Self::CompileTimeFloat(value)                      => write!(f, "Compile Time Float {value}"),
+			Self::CompileTimeBool(value)                      => write!(f, "Compile Time Bool {value}"),
+			Self::CompileTimeChar(value)                      => write!(f, "Compile Time Char {value:?}"),
+			Self::CompileTimeString(value)                => write!(f, "Compile Time String {value:?}"),
+			Self::Void                                               => write!(f, "Void"),
+			Self::U(bit_width, value)                     => write!(f, "U{bit_width} {value}"),
+			Self::I(bit_width, value)                     => write!(f, "I{bit_width} {value}"),
+			Self::F(bit_width, value)                     => write!(f, "F{bit_width} {value}"),
+			Self::Type(_)                                            => write!(f, "Type"),
+			Self::Function(name, module_path) => write!(f, "Function {name} of {module_path:?}"),
 		}
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::CompileTimeInt(_) | Self::CompileTimeFloat(_) | Self::CompileTimeBool(_) | Self::CompileTimeChar(_) | Self::CompileTimeString(_) | Self::Void | Self::U(_, _) | Self::I(_, _) | Self::F(_, _) => Ok(()),
+			Self::CompileTimeInt(_) | Self::CompileTimeFloat(_) | Self::CompileTimeBool(_) | Self::CompileTimeChar(_) | Self::CompileTimeString(_) |
+			Self::Void | Self::U(_, _) | Self::I(_, _) | Self::F(_, _) | Self::Function(_, _) => Ok(()),
 			Self::Type(type_t) => type_t.print(level, f),
 		}
 	}

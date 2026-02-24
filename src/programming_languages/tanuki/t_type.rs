@@ -15,6 +15,7 @@ pub enum TanukiType {
 	F(u8),
 	Type,
 	Any,
+	Function,
 }
 
 impl AstNode for TanukiType {
@@ -31,13 +32,14 @@ impl AstNode for TanukiType {
 			Self::F(bit_width) => write!(f, "F{bit_width}"),
 			Self::Any               => write!(f, "Any"),
 			Self::Type              => write!(f, "Type"),
+			Self::Function          => write!(f, "Function"),
 		}
 	}
 
 	fn print_sub_nodes(&self, _level: usize, _f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::CompileTimeInt | Self::CompileTimeFloat | Self::CompileTimeBool | Self::CompileTimeChar | Self::CompileTimeString | Self::Void | Self::U(_) | Self::I(_) | Self::F(_) |
-			Self::Any | Self::Type => Ok(()),
+			Self::Any | Self::Type | Self::Function => Ok(()),
 		}
 	}
 }

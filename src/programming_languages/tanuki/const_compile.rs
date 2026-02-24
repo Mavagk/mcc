@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, HashSet}, mem::take, path::Path};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, global_constant::TanukiGlobalConstant, module::TanukiModule, t_type::TanukiType}, traits::module::Module};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, global_constant::TanukiGlobalConstant, module::TanukiModule, t_type::TanukiType}, traits::module::Module};
 
 impl TanukiModule {
 	pub fn get_global_items_for_module(&self, global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>) -> Result<(), ErrorAt> {
@@ -8,8 +8,8 @@ impl TanukiModule {
 			global_items_to_const_compile_for_this_module.insert(global_constant.as_ref().unwrap().name.clone());
 		}
 		for function in self.functions.iter() {
-			if !global_items_to_const_compile_for_this_module.insert(function.name.clone()) {
-				return Err(Error::DuplicateGlobalVariableWithDifferentValues.at(Some(function.start_line), Some(function.start_column), None));
+			if !global_items_to_const_compile_for_this_module.insert(function.as_ref().unwrap().name.clone()) {
+				return Err(Error::DuplicateGlobalVariableWithDifferentValues.at(Some(function.as_ref().unwrap().start_line), Some(function.as_ref().unwrap().start_column), None));
 			}
 		}
 		for import in self.imports.iter() {
@@ -48,9 +48,13 @@ impl TanukiModule {
 			}
 			let mut global_constant_removed = take(global_constant).unwrap();
 			// Const-compile
-			global_constant_removed.const_compile(&mut self.global_constants)?;
+			let mut where_extra_dependencies_found = false;
+			global_constant_removed.const_compile(&mut self.global_constants, global_items_to_const_compile_for_this_module, &mut where_extra_dependencies_found)?;
 			let global_constant = &mut self.global_constants[x];
 			*global_constant = Some(global_constant_removed);
+			if where_extra_dependencies_found {
+				continue 'a;
+			}
 			if !matches!(global_constant.as_ref().unwrap().value_expression.variant, TanukiExpressionVariant::Constant(_)) {
 				return Err(Error::UnableToConstCompile.at(Some(global_constant.as_ref().unwrap().start_line), Some(global_constant.as_ref().unwrap().start_column), None));
 			}
@@ -59,7 +63,37 @@ impl TanukiModule {
 			global_items_to_const_compile_for_this_module.remove(&global_constant.as_ref().unwrap().name);
 			global_items_const_compiled.insert((global_constant.as_ref().unwrap().name.clone(), module_path.into()));
 		}
-		// Check for duplicates without the same value
+		// Const-compile functions that we can
+		'a: for x in 0..self.functions.len() {
+			let function = &mut self.functions[x];
+			// Make sure the function has not already been const-compiled
+			if function.as_ref().unwrap().is_const_compiled {
+				continue 'a;
+			}
+			// Make sure all dependencies have been const-compiled first
+			for dependency in function.as_ref().unwrap().depends_on_for_execution.iter() {
+				if global_items_to_const_compile_for_this_module.contains(dependency) {
+					continue 'a;
+				}
+			}
+			let mut function_removed = take(function).unwrap();
+			// Const-compile
+			let mut where_extra_dependencies_found = false;
+			function_removed.const_compile(&mut self.global_constants, global_items_to_const_compile_for_this_module, &mut where_extra_dependencies_found)?;
+			let function = &mut self.functions[x];
+			*function = Some(function_removed);
+			if where_extra_dependencies_found {
+				continue 'a;
+			}
+			//if !matches!(global_constant.as_ref().unwrap().value_expression.variant, TanukiExpressionVariant::Constant(_)) {
+			//	return Err(Error::UnableToConstCompile.at(Some(global_constant.as_ref().unwrap().start_line), Some(global_constant.as_ref().unwrap().start_column), None));
+			//}
+			// Update lists
+			function.as_mut().unwrap().is_const_compiled = true;
+			global_items_to_const_compile_for_this_module.remove(&function.as_ref().unwrap().name);
+			global_items_const_compiled.insert((function.as_ref().unwrap().name.clone(), module_path.into()));
+		}
+		// Check for duplicate constants without the same value
 		if global_items_to_const_compile_for_this_module.is_empty() {
 			for (x, global_constant_x) in self.global_constants.iter().enumerate() {
 				let global_constant_x = global_constant_x.as_ref().unwrap();
@@ -85,16 +119,32 @@ impl TanukiModule {
 }
 
 impl TanukiGlobalConstant {
-	pub fn const_compile(&mut self, module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>]) -> Result<(), ErrorAt> {
-		self.value_expression.const_compile_r_value(module_global_items_const_compiled, &mut Vec::new(), &TanukiType::Any)?;
+	pub fn const_compile(
+		&mut self, module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>], global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>, where_extra_dependencies_found: &mut bool
+	) -> Result<(), ErrorAt> {
+		self.value_expression.const_compile_r_value(
+			module_global_items_const_compiled, global_items_to_const_compile_for_this_module, &mut Vec::new(), &TanukiType::Any, where_extra_dependencies_found
+		)?;
+		Ok(())
+	}
+}
+
+impl TanukiFunction {
+	pub fn const_compile(
+		&mut self, _module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>], _global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>, _where_extra_dependencies_found: &mut bool
+	) -> Result<(), ErrorAt> {
+		// TODO
+		//self.body.const_compile_r_value(
+		//	module_global_items_const_compiled, global_items_to_const_compile_for_this_module, &mut Vec::new(), &TanukiType::Any, where_extra_dependencies_found
+		//)?;
 		Ok(())
 	}
 }
 
 impl TanukiExpression {
 	pub fn const_compile_r_value(
-		&mut self, module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>], local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, TanukiCompileTimeValue)>>,
-		result_type: &TanukiType,
+		&mut self, module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>], global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>,
+		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, TanukiCompileTimeValue)>>, result_type: &TanukiType, where_extra_dependencies_found: &mut bool,
 	) -> Result<Option<TanukiCompileTimeValue>, ErrorAt> {
 		// Unpack
 		let Self { variant, start_line, start_column, .. } = self;
@@ -123,6 +173,10 @@ impl TanukiExpression {
 								}
 							}
 						}
+						if global_items_to_const_compile_for_this_module.contains(name) {
+							*where_extra_dependencies_found = true;
+							return Ok(None);
+						}
 						return Err(Error::VariableNotFound.at(Some(*start_line), Some(*start_column), None));
 					}
 				}
@@ -134,7 +188,9 @@ impl TanukiExpression {
 					}.at(Some(*start_line), Some(*start_column), None));
 				}
 				let sub_expression = &mut sub_expressions[0];
-				let argument = sub_expression.const_compile_r_value_forced(module_global_items_const_compiled, local_variables, &TanukiType::CompileTimeInt)?;
+				let argument = sub_expression.const_compile_r_value_forced(
+					module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::CompileTimeInt, where_extra_dependencies_found
+				)?;
 				let argument = match argument {
 					TanukiCompileTimeValue::CompileTimeInt(argument) => argument,
 					_ => unreachable!(),
@@ -174,11 +230,15 @@ impl TanukiExpression {
 				}
 			}
 			TanukiExpressionVariant::TypeAndValue(type_expression, castee_expression) => {
-				let type_expression_parsed = match type_expression.const_compile_r_value_forced(module_global_items_const_compiled, local_variables, &TanukiType::Type)? {
+				let type_expression_parsed = match type_expression.const_compile_r_value_forced(
+					module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Type, where_extra_dependencies_found
+				)? {
 					TanukiCompileTimeValue::Type(type_expression_parsed) => type_expression_parsed,
 					_ => unreachable!(),
 				};
-				let castee_expression_parsed = castee_expression.const_compile_r_value(module_global_items_const_compiled, local_variables, &TanukiType::Any)?;
+				let castee_expression_parsed = castee_expression.const_compile_r_value(
+					module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Any, where_extra_dependencies_found
+				)?;
 				match castee_expression_parsed {
 					Some(castee_expression_parsed) => Some(
 						castee_expression_parsed.cast_to(&type_expression_parsed, false).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?
@@ -187,15 +247,15 @@ impl TanukiExpression {
 				}
 			}
 			TanukiExpressionVariant::Negation(operand) => {
-				match operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)? {
+				match operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)? {
 					Some(operand) => (-operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
 					None => None,
 				}
 			}
 			TanukiExpressionVariant::Addition(lhs_operand, rhs_operand) => {
 				match (
-					lhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
-					rhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
+					lhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
+					rhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
 				) {
 					(Some(lhs_operand), Some(rhs_operand)) => (lhs_operand + rhs_operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
 					_ => None,
@@ -203,8 +263,8 @@ impl TanukiExpression {
 			}
 			TanukiExpressionVariant::Subtraction(lhs_operand, rhs_operand) => {
 				match (
-					lhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
-					rhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
+					lhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
+					rhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
 				) {
 					(Some(lhs_operand), Some(rhs_operand)) => (lhs_operand - rhs_operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
 					_ => None,
@@ -212,8 +272,8 @@ impl TanukiExpression {
 			}
 			TanukiExpressionVariant::Multiplication(lhs_operand, rhs_operand) => {
 				match (
-					lhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
-					rhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
+					lhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
+					rhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
 				) {
 					(Some(lhs_operand), Some(rhs_operand)) => (lhs_operand * rhs_operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
 					_ => None,
@@ -221,8 +281,8 @@ impl TanukiExpression {
 			}
 			TanukiExpressionVariant::Division(lhs_operand, rhs_operand) => {
 				match (
-					lhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
-					rhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
+					lhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
+					rhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
 				) {
 					(Some(lhs_operand), Some(rhs_operand)) => (lhs_operand / rhs_operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
 					_ => None,
@@ -274,10 +334,10 @@ impl TanukiExpression {
 	}
 
 	pub fn const_compile_r_value_forced(
-		&mut self, module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>], local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, TanukiCompileTimeValue)>>,
-		result_type: &TanukiType,
+		&mut self, module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>], global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>,
+		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, TanukiCompileTimeValue)>>, result_type: &TanukiType, where_extra_dependencies_found: &mut bool,
 	) -> Result<TanukiCompileTimeValue, ErrorAt> {
-		match self.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)? {
+		match self.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)? {
 			Some(value) => Ok(value),
 			None => Err(Error::UnableToConstCompile.at(Some(self.start_line), Some(self.start_column), None)),
 		}
