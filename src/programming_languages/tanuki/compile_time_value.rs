@@ -1,8 +1,8 @@
-use std::fmt::{self, Formatter};
+use std::{fmt::{self, Formatter}, ops::{Add, Div, Mul, Neg, Sub}, u64};
 
-use num::BigInt;
+use num::{BigInt, Signed, Zero};
 
-use crate::{error::ErrorAt, programming_languages::tanuki::t_type::TanukiType, traits::ast_node::AstNode};
+use crate::{error::Error, programming_languages::tanuki::t_type::TanukiType, traits::ast_node::AstNode};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TanukiCompileTimeValue {
@@ -41,9 +41,55 @@ impl TanukiCompileTimeValue {
 		}
 	}
 
-	pub fn cast_to(self, t_type: &TanukiType, is_explicit: bool) -> Result<Self, ErrorAt> {
-		match (self, t_type, is_explicit) {
-			(value, type_t, _) if value.is_of_type(t_type) => Ok(value),
+	pub fn cast_to(self, type_to: &TanukiType, is_explicit: bool) -> Result<Self, Error> {
+		let type_from = self.get_type();
+		match (type_from, type_to, is_explicit) {
+			(type_from, type_to, _) if &type_from == type_to => Ok(self),
+			(_, TanukiType::Any, _) => Ok(self),
+			(TanukiType::CompileTimeInt | TanukiType::U(_) | TanukiType::I(_), TanukiType::CompileTimeInt | TanukiType::U(_) | TanukiType::I(_), _) => {
+				let value = match self {
+					TanukiCompileTimeValue::CompileTimeInt(value) => value,
+					TanukiCompileTimeValue::U(_, value) => value.into(),
+					TanukiCompileTimeValue::I(_, value) => value.into(),
+					_ => unreachable!(),
+				};
+				Ok(match type_to {
+					TanukiType::CompileTimeInt => TanukiCompileTimeValue::CompileTimeInt(value),
+					TanukiType::U(bit_width) => TanukiCompileTimeValue::U(*bit_width, {
+						let max = !(u64::MAX.wrapping_shl(*bit_width as u32));
+						let value_u64 = match (&value).try_into() {
+							Ok(value) => value,
+							Err(_) => return Err(match value.is_positive() {
+								true => Error::IntegerTooLargeForType(value, format!("{type_to:?}")),
+								false => Error::IntegerTooSmallForType(value, format!("{type_to:?}")),
+							}),
+						};
+						if value_u64 > max {
+							return Err(Error::IntegerTooLargeForType(value, format!("{type_to:?}")));
+						}
+						value_u64
+					}),
+					TanukiType::I(bit_width) => TanukiCompileTimeValue::I(*bit_width, {
+						let max = (!(u64::MAX.wrapping_shl(bit_width.saturating_sub(1) as u32))) as i64;
+						let min = (-max) - 1;
+						let value_i64 = match (&value).try_into() {
+							Ok(value) => value,
+							Err(_) => return Err(match value.is_positive() {
+								true => Error::IntegerTooLargeForType(value, format!("{type_to:?}")),
+								false => Error::IntegerTooSmallForType(value, format!("{type_to:?}")),
+							}),
+						};
+						if value_i64 < min {
+							return Err(Error::IntegerTooSmallForType(value, format!("{type_to:?}")));
+						}
+						if value_i64 > max {
+							return Err(Error::IntegerTooLargeForType(value, format!("{type_to:?}")));
+						}
+						value_i64
+					}),
+					_ => unreachable!(),
+				})
+			}
 			_ => todo!()
 		}
 	}
@@ -69,6 +115,70 @@ impl AstNode for TanukiCompileTimeValue {
 		match self {
 			Self::CompileTimeInt(_) | Self::CompileTimeFloat(_) | Self::CompileTimeBool(_) | Self::CompileTimeChar(_) | Self::CompileTimeString(_) | Self::Void | Self::U(_, _) | Self::I(_, _) | Self::F(_, _) => Ok(()),
 			Self::Type(type_t) => type_t.print(level, f),
+		}
+	}
+}
+
+impl Neg for TanukiCompileTimeValue {
+	type Output = Result<Option<TanukiCompileTimeValue>, Error>;
+
+	fn neg(self) -> Self::Output {
+		match self {
+			TanukiCompileTimeValue::CompileTimeInt(value) => Ok(Some(TanukiCompileTimeValue::CompileTimeInt(-value))),
+			_ => Ok(None), //Err(Error::CannotUseUnaryOperatorForType { type_t: format!("{:?}", self.get_type()), operator: "-".to_string() }),
+		}
+	}
+}
+
+impl Add for TanukiCompileTimeValue {
+	type Output = Result<Option<TanukiCompileTimeValue>, Error>;
+
+	fn add(self, rhs: Self) -> Self::Output {
+		match (self, rhs) {
+			(TanukiCompileTimeValue::CompileTimeInt(lhs_value), TanukiCompileTimeValue::CompileTimeInt(rhs_value)) => Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_value + rhs_value))),
+			//(lhs, rhs)
+			//	=> Err(Error::CannotUseBinaryOperatorForType { lhs_type_t: format!("{:?}", lhs.get_type()), rhs_type_t: format!("{:?}", rhs.get_type()), operator: "+".into() }),
+			_ => Ok(None),
+		}
+	}
+}
+
+impl Sub for TanukiCompileTimeValue {
+	type Output = Result<Option<TanukiCompileTimeValue>, Error>;
+
+	fn sub(self, rhs: Self) -> Self::Output {
+		match (self, rhs) {
+			(TanukiCompileTimeValue::CompileTimeInt(lhs_value), TanukiCompileTimeValue::CompileTimeInt(rhs_value)) => Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_value - rhs_value))),
+			//(lhs, rhs)
+			//	=> Err(Error::CannotUseBinaryOperatorForType { lhs_type_t: format!("{:?}", lhs.get_type()), rhs_type_t: format!("{:?}", rhs.get_type()), operator: "-".into() }),
+			_ => Ok(None),
+		}
+	}
+}
+
+impl Mul for TanukiCompileTimeValue {
+	type Output = Result<Option<TanukiCompileTimeValue>, Error>;
+
+	fn mul(self, rhs: Self) -> Self::Output {
+		match (self, rhs) {
+			(TanukiCompileTimeValue::CompileTimeInt(lhs_value), TanukiCompileTimeValue::CompileTimeInt(rhs_value)) => Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_value * rhs_value))),
+			//(lhs, rhs)
+			//	=> Err(Error::CannotUseBinaryOperatorForType { lhs_type_t: format!("{:?}", lhs.get_type()), rhs_type_t: format!("{:?}", rhs.get_type()), operator: "*".into() }),
+			_ => Ok(None),
+		}
+	}
+}
+
+impl Div for TanukiCompileTimeValue {
+	type Output = Result<Option<TanukiCompileTimeValue>, Error>;
+
+	fn div(self, rhs: Self) -> Self::Output {
+		match (self, rhs) {
+			(TanukiCompileTimeValue::CompileTimeInt(lhs_value), _) if lhs_value.is_zero() => Err(Error::DivisionByZero),
+			(TanukiCompileTimeValue::CompileTimeInt(lhs_value), TanukiCompileTimeValue::CompileTimeInt(rhs_value)) => Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_value / rhs_value))),
+			//(lhs, rhs)
+			//	=> Err(Error::CannotUseBinaryOperatorForType { lhs_type_t: format!("{:?}", lhs.get_type()), rhs_type_t: format!("{:?}", rhs.get_type()), operator: "/".into() }),
+			_ => Ok(None),
 		}
 	}
 }

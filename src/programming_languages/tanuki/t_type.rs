@@ -1,8 +1,8 @@
-use std::fmt::{self, Formatter};
+use std::fmt::{self, Debug, Formatter};
 
 use crate::traits::ast_node::AstNode;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum TanukiType {
 	CompileTimeInt,
 	CompileTimeFloat,
@@ -39,5 +39,11 @@ impl AstNode for TanukiType {
 			Self::CompileTimeInt | Self::CompileTimeFloat | Self::CompileTimeBool | Self::CompileTimeChar | Self::CompileTimeString | Self::Void | Self::U(_) | Self::I(_) | Self::F(_) |
 			Self::Any | Self::Type => Ok(()),
 		}
+	}
+}
+
+impl Debug for TanukiType {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		self.print(0, f)
 	}
 }

@@ -180,15 +180,61 @@ impl TanukiExpression {
 				};
 				let castee_expression_parsed = castee_expression.const_compile_r_value(module_global_items_const_compiled, local_variables, &TanukiType::Any)?;
 				match castee_expression_parsed {
-					Some(castee_expression_parsed) => Some(castee_expression_parsed.cast_to(&type_expression_parsed, false)?),
+					Some(castee_expression_parsed) => Some(
+						castee_expression_parsed.cast_to(&type_expression_parsed, false).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?
+					),
 					None => None,
+				}
+			}
+			TanukiExpressionVariant::Negation(operand) => {
+				match operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)? {
+					Some(operand) => (-operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
+					None => None,
+				}
+			}
+			TanukiExpressionVariant::Addition(lhs_operand, rhs_operand) => {
+				match (
+					lhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
+					rhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
+				) {
+					(Some(lhs_operand), Some(rhs_operand)) => (lhs_operand + rhs_operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
+					_ => None,
+				}
+			}
+			TanukiExpressionVariant::Subtraction(lhs_operand, rhs_operand) => {
+				match (
+					lhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
+					rhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
+				) {
+					(Some(lhs_operand), Some(rhs_operand)) => (lhs_operand - rhs_operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
+					_ => None,
+				}
+			}
+			TanukiExpressionVariant::Multiplication(lhs_operand, rhs_operand) => {
+				match (
+					lhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
+					rhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
+				) {
+					(Some(lhs_operand), Some(rhs_operand)) => (lhs_operand * rhs_operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
+					_ => None,
+				}
+			}
+			TanukiExpressionVariant::Division(lhs_operand, rhs_operand) => {
+				match (
+					lhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
+					rhs_operand.const_compile_r_value(module_global_items_const_compiled, local_variables, result_type)?,
+				) {
+					(Some(lhs_operand), Some(rhs_operand)) => (lhs_operand / rhs_operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
+					_ => None,
 				}
 			}
 			_ => None,
 		};
 		// Cast
 		let const_compiled_value = match const_compiled_value {
-			Some(const_compiled_value) => Some(const_compiled_value.cast_to(result_type, false)?),
+			Some(const_compiled_value) => Some(
+				const_compiled_value.cast_to(result_type, false).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?
+			),
 			None => None,
 		};
 		// If complication was done, replace this with the compiled constant

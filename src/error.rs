@@ -65,6 +65,11 @@ pub enum Error {
 	UnexpectedValueType { value: TanukiCompileTimeValue, expected_type: Option<TanukiType> },
 	InvalidIntegerBitWidth(BigInt),
 	InvalidFloatBitWidth(BigInt),
+	IntegerTooLargeForType(BigInt, String),
+	IntegerTooSmallForType(BigInt, String),
+	CannotUseUnaryOperatorForType{ type_t: String, operator: String },
+	CannotUseBinaryOperatorForType{ lhs_type_t: String, rhs_type_t: String, operator: String },
+	DivisionByZero,
 }
 
 impl Error {
@@ -158,6 +163,12 @@ impl Display for Error {
 			}
 			Self::InvalidIntegerBitWidth(width) => write!(f, "Invalid integer bit width {width}, must be 8, 16, 32 or 64"),
 			Self::InvalidFloatBitWidth(width) => write!(f, "Invalid float bit width {width}, must be 32 or 64"),
+			Self::IntegerTooLargeForType(value, type_t) => write!(f, "Integer overflow, value {value} is too large for type {type_t}"),
+			Self::IntegerTooSmallForType(value, type_t) => write!(f, "Integer underflow, value {value} is too small for type {type_t}"),
+			Self::CannotUseUnaryOperatorForType { type_t, operator } => write!(f, "Cannot use the unary {operator} operator on a value of type {type_t}"),
+			Self::CannotUseBinaryOperatorForType { lhs_type_t, rhs_type_t, operator }
+				=> write!(f, "Cannot use the binary {operator} operator on values of type {lhs_type_t} and {rhs_type_t}"),
+			Self::DivisionByZero => write!(f, "Division by zero"),
 		}
 	}
 }
