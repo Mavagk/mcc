@@ -15,6 +15,7 @@ pub mod import;
 pub mod link;
 pub mod const_compile;
 pub mod t_type;
+pub mod compile_to_c;
 
 #[derive(Debug)]
 pub struct Tanuki {}

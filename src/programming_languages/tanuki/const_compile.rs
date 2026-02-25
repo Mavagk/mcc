@@ -131,12 +131,30 @@ impl TanukiGlobalConstant {
 
 impl TanukiFunction {
 	pub fn const_compile(
-		&mut self, _module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>], _global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>, _where_extra_dependencies_found: &mut bool
+		&mut self, module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>], global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>, where_extra_dependencies_found: &mut bool
 	) -> Result<(), ErrorAt> {
-		// TODO
-		//self.body.const_compile_r_value(
-		//	module_global_items_const_compiled, global_items_to_const_compile_for_this_module, &mut Vec::new(), &TanukiType::Any, where_extra_dependencies_found
-		//)?;
+		let mut local_variables = Vec::new();
+		local_variables.push(HashMap::new());
+		for parameter in self.parameters.iter_mut() {
+			if let Some(t_type) = &mut parameter.t_type {
+				t_type.const_compile_l_value(&mut local_variables)?;
+			}
+		}
+		let return_type = match &mut self.return_type {
+			Some(return_type) => return_type.const_compile_r_value(
+				module_global_items_const_compiled, global_items_to_const_compile_for_this_module, &mut Vec::new(), &TanukiType::Type, where_extra_dependencies_found
+			)?,
+			None => None,
+		};
+		if *where_extra_dependencies_found {
+			return Ok(())
+		}
+		let return_type = match return_type {
+			Some(TanukiCompileTimeValue::Type(return_type)) => return_type,
+			None => TanukiType::Any,
+			_ => unreachable!(),
+		};
+		self.body.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, &mut local_variables, &return_type, where_extra_dependencies_found)?;
 		Ok(())
 	}
 }

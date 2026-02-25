@@ -160,7 +160,7 @@ impl TanukiExpression {
 							},
 							// Move on to reading the return type if we reach a semicolon
 							Some(TanukiToken { variant: TanukiTokenVariant::Semicolon, start_line, start_column, .. }) => {
-								if expression_is_empty && sub_expressions.is_empty() {
+								if expression_is_empty && !sub_expressions.is_empty() {
 									return Err(Error::ExpectedExpression.at(Some(*start_line), Some(*start_column), None));
 								}
 								is_return_type_expression = true;

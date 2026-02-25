@@ -1,4 +1,4 @@
-use std::{collections::HashSet, mem::take};
+use std::{collections::HashSet, hash::{DefaultHasher, Hash, Hasher}, mem::take};
 
 use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, export::TanukiExport, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionArgument}, global_constant::TanukiGlobalConstant, import::TanukiImport, link::TanukiLink, module::TanukiModule}};
 
@@ -272,8 +272,10 @@ impl TanukiExpression {
 						_ => return Err(Error::ExpectedVariable.at(Some(parameter.start_line), Some(parameter.start_column), None)),
 					});
 				}
+				let mut module_hash = DefaultHasher::new();
+				main.module_being_processed.hash(&mut module_hash);
 				let module_function_index = post_parse_data.functions.len();
-				let mangled_function_name = format!("_tnk_fn_{module_function_index}").into_boxed_str();
+				let mangled_function_name = format!("_tnk_fn_{module_function_index}_{}", module_hash.finish()).into_boxed_str();
 				global_variables_dependent_on.insert(mangled_function_name.clone());
 				post_parse_data.functions.push(Some(TanukiFunction {
 					name: mangled_function_name.clone(), parameters: new_parameters.into_boxed_slice(),
@@ -281,9 +283,6 @@ impl TanukiExpression {
 					body: take(body_expression), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column,
 					depends_on_for_execution: function_depends_on_globals_for_execution, is_pure: true, is_const_compiled: false,
 				}));
-				//*self = TanukiExpression {
-				//	variant: TanukiExpressionVariant::ModuleFunction { module_function_index }, start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
-				//};
 				*self = TanukiExpression {
 					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Function(mangled_function_name, main.module_being_processed.clone())),
 					start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
