@@ -22,6 +22,7 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 	let mut optimization_level = None;
 	let mut do_stop_after_parse = false;
 	let mut do_stop_after_const_compile = false;
+	let mut target_triple = None;
 	// Process each argument
 	for arg in args {
 		match parse_state {
@@ -36,6 +37,7 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 						"O" | "-output-dir" => parse_state = ParseState::OutputDirectory,
 						"o" | "-output-file" => parse_state = ParseState::OutputFile,
 						"s" | "-source-dir" => parse_state = ParseState::SourceDirectory,
+						"-target-triple" => parse_state = ParseState::TargetTriple,
 						"-help" => {
 							if print_help {
 								return Err(Error::RepeatedArgument(arg_str.into()));
@@ -161,13 +163,20 @@ pub fn parse_arguments(args: &[OsString]) -> Result<Arguments, Error> {
 				output_file = Some(PathBuf::from(arg).into_boxed_path());
 				parse_state = ParseState::Normal;
 			}
+			ParseState::TargetTriple => {
+				if target_triple.is_some() {
+					return Err(Error::RepeatedArgument(arg.to_string_lossy().into()));
+				}
+				target_triple = Some(arg.to_string_lossy().into());
+				parse_state = ParseState::Normal;
+			}
 		}
 	}
 	// Assemble into arguments struct
 	Ok(Arguments {
 		source_files: source_files.into_boxed_slice(), home_directory, output_directory, source_directory, output_file,
 		print_help, print_version, print_source, print_tokens, print_ast_after_parse, print_ast_after_post_parse, execute_interpreted, print_source_to_source_c, do_stop_after_parse,
-		optimization_level, do_stop_after_const_compile, print_ast_after_const_compile,
+		optimization_level, do_stop_after_const_compile, print_ast_after_const_compile, target_triple,
 	})
 }
 
@@ -191,6 +200,7 @@ pub struct Arguments {
 	pub do_stop_after_parse: bool,
 	pub print_ast_after_const_compile: bool,
 	pub do_stop_after_const_compile: bool,
+	pub target_triple: Option<Box<str>>,
 }
 
 enum ParseState {
@@ -199,4 +209,5 @@ enum ParseState {
 	SourceDirectory,
 	OutputDirectory,
 	OutputFile,
+	TargetTriple,
 }

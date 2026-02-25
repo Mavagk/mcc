@@ -9,6 +9,7 @@ pub struct TanukiModule {
 	pub exports: Vec<TanukiExport>,
 	pub imports: Vec<TanukiImport>,
 	pub links: Vec<TanukiLink>,
+	pub entrypoint: Option<Box<str>>,
 }
 
 impl Module for TanukiModule {
@@ -34,7 +35,11 @@ impl Module for TanukiModule {
 
 impl AstNode for TanukiModule {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		write!(f, "Tanuki Module")
+		write!(f, "Tanuki Module")?;
+		if let Some(entrypoint) = &self.entrypoint {
+			write!(f, ", Entrypoint: {entrypoint}")?;
+		}
+		Ok(())
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {

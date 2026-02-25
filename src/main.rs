@@ -48,6 +48,44 @@ fn main() {
 		println!("--execute-interpreted\t\t\t\t\tExecute entrypoint modules and do not compile.");
 		println!("--print-c\t\t\t\t\t\tPrint out modules once they have been source to source compiled to C.");
 	}
+	// Get target triple
+	if args.target_triple.is_none() {
+		match Command::new("gcc").arg("-dumpmachine").output() {
+			Ok(output) => {
+				let mut target_triple = String::new();
+				for chr in output.stdout {
+					let chr = chr as char;
+					if chr.is_ascii_whitespace() {
+						continue;
+					}
+					target_triple.push(chr);
+				}
+				main_struct.target_triple = target_triple.into_boxed_str();
+			},
+			Err(_) => {
+				println!("Error while getting target triple.");
+				return;
+			},
+		}
+	}
+	else {
+		main_struct.target_triple = args.target_triple.clone().unwrap();
+	}
+	// Get OS
+	match main_struct.target_triple.split('-').nth(2) {
+		Some(os_name) => main_struct.os = match os_name {
+			"mingw64" | "mingw32" | "windows" => Os::Windows,
+			"linux" => Os::Unix,
+			_ => {
+				println!("Unrecognized OS \"{os_name}\".");
+				return;
+			}
+		},
+		None => {
+			println!("Invalid target triple.");
+			return;
+		}
+	};
 	// Parse each module to an AST.
 	let mut parsed_modules = Vec::new();
 	loop {
@@ -76,6 +114,7 @@ fn main() {
 	if args.do_stop_after_parse {
 		return;
 	}
+
 	// Const-compile, loop over the modules repeatedly and const-compile until const-complication is complete
 	let mut global_items_const_compiled = HashSet::new();
 	let mut global_items_to_const_compile: Box<[HashSet<Box<str>>]> = repeat_n(HashSet::new(), parsed_modules.len()).collect();
@@ -251,6 +290,8 @@ pub struct Main {
 	pub home_directory: Box<Path>,
 	pub source_directory: Box<Path>,
 	pub output_directory: Box<Path>,
+	pub target_triple: Box<str>,
+	pub os: Os,
 }
 
 impl Main {
@@ -282,6 +323,8 @@ impl Main {
 			source_directory: source_directory.into_boxed_path(),
 			output_directory: output_directory.into_boxed_path(),
 			module_being_processed: PathBuf::new().into_boxed_path(),
+			target_triple: "".into(),
+			os: Os::Unix,
 		})
 	}
 
@@ -314,4 +357,9 @@ fn parse_module_to_ast(main: &mut Main, args: &Arguments, module_path: &Path) ->
 	};
 	// Return
 	Ok(module)
+}
+
+pub enum Os {
+	Windows,
+	Unix,
 }

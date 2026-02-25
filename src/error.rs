@@ -70,6 +70,8 @@ pub enum Error {
 	CannotUseUnaryOperatorForType{ type_t: String, operator: String },
 	CannotUseBinaryOperatorForType{ lhs_type_t: String, rhs_type_t: String, operator: String },
 	DivisionByZero,
+	MultipleEntrypoints,
+	EntrypointOnNonFunction
 }
 
 impl Error {
@@ -169,6 +171,8 @@ impl Display for Error {
 			Self::CannotUseBinaryOperatorForType { lhs_type_t, rhs_type_t, operator }
 				=> write!(f, "Cannot use the binary {operator} operator on values of type {lhs_type_t} and {rhs_type_t}"),
 			Self::DivisionByZero => write!(f, "Division by zero"),
+			Self::MultipleEntrypoints => write!(f, "Multiple entrypoints"),
+			Self::EntrypointOnNonFunction => write!(f, "@entrypoint used on non-function"),
 		}
 	}
 }

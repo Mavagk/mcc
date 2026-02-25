@@ -778,38 +778,41 @@ pub enum TanukiKeyword {
 	Break,
 	Continue,
 	Redo,
+	Entrypoint,
 }
 
 impl TanukiKeyword {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self {
-			Self::Import   => write!(f, "Import"),
-			Self::Export   => write!(f, "Export"),
-			Self::Link     => write!(f, "Link"),
-			Self::U        => write!(f, "U"),
-			Self::I        => write!(f, "I"),
-			Self::F        => write!(f, "F"),
-			Self::True     => write!(f, "True"),
-			Self::False    => write!(f, "False"),
-			Self::Break    => write!(f, "Break"),
-			Self::Continue => write!(f, "Continue"),
-			Self::Redo     => write!(f, "Redo"),
+			Self::Import     => write!(f, "Import"),
+			Self::Export     => write!(f, "Export"),
+			Self::Link       => write!(f, "Link"),
+			Self::U          => write!(f, "U"),
+			Self::I          => write!(f, "I"),
+			Self::F          => write!(f, "F"),
+			Self::True       => write!(f, "True"),
+			Self::False      => write!(f, "False"),
+			Self::Break      => write!(f, "Break"),
+			Self::Continue   => write!(f, "Continue"),
+			Self::Redo       => write!(f, "Redo"),
+			Self::Entrypoint => write!(f, "Entrypoint"),
 		}
 	}
 
 	pub fn from_name(name: &str) -> Option<Self> {
 		match name {
-			"import"   => Some(Self::Import),
-			"export"   => Some(Self::Export),
-			"link"     => Some(Self::Link),
-			"u"        => Some(Self::U),
-			"i"        => Some(Self::I),
-			"f"        => Some(Self::F),
-			"true"     => Some(Self::True),
-			"false"    => Some(Self::False),
-			"break"    => Some(Self::Break),
-			"continue" => Some(Self::Continue),
-			"redo"     => Some(Self::Redo),
+			"import"     => Some(Self::Import),
+			"export"     => Some(Self::Export),
+			"link"       => Some(Self::Link),
+			"u"          => Some(Self::U),
+			"i"          => Some(Self::I),
+			"f"          => Some(Self::F),
+			"true"       => Some(Self::True),
+			"false"      => Some(Self::False),
+			"break"      => Some(Self::Break),
+			"continue"   => Some(Self::Continue),
+			"redo"       => Some(Self::Redo),
+			"entrypoint" => Some(Self::Entrypoint),
 			_ => None,
 		}
 	}

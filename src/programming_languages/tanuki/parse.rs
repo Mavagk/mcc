@@ -37,7 +37,8 @@ impl TanukiModule {
 			}
 		}
 		Ok(Self {
-			parsed_expressions: expressions.into_boxed_slice(), functions: Vec::new(), global_constants: Vec::new(), exports: Vec::new(), imports: Vec::new(), links: Vec::new()
+			parsed_expressions: expressions.into_boxed_slice(), functions: Vec::new(), global_constants: Vec::new(), exports: Vec::new(), imports: Vec::new(), links: Vec::new(),
+			entrypoint: None,
 		})
 	}
 }
@@ -349,7 +350,7 @@ impl TanukiExpression {
 					((!maybe_parsed_tokens.get(x + 1).is_some_and(|token| token.is_parsed()) ||
 					(x > 0 && !maybe_parsed_tokens[x - 1].is_unparsed()) || x >= maybe_parsed_tokens.len() - 1))
 				) && (x >= maybe_parsed_tokens.len() - 1 || (!maybe_parsed_tokens[x].is_parsed() || !maybe_parsed_tokens[x + 1].is_parsed())) && (
-					!matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Keyword(TanukiKeyword::Export), .. })) ||
+					!matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Keyword(TanukiKeyword::Export | TanukiKeyword::Entrypoint), .. })) ||
 					!maybe_parsed_tokens.get(x + 1).is_some_and(|token| token.is_parsed())
 				) {
 					x = match x.checked_sub(1) {
@@ -398,6 +399,9 @@ impl TanukiExpression {
 					MaybeParsedToken::Unparsed(TanukiToken {
 						variant: TanukiTokenVariant::Keyword(TanukiKeyword::Export), start_line, start_column, ..
 					}) => TanukiExpression { end_line: operand.end_line, end_column: operand.end_column, start_line, start_column, variant: TanukiExpressionVariant::Export(Box::new(operand))},
+					MaybeParsedToken::Unparsed(TanukiToken {
+						variant: TanukiTokenVariant::Keyword(TanukiKeyword::Entrypoint), start_line, start_column, ..
+					}) => TanukiExpression { end_line: operand.end_line, end_column: operand.end_column, start_line, start_column, variant: TanukiExpressionVariant::Entrypoint(Box::new(operand))},
 					MaybeParsedToken::Unparsed(TanukiToken {
 						variant: _, ..
 					}) => unreachable!(),

@@ -1,1 +1,1 @@
-simpleFn = (; @u(8)) 69;
+@entrypoint simpleFn = (; @u(8)) 69;

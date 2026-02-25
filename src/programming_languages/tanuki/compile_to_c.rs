@@ -1,4 +1,4 @@
-use crate::{Main, error::ErrorAt, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::TanukiType}}};
+use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::TanukiType}}};
 
 impl TanukiModule {
 	pub fn compile_to_c_module(&self, main: &mut Main) -> Result<CModule, ErrorAt> {
@@ -6,9 +6,56 @@ impl TanukiModule {
 		let mut c_module = CModule::new();
 		// Add imports needed for the language
 		c_module.push_element(CModuleElement::AngleInclude("stdint.h".into()));
+		c_module.push_element(CModuleElement::AngleInclude("stdlib.h".into()));
 		// Compile functions
 		for function in self.functions.iter() {
 			c_module.push_element(function.as_ref().unwrap().compile_to_c(main)?);
+		}
+		// Compile entrypoint
+		if let Some(entrypoint_name) = &self.entrypoint {
+			for global_constant in self.global_constants.iter() {
+				let global_constant = global_constant.as_ref().unwrap();
+				if &global_constant.name == entrypoint_name {
+					let function_name = match &global_constant.value_expression.variant {
+						TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Function(name, _module_path)) => name,
+						_ => return Err(Error::EntrypointOnNonFunction.at(Some(global_constant.start_line), Some(global_constant.start_column), None)),
+					};
+					for function in self.functions.iter() {
+						let entrypoint_wrapped_function = function.as_ref().unwrap();
+						if &entrypoint_wrapped_function.name != function_name {
+							continue;
+						}
+						if entrypoint_wrapped_function.parameters.len() != 0 {
+							return Err(
+								Error::Unimplemented(
+									"Entrypoint with parameters".into()).at(Some(entrypoint_wrapped_function.parameters[0].start_line), Some(entrypoint_wrapped_function.parameters[0].start_column), None
+								)
+							);
+						}
+						match main.os {
+							Os::Unix => {
+								let mut c_compound_statement = CCompoundStatement::new();
+								c_compound_statement.push_statement(CStatement::VariableDeclaration(
+									CType::U8, "result".into(), Some(CInitializer::Expression(CExpression::FunctionCall(entrypoint_wrapped_function.name.clone().into(), Default::default())).into())
+								));
+								c_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("exit".into(), [CLValue::Variable("result".into()).into()].into())).into());
+								c_module.push_element(CModuleElement::FunctionDefinition { return_type: CType::Void, name: "_start".into(), parameters: Default::default(), body: Box::new(c_compound_statement) });
+							}
+							Os::Windows => {
+								let mut c_compound_statement = CCompoundStatement::new();
+								c_compound_statement.push_statement(CStatement::VariableDeclaration(
+									CType::U8, "result".into(), Some(CInitializer::Expression(CExpression::FunctionCall(entrypoint_wrapped_function.name.clone().into(), Default::default())).into())
+								));
+								c_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("exit".into(), [CLValue::Variable("result".into()).into()].into())).into());
+								c_module.push_element(CModuleElement::FunctionDefinition { return_type: CType::Void, name: "WinMain".into(), parameters: Default::default(), body: Box::new(c_compound_statement) });
+							}
+						}
+						//let c_compound_statement = CCompoundStatement::new();
+						//c_module.push_element(CModuleElement::FunctionDefinition { return_type: CType::Void, name: "_start".into(), parameters: Default::default(), body: Box::new(c_compound_statement) });
+						break;
+					}
+				}
+			}
 		}
 		// Return
 		Ok(c_module)

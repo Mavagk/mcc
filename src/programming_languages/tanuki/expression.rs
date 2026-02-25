@@ -24,6 +24,7 @@ pub enum TanukiExpressionVariant {
 	Import(Box<[TanukiExpression]>),
 	Export(Box<TanukiExpression>),
 	Link(Box<[TanukiExpression]>),
+	Entrypoint(Box<TanukiExpression>),
 	U(Box<[TanukiExpression]>),
 	I(Box<[TanukiExpression]>),
 	F(Box<[TanukiExpression]>),
@@ -225,6 +226,7 @@ impl AstNode for TanukiExpression {
 			TanukiExpressionVariant::Import(..)                                       => write!(f, "Import"),
 			TanukiExpressionVariant::Export(..)                                       => write!(f, "Export"),
 			TanukiExpressionVariant::Link(..)                                         => write!(f, "Link"),
+			TanukiExpressionVariant::Entrypoint(..)                                   => write!(f, "Entrypoint"),
 
 			TanukiExpressionVariant::Percent(..)                                    => write!(f, "Percent"),
 			TanukiExpressionVariant::Factorial(..)                                  => write!(f, "Factorial"),
@@ -414,7 +416,7 @@ impl AstNode for TanukiExpression {
 				}
 				Ok(())
 			}
-			TanukiExpressionVariant::Export(argument) => argument.print(level, f),
+			TanukiExpressionVariant::Export(argument) | TanukiExpressionVariant::Entrypoint(argument) => argument.print(level, f),
 			TanukiExpressionVariant::Percent(sub_expression) |
 			TanukiExpressionVariant::Factorial(sub_expression) |
 			TanukiExpressionVariant::SaturatingFactorial(sub_expression) |

@@ -8,6 +8,7 @@ pub struct TanukiModulePostParseData<'a> {
 	pub exports: &'a mut Vec<TanukiExport>,
 	pub imports: &'a mut Vec<TanukiImport>,
 	pub links: &'a mut Vec<TanukiLink>,
+	pub entrypoint: &'a mut Option<Box<str>>,
 }
 
 impl TanukiModule {
@@ -15,7 +16,7 @@ impl TanukiModule {
 		let mut post_parse_data = TanukiModulePostParseData {
 			functions: &mut self.functions,
 			global_constants: &mut self.global_constants,
-			exports: &mut self.exports, imports: &mut self.imports, links: &mut self.links
+			exports: &mut self.exports, imports: &mut self.imports, links: &mut self.links, entrypoint: &mut self.entrypoint
 		};
 		for expression in self.parsed_expressions.iter_mut() {
 			expression.post_parse(main, &mut post_parse_data, false, None, false, &mut HashSet::new(), &mut Vec::new())?;
@@ -291,13 +292,25 @@ impl TanukiExpression {
 			(TanukiExpressionVariant::FunctionDefinition { .. }, _, true) =>
 				return Err(Error::ExpressionCannotBeLValue.at(Some(self.start_line), Some(self.start_column), None)),
 			(TanukiExpressionVariant::Constant(..), _, _) => {},
-			//(TanukiExpressionVariant::ModuleFunction { .. }, _, _) => unreachable!(),
 			(TanukiExpressionVariant::Export(to_export), false, _) => {
 				to_export.post_parse(main, post_parse_data, is_inside_function_or_block, None, is_l_value, global_variables_dependent_on, local_variables)?;
 				match &mut to_export.variant {
 					TanukiExpressionVariant::Variable(name) => {
 						post_parse_data.exports.push(TanukiExport { name: name.clone(), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column });
 						*self = take(to_export);
+					},
+					_ => return Err(Error::ExpectedVariable.at(Some(self.start_line), Some(self.start_column), None)),
+				}
+			},
+			(TanukiExpressionVariant::Entrypoint(to_be_entrypoint), false, _) => {
+				to_be_entrypoint.post_parse(main, post_parse_data, is_inside_function_or_block, None, is_l_value, global_variables_dependent_on, local_variables)?;
+				match &mut to_be_entrypoint.variant {
+					TanukiExpressionVariant::Variable(name) => {
+						if let Some(current_entrypoint) = post_parse_data.entrypoint && current_entrypoint != name {
+							return Err(Error::MultipleEntrypoints.at(Some(self.start_line), Some(self.start_column), None));
+						}
+						*post_parse_data.entrypoint = Some(name.clone());
+						*self = take(to_be_entrypoint);
 					},
 					_ => return Err(Error::ExpectedVariable.at(Some(self.start_line), Some(self.start_column), None)),
 				}
@@ -342,7 +355,7 @@ impl TanukiExpression {
 					argument.post_parse(main, post_parse_data, is_inside_function_or_block, assigned_to_name, is_l_value, global_variables_dependent_on, local_variables)?;
 				}
 			}
-			(TanukiExpressionVariant::Export(..) | TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Link(..), true, _)
+			(TanukiExpressionVariant::Export(..) | TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Link(..) | TanukiExpressionVariant::Entrypoint(..), true, _)
 				=> return Err(Error::CannotBeInsideBlockOrFunction.at(Some(self.start_line), Some(self.start_column), None)),
 		}
 		Ok(())
