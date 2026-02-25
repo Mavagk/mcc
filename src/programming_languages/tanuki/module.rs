@@ -16,8 +16,8 @@ impl Module for TanukiModule {
 		todo!()
 	}
 
-	fn to_c_module(&self, main: &mut Main, is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
-		self.compile_to_c_module(main, is_entrypoint)
+	fn to_c_module(&self, main: &mut Main, _is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
+		Ok(Some(self.compile_to_c_module(main)?))
 	}
 
 	fn get_global_items(&self, global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>) -> Result<(), ErrorAt> {
