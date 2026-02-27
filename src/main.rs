@@ -136,6 +136,7 @@ fn main() {
 		// Const-compile all modules
 		for x in 0..parsed_modules.len() {
 			let path = parsed_modules[x].0.clone();
+			main_struct.module_being_processed = path.clone();
 			let mut module = take(&mut parsed_modules[x].2).unwrap();
 			let global_items_to_const_compile_for_this_module = &mut global_items_to_const_compile[x];
 			match module.const_compile(&mut main_struct, &mut global_items_const_compiled, global_items_to_const_compile_for_this_module, (&parsed_modules).as_slice(), &path) {
@@ -209,7 +210,7 @@ fn main() {
 					if error.file.is_none() {
 						error.file = Some(path.to_string_lossy().into())
 					}
-					println!("Error while executing interpreted file \"{}\": {error}.", path.to_string_lossy());
+					println!("Error while source-to-source compiling file \"{}\": {error}.", path.to_string_lossy());
 					return;
 				}
 				Ok(None) => continue,

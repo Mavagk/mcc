@@ -1,6 +1,6 @@
 use std::{collections::HashSet, hash::{DefaultHasher, Hash, Hasher}, mem::take};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, export::TanukiExport, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionArgument}, global_constant::TanukiGlobalConstant, import::TanukiImport, link::TanukiLink, module::TanukiModule}};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, export::TanukiExport, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionParameter}, global_constant::TanukiGlobalConstant, import::TanukiImport, link::TanukiLink, module::TanukiModule}};
 
 pub struct TanukiModulePostParseData<'a> {
 	pub functions: &'a mut Vec<Option<TanukiFunction>>,
@@ -261,11 +261,11 @@ impl TanukiExpression {
 				let mut new_parameters = Vec::new();
 				for parameter in take(parameters) {
 					new_parameters.push(match parameter.variant {
-						TanukiExpressionVariant::Variable(name) => TanukiFunctionArgument {
+						TanukiExpressionVariant::Variable(name) => TanukiFunctionParameter {
 							t_type: None, name, start_line: parameter.start_line, start_column: parameter.start_column, end_line: parameter.end_line, end_column: parameter.end_column
 						},
 						TanukiExpressionVariant::TypeAndValue(t_type, name_expression) => match name_expression.variant {
-							TanukiExpressionVariant::Variable(name) => TanukiFunctionArgument {
+							TanukiExpressionVariant::Variable(name) => TanukiFunctionParameter {
 								t_type: Some(*t_type), name, start_line: parameter.start_line, start_column: parameter.start_column, end_line: parameter.end_line, end_column: parameter.end_column
 							},
 							_ => return Err(Error::ExpectedVariable.at(Some(parameter.start_line), Some(parameter.start_column), None)),

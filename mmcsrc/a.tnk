@@ -1,1 +1,5 @@
 @entrypoint simpleFn = (; @u(8)) 69;
+
+fnA = (; @u(8)) 50 + 60;
+
+fnB = (@u(8) a, @u(8) b; @u(8)) a + b + @u(8) 2;

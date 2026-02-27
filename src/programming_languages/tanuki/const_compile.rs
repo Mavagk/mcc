@@ -137,7 +137,17 @@ impl TanukiFunction {
 		local_variables.push(HashMap::new());
 		for parameter in self.parameters.iter_mut() {
 			if let Some(t_type) = &mut parameter.t_type {
-				t_type.const_compile_l_value(&mut local_variables)?;
+				let t_type = t_type.const_compile_r_value(
+					module_global_items_const_compiled, global_items_to_const_compile_for_this_module, &mut local_variables, &TanukiType::Type, where_extra_dependencies_found
+				)?;
+				if *where_extra_dependencies_found {
+					return Ok(());
+				}
+				let t_type = match t_type.unwrap() {
+					TanukiCompileTimeValue::Type(t_type) => t_type,
+					_ => unreachable!(),
+				};
+				local_variables.last_mut().unwrap().insert(parameter.name.clone(), (t_type, None));
 			}
 		}
 		let return_type = match &mut self.return_type {
@@ -162,7 +172,7 @@ impl TanukiFunction {
 impl TanukiExpression {
 	pub fn const_compile_r_value(
 		&mut self, module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>], global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>,
-		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, TanukiCompileTimeValue)>>, result_type: &TanukiType, where_extra_dependencies_found: &mut bool,
+		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, result_type: &TanukiType, where_extra_dependencies_found: &mut bool,
 	) -> Result<Option<TanukiCompileTimeValue>, ErrorAt> {
 		// Unpack
 		let Self { variant, start_line, start_column, .. } = self;
@@ -180,7 +190,7 @@ impl TanukiExpression {
 				}
 				match variable {
 					// Return the value if there is
-					Some((_, value)) => Some(value.clone()),
+					Some((_, value)) => value.clone(),
 					// Else read the global variable
 					None => 'a: {
 						for global_constant in module_global_items_const_compiled.iter() {
@@ -265,15 +275,15 @@ impl TanukiExpression {
 				}
 			}
 			TanukiExpressionVariant::Negation(operand) => {
-				match operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)? {
+				match operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Any, where_extra_dependencies_found)? {
 					Some(operand) => (-operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
 					None => None,
 				}
 			}
 			TanukiExpressionVariant::Addition(lhs_operand, rhs_operand) => {
 				match (
-					lhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
-					rhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
+					lhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Any, where_extra_dependencies_found)?,
+					rhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Any, where_extra_dependencies_found)?,
 				) {
 					(Some(lhs_operand), Some(rhs_operand)) => (lhs_operand + rhs_operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
 					_ => None,
@@ -281,8 +291,8 @@ impl TanukiExpression {
 			}
 			TanukiExpressionVariant::Subtraction(lhs_operand, rhs_operand) => {
 				match (
-					lhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
-					rhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
+					lhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Any, where_extra_dependencies_found)?,
+					rhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Any, where_extra_dependencies_found)?,
 				) {
 					(Some(lhs_operand), Some(rhs_operand)) => (lhs_operand - rhs_operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
 					_ => None,
@@ -290,8 +300,8 @@ impl TanukiExpression {
 			}
 			TanukiExpressionVariant::Multiplication(lhs_operand, rhs_operand) => {
 				match (
-					lhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
-					rhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
+					lhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Any, where_extra_dependencies_found)?,
+					rhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Any, where_extra_dependencies_found)?,
 				) {
 					(Some(lhs_operand), Some(rhs_operand)) => (lhs_operand * rhs_operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
 					_ => None,
@@ -299,8 +309,8 @@ impl TanukiExpression {
 			}
 			TanukiExpressionVariant::Division(lhs_operand, rhs_operand) => {
 				match (
-					lhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
-					rhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)?,
+					lhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Any, where_extra_dependencies_found)?,
+					rhs_operand.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Any, where_extra_dependencies_found)?,
 				) {
 					(Some(lhs_operand), Some(rhs_operand)) => (lhs_operand / rhs_operand).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?,
 					_ => None,
@@ -323,7 +333,7 @@ impl TanukiExpression {
 		Ok(const_compiled_value)
 	}
 
-	pub fn const_compile_l_value(&mut self, local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, TanukiCompileTimeValue)>>) -> Result<Option<CompileTimeLValue>, ErrorAt> {
+	pub fn const_compile_l_value(&mut self, local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>) -> Result<Option<CompileTimeLValue>, ErrorAt> {
 		let Self { variant, .. } = self;
 		Ok(match variant {
 			TanukiExpressionVariant::Constant(_) => todo!(),
@@ -341,7 +351,7 @@ impl TanukiExpression {
 				//
 				match variable {
 					None => {
-						local_variables.last_mut().unwrap().insert(name.clone(), (TanukiType::Any, TanukiCompileTimeValue::Void));
+						local_variables.last_mut().unwrap().insert(name.clone(), (TanukiType::Any, Some(TanukiCompileTimeValue::Void)));
 						Some(CompileTimeLValue::LocalVariable { name: name.clone(), block_level: local_variables.len() })
 					}
 					_ => Some(CompileTimeLValue::LocalVariable { name: name.clone(), block_level })
@@ -353,7 +363,7 @@ impl TanukiExpression {
 
 	pub fn const_compile_r_value_forced(
 		&mut self, module_global_items_const_compiled: &mut [Option<TanukiGlobalConstant>], global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>,
-		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, TanukiCompileTimeValue)>>, result_type: &TanukiType, where_extra_dependencies_found: &mut bool,
+		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, result_type: &TanukiType, where_extra_dependencies_found: &mut bool,
 	) -> Result<TanukiCompileTimeValue, ErrorAt> {
 		match self.const_compile_r_value(module_global_items_const_compiled, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found)? {
 			Some(value) => Ok(value),

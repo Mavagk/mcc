@@ -4,7 +4,7 @@ use crate::{programming_languages::tanuki::expression::TanukiExpression, traits:
 
 pub struct TanukiFunction {
 	pub name: Box<str>,
-	pub parameters: Box<[TanukiFunctionArgument]>,
+	pub parameters: Box<[TanukiFunctionParameter]>,
 	pub return_type: Option<TanukiExpression>,
 	pub body: TanukiExpression,
 	pub start_line: NonZeroUsize,
@@ -48,7 +48,7 @@ impl AstNode for TanukiFunction {
 	}
 }
 
-pub struct TanukiFunctionArgument {
+pub struct TanukiFunctionParameter {
 	pub t_type: Option<TanukiExpression>,
 	pub name: Box<str>,
 	pub start_line: NonZeroUsize,
@@ -57,9 +57,9 @@ pub struct TanukiFunctionArgument {
 	pub end_column: NonZeroUsize,
 }
 
-impl AstNode for TanukiFunctionArgument {
+impl AstNode for TanukiFunctionParameter {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		write!(f, "Argument {}", self.name)
+		write!(f, "Parameter {}", self.name)
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
