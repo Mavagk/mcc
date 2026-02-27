@@ -181,6 +181,7 @@ impl TanukiExpression {
 }
 
 impl TanukiCompileTimeValue {
+	/// Converts a Tanuki compile time value into a C constant.
 	pub fn compile_to_c(&self, main: &mut Main, insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
 		let t_type = self.get_type();
 		let c_type = t_type.compile_to_c(main)?;
