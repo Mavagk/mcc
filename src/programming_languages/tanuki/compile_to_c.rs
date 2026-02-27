@@ -65,6 +65,7 @@ impl TanukiModule {
 }
 
 impl TanukiFunction {
+	/// Compiles the Tanuki module to a C module
 	pub fn compile_to_c(&self, main: &mut Main) -> Result<CModuleElement, ErrorAt> {
 		// Get return type
 		let return_type = match &self.return_type {
@@ -107,6 +108,7 @@ impl TanukiFunction {
 }
 
 impl TanukiType {
+	/// Compiles a Tanuki type to a C Type
 	pub fn compile_to_c(&self, _main: &mut Main) -> Result<CType, ErrorAt> {
 		Ok(match self {
 			Self::Void => CType::Void,
@@ -130,6 +132,8 @@ impl TanukiType {
 }
 
 impl TanukiExpression {
+	/// Compiles an expression that is being used as a r-value into C expressions/statements and inserts the compiled C statements into `insert_into`.
+	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
 	pub fn compile_r_value_to_c(
 		&self, main: &mut Main, insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize, local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>
 	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
@@ -158,10 +162,15 @@ impl TanukiExpression {
 				}
 				unreachable!();
 			}
+			//TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
+			//	todo!()
+			//}
 			_ => return Err(Error::NotYetImplemented(format!("{:?} expression", self.variant)).at(Some(self.start_line), Some(self.start_column), None)),
 		}
 	}
 
+	/// Compiles an expression that is being used as a l-value into C expressions/statements and inserts the compiled C statements into `insert_into`.
+	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains a pointer to the l-value's value'.
 	pub fn compile_l_value_to_c(
 		&self, _main: &mut Main, _insert_into: &mut CCompoundStatement, _function_temp_variable_count: &mut usize, _local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>
 	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {

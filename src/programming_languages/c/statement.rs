@@ -63,9 +63,10 @@ impl AstNode for CStatement {
 				writer.write_all(b";").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
 			Self::VariableDeclaration(variable_type, name, initializer) => {
-				variable_type.write_to_file(writer, indentation_level)?;
-				writer.write_all(b" ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
-				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				//variable_type.write_to_file(writer, indentation_level)?;
+				//writer.write_all(b" ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				//writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				variable_type.write_to_file_with_name(writer, indentation_level, name)?;
 				if let Some(initializer) = initializer {
 					writer.write_all(b" = ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 					initializer.write_to_file(writer, indentation_level)?;

@@ -1,6 +1,6 @@
 use std::{fmt::{self, Formatter}, fs::File, io::{BufWriter, Write}};
 
-use crate::{error::{Error, ErrorAt}, traits::{ast_node::AstNode, types::Type}};
+use crate::{error::{Error, ErrorAt}, traits::ast_node::AstNode};
 
 #[derive(Debug)]
 pub enum CType {
@@ -16,10 +16,7 @@ pub enum CType {
 	I32,
 	I64,
 	PointerTo(Box<CType>),
-}
-
-impl Type for CType {
-
+	FunctionPointer(Box<CType>, Box<[CType]>),
 }
 
 impl AstNode for CType {
@@ -37,6 +34,7 @@ impl AstNode for CType {
 			Self::I32 => write!(f, "I32"),
 			Self::I64 => write!(f, "I64"),
 			CType::PointerTo(_) => write!(f, "Pointer To"),
+			CType::FunctionPointer(_, _) => write!(f, "Function Pointer"),
 		}
 	}
 
@@ -47,6 +45,13 @@ impl AstNode for CType {
 			Self::U8 | Self::U16 | Self::U32 | Self::U64 | Self::I8 | Self::I16 | Self::I32 | Self::I64 => Ok(()),
 			Self::USize => Ok(()),
 			Self::PointerTo(pointee_type) => pointee_type.print(level, f),
+			Self::FunctionPointer(return_type, parameter_types) => {
+				return_type.print(level, f)?;
+				for parameter_type in parameter_types.iter() {
+					parameter_type.print(level, f)?;
+				}
+				Ok(())
+			}
 		}
 	}
 
@@ -63,10 +68,87 @@ impl AstNode for CType {
 			Self::I16 => writer.write_all(b"int16_t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None)),
 			Self::I32 => writer.write_all(b"int32_t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None)),
 			Self::I64 => writer.write_all(b"int64_t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None)),
-			Self::PointerTo(pointee) => {
-				//writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+			Self::PointerTo(pointee) => 'a: {
+				if let CType::FunctionPointer(return_type, parameter_types) = &**pointee {
+					return_type.write_to_file(writer, indentation_level)?;
+					writer.write_all(b" (**)(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					let mut is_first_parameter = true;
+					for parameter in parameter_types {
+						if !is_first_parameter {
+							writer.write_all(b", ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+						}
+						parameter.write_to_file(writer, indentation_level)?;
+						is_first_parameter = false;
+					}
+					break 'a writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None));
+				}
 				pointee.write_to_file(writer, indentation_level)?;
 				writer.write_all(b"*").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+			Self::FunctionPointer(return_type, parameter_types) => {
+				return_type.write_to_file(writer, indentation_level)?;
+				writer.write_all(b" (*)(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				let mut is_first_parameter = true;
+				for parameter in parameter_types {
+					if !is_first_parameter {
+						writer.write_all(b", ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					}
+					parameter.write_to_file(writer, indentation_level)?;
+					is_first_parameter = false;
+				}
+				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+		}
+	}
+}
+
+impl CType {
+	pub fn write_to_file_with_name(&self, writer: &mut BufWriter<File>, indentation_level: usize, name: &str) -> Result<(), ErrorAt> {
+		match self {
+			Self::Void | Self::Int | Self::U8 | Self::U16 | Self::U32 | Self::U64 | Self::USize | Self::I8 | Self::I16 | Self::I32 | Self::I64 => {
+				self.write_to_file(writer, indentation_level)?;
+				writer.write_all(b" ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+			Self::PointerTo(pointee) => 'a: {
+				if let CType::PointerTo(pointee_pointee) = &**pointee {
+					pointee_pointee.write_to_file(writer, indentation_level)?;
+					writer.write_all(b" **").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					break 'a writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None));
+				}
+				if let CType::FunctionPointer(return_type, parameter_types) = &**pointee {
+					return_type.write_to_file(writer, indentation_level)?;
+					writer.write_all(b" (**").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					writer.write_all(b")(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					let mut is_first_parameter = true;
+					for parameter in parameter_types {
+						if !is_first_parameter {
+							writer.write_all(b", ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+						}
+						parameter.write_to_file(writer, indentation_level)?;
+						is_first_parameter = false;
+					}
+					break 'a writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None));
+				}
+				pointee.write_to_file(writer, indentation_level)?;
+				writer.write_all(b" *").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+			Self::FunctionPointer(return_type, parameter_types) => {
+				return_type.write_to_file(writer, indentation_level)?;
+				writer.write_all(b" (*").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(b")(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				let mut is_first_parameter = true;
+				for parameter in parameter_types {
+					if !is_first_parameter {
+						writer.write_all(b", ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					}
+					parameter.write_to_file(writer, indentation_level)?;
+					is_first_parameter = false;
+				}
+				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
 		}
 	}

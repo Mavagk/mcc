@@ -91,8 +91,9 @@ impl AstNode for CFunctionParameter {
 	}
 
 	fn write_to_file(&self, writer: &mut BufWriter<File>, indentation_level: usize) -> Result<(), ErrorAt> {
-		self.param_type.write_to_file(writer, indentation_level)?;
-		writer.write_all(b" ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
-		writer.write_all(self.name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+		self.param_type.write_to_file_with_name(writer, indentation_level, &self.name)
+		//self.param_type.write_to_file(writer, indentation_level)?;
+		//writer.write_all(b" ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+		//writer.write_all(self.name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 	}
 }
