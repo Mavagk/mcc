@@ -205,7 +205,7 @@ fn main() {
 		for (path, is_entrypoint, module) in parsed_modules.iter() {
 			main_struct.module_being_processed = path.clone();
 			// Source to source compile module to C module
-			let c_module = match module.as_ref().unwrap().to_c_module(&mut main_struct, *is_entrypoint) {
+			let c_module = match module.as_ref().unwrap().to_c_module(&mut main_struct, &*parsed_modules, *is_entrypoint) {
 				Err(mut error) => {
 					if error.file.is_none() {
 						error.file = Some(path.to_string_lossy().into())

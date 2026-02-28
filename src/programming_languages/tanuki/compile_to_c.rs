@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::{any::Any, collections::HashMap, path::Path};
 
-use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::TanukiType}}};
+use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::TanukiType}}, traits::module::Module};
 
 impl TanukiModule {
-	pub fn compile_to_c_module(&self, main: &mut Main) -> Result<CModule, ErrorAt> {
+	pub fn compile_to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)]) -> Result<CModule, ErrorAt> {
 		// Create module
 		let mut c_module = CModule::new();
 		// Add imports needed for the language
@@ -11,7 +11,7 @@ impl TanukiModule {
 		c_module.push_element(CModuleElement::AngleInclude("stdlib.h".into()));
 		// Compile functions
 		for function in self.functions.iter() {
-			c_module.push_element(function.as_ref().unwrap().compile_to_c(main)?);
+			c_module.push_element(function.as_ref().unwrap().compile_to_c(main, modules)?);
 		}
 		// Compile entrypoint
 		if let Some(entrypoint_name) = &self.entrypoint {
@@ -66,7 +66,7 @@ impl TanukiModule {
 
 impl TanukiFunction {
 	/// Compiles the Tanuki module to a C module
-	pub fn compile_to_c(&self, main: &mut Main) -> Result<CModuleElement, ErrorAt> {
+	pub fn compile_to_c(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)]) -> Result<CModuleElement, ErrorAt> {
 		// Get return type
 		let return_type = match &self.return_type {
 			Some(return_type) => match return_type {
@@ -92,7 +92,9 @@ impl TanukiFunction {
 		// Compile body
 		let mut function_temp_variable_count = 0;
 		let mut c_compound_statement = CCompoundStatement::new();
-		let (body_result_value_name, returned_type) = self.body.compile_r_value_to_c(main, &mut c_compound_statement, &mut function_temp_variable_count, &mut local_variables)?;
+		let (body_result_value_name, returned_type) = self.body.compile_r_value_to_c(
+			main, modules, &mut c_compound_statement, &mut function_temp_variable_count, &mut local_variables
+		)?;
 		// Return body value if it is not a void value
 		if let Some(body_result_value_name) = body_result_value_name {
 			c_compound_statement.push_statement(CStatement::Return(Some(CLValue::Variable(body_result_value_name).into())));
@@ -135,13 +137,13 @@ impl TanukiExpression {
 	/// Compiles an expression that is being used as a r-value into C expressions/statements and inserts the compiled C statements into `insert_into`.
 	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
 	pub fn compile_r_value_to_c(
-		&self, main: &mut Main, insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize, local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>
+		&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize, local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>
 	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
 		match &self.variant {
-			TanukiExpressionVariant::Constant(constant) => constant.compile_to_c(main, insert_into, function_temp_variable_count),
+			TanukiExpressionVariant::Constant(constant) => constant.compile_to_c(main, modules, insert_into, function_temp_variable_count),
 			TanukiExpressionVariant::Addition(lhs_expression, rhs_expression) => {
-				let (lhs_result_variable, lhs_type) = lhs_expression.compile_r_value_to_c(main, insert_into, function_temp_variable_count, local_variables)?;
-				let (rhs_result_variable, rhs_type) = rhs_expression.compile_r_value_to_c(main, insert_into, function_temp_variable_count, local_variables)?;
+				let (lhs_result_variable, lhs_type) = lhs_expression.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables)?;
+				let (rhs_result_variable, rhs_type) = rhs_expression.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables)?;
 				if lhs_type != rhs_type {
 					return Err(Error::NotYetImplemented("+ between different types".into()).at(Some(self.start_line), Some(self.start_column), None));
 				}
@@ -182,13 +184,53 @@ impl TanukiExpression {
 
 impl TanukiCompileTimeValue {
 	/// Converts a Tanuki compile time value into a C constant.
-	pub fn compile_to_c(&self, main: &mut Main, insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
+	pub fn compile_to_c(
+		&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize
+	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
 		let t_type = self.get_type();
 		let c_type = t_type.compile_to_c(main)?;
 		let c_expression = match self {
 			TanukiCompileTimeValue::U(_, value) => CExpression::IntConstant(*value as i128),
 			TanukiCompileTimeValue::I(_, value) => CExpression::IntConstant(*value as i128),
 			TanukiCompileTimeValue::Void => return Ok((None, TanukiType::Void)),
+			TanukiCompileTimeValue::Function(name, target_module_name) => {
+				for (module_name, _, module) in modules.iter() {
+					if target_module_name != module_name {
+						continue;
+					}
+					let module: &TanukiModule = match ((&**module.as_ref().unwrap()) as &dyn Any).downcast_ref() {
+						Some(module) => module,
+						None => return Err(Error::Unimplemented("Linking to non-Tanuki modules".into()).at(None, None, None)),
+					};
+					for function in module.functions.iter() {
+						let function = function.as_ref().unwrap();
+						if &function.name != name {
+							continue;
+						}
+						let return_type = match &function.return_type {
+							None => return Err(Error::Unimplemented("Function without return type".into()).at(None, None, None)),
+							Some(TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(value)), .. }) => value,
+							_ => unreachable!(),
+						};
+						let mut parameter_types = Vec::new();
+						for parameter in function.parameters.iter() {
+							match &function.return_type {
+								None => return Err(Error::Unimplemented("Function without return type".into()).at(None, None, None)),
+								Some(TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(value)), .. }) => parameter_types.push(value.clone()),
+								_ => unreachable!(),
+							};
+						}
+						let t_type = TanukiType::FunctionPointer(Box::new(return_type.clone()), parameter_types.into());
+						let c_expression = CExpression::TakeReference(CLValue::Variable("name".into()).into());
+						let temp_name = format!("_tnk_temp_func_var_{function_temp_variable_count}");
+						*function_temp_variable_count += 1;
+						insert_into.push_statement(CStatement::VariableDeclaration(c_type, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+						return Ok((Some(temp_name.into()), t_type))
+					}
+					unreachable!();
+				}
+				unreachable!()
+			},
 			_ => todo!(),
 		};
 		let name = format!("_tnk_temp_var_{function_temp_variable_count}");

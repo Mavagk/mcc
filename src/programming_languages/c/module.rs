@@ -1,4 +1,4 @@
-use std::{fmt::{self, Debug, Formatter}, fs::File, io::{BufWriter, Write}};
+use std::{fmt::{self, Debug, Formatter}, fs::File, io::{BufWriter, Write}, path::Path};
 
 use crate::{Main, error::{Error, ErrorAt}, programming_languages::c::module_element::CModuleElement, traits::{ast_node::AstNode, module::Module}};
 
@@ -23,7 +23,7 @@ impl Module for CModule {
 		unimplemented!()
 	}
 
-	fn to_c_module(&self, _main: &mut Main, _is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
+	fn to_c_module(&self, _main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)],  _is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
 		unimplemented!()
 	}
 }

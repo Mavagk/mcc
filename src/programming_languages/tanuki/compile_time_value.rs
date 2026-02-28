@@ -17,22 +17,24 @@ pub enum TanukiCompileTimeValue {
 	F(u8, f64),
 	Type(TanukiType),
 	Function(Box<str>, Box<Path>),
+	FunctionPointer(Box<TanukiType>, Box<[TanukiType]>),
 }
 
 impl TanukiCompileTimeValue {
 	pub fn get_type(&self) -> TanukiType {
 		match self {
-			Self::CompileTimeInt(_)    => TanukiType::CompileTimeInt,
-			Self::CompileTimeFloat(_)  => TanukiType::CompileTimeFloat,
-			Self::CompileTimeBool(_)   => TanukiType::CompileTimeBool,
-			Self::CompileTimeChar(_)   => TanukiType::CompileTimeChar,
-			Self::CompileTimeString(_) => TanukiType::CompileTimeString,
-			Self::Void                 => TanukiType::Void,
-			Self::U(bit_width, _) => TanukiType::U(*bit_width),
-			Self::I(bit_width, _) => TanukiType::I(*bit_width),
-			Self::F(bit_width, _) => TanukiType::F(*bit_width),
-			Self::Type(_)              => TanukiType::Type,
-			Self::Function(_, _)       => TanukiType::Function,
+			Self::CompileTimeInt(_)                                                                   => TanukiType::CompileTimeInt,
+			Self::CompileTimeFloat(_)                                                                 => TanukiType::CompileTimeFloat,
+			Self::CompileTimeBool(_)                                                                  => TanukiType::CompileTimeBool,
+			Self::CompileTimeChar(_)                                                                  => TanukiType::CompileTimeChar,
+			Self::CompileTimeString(_)                                                                => TanukiType::CompileTimeString,
+			Self::Void                                                                                => TanukiType::Void,
+			Self::U(bit_width, _)                                                                => TanukiType::U(*bit_width),
+			Self::I(bit_width, _)                                                                => TanukiType::I(*bit_width),
+			Self::F(bit_width, _)                                                                => TanukiType::F(*bit_width),
+			Self::Type(_)                                                                             => TanukiType::Type,
+			Self::Function(_, _)                                                                      => TanukiType::Function,
+			Self::FunctionPointer(return_type, parameter_types) => TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone()),
 		}
 	}
 
@@ -111,6 +113,7 @@ impl AstNode for TanukiCompileTimeValue {
 			Self::F(bit_width, value)                     => write!(f, "F{bit_width} {value}"),
 			Self::Type(_)                                            => write!(f, "Type"),
 			Self::Function(name, module_path) => write!(f, "Function {name} of {module_path:?}"),
+			Self::FunctionPointer(_, _)                              => write!(f, "Function Pointer"),
 		}
 	}
 
@@ -119,6 +122,13 @@ impl AstNode for TanukiCompileTimeValue {
 			Self::CompileTimeInt(_) | Self::CompileTimeFloat(_) | Self::CompileTimeBool(_) | Self::CompileTimeChar(_) | Self::CompileTimeString(_) |
 			Self::Void | Self::U(_, _) | Self::I(_, _) | Self::F(_, _) | Self::Function(_, _) => Ok(()),
 			Self::Type(type_t) => type_t.print(level, f),
+			Self::FunctionPointer(return_type, parameter_types) => {
+				return_type.print(level, f)?;
+				for parameter_type in parameter_types.iter() {
+					parameter_type.print(level, f)?;
+				}
+				Ok(())
+			},
 		}
 	}
 }
