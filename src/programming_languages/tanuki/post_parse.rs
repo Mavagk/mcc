@@ -137,12 +137,17 @@ impl TanukiExpression {
 				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, is_l_value, global_variables_dependent_on, local_variables)?;
 			}
 			// Binary operators that take a left argument of the same l/r value rating and a right r-value argument
-			(TanukiExpressionVariant::As(lhs, rhs) | TanukiExpressionVariant::TypeAndValue(lhs, rhs) |
+			(TanukiExpressionVariant::As(lhs, rhs) |
 			TanukiExpressionVariant::SaturatingAs(lhs, rhs) | TanukiExpressionVariant::WrappingAs(lhs, rhs) |
 			TanukiExpressionVariant::TryAs(lhs, rhs) | TanukiExpressionVariant::Index(lhs, rhs) |
 			TanukiExpressionVariant::MemberAccess(lhs, rhs), _, _) => {
 				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, is_l_value, global_variables_dependent_on, local_variables)?;
 				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, false, global_variables_dependent_on, local_variables)?;
+			}
+			// Binary operators that take a right argument of the same l/r value rating and a left r-value argument
+			(TanukiExpressionVariant::TypeAndValue(lhs, rhs), _, _) => {
+				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, false, global_variables_dependent_on, local_variables)?;
+				rhs.post_parse(main, post_parse_data, is_inside_function_or_block, None, is_l_value, global_variables_dependent_on, local_variables)?;
 			}
 			// Ternary
 			(TanukiExpressionVariant::NonShortCircuitingConditional(lhs, mhs, rhs) | TanukiExpressionVariant::ShortCircuitingConditional(lhs, mhs, rhs), _, _) => {
@@ -276,7 +281,10 @@ impl TanukiExpression {
 				let mut module_hash = DefaultHasher::new();
 				main.module_being_processed.hash(&mut module_hash);
 				let module_function_index = post_parse_data.functions.len();
-				let mangled_function_name = format!("_tnk_fn_{module_function_index}_{}", module_hash.finish()).into_boxed_str();
+				let mangled_function_name = match assigned_to_name {
+					Some(assigned_to_name) => format!("{assigned_to_name}_{}", module_hash.finish()).into_boxed_str(),
+					None => format!("_tnk_fn_{module_function_index}_{}", module_hash.finish()).into_boxed_str(),
+				};
 				global_variables_dependent_on.insert(mangled_function_name.clone());
 				post_parse_data.functions.push(Some(TanukiFunction {
 					name: mangled_function_name.clone(), parameters: new_parameters.into_boxed_slice(),
