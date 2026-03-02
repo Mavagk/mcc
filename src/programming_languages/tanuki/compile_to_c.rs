@@ -111,7 +111,7 @@ impl TanukiFunction {
 
 impl TanukiType {
 	/// Compiles a Tanuki type to a C Type
-	pub fn compile_to_c(&self, _main: &mut Main) -> Result<CType, ErrorAt> {
+	pub fn compile_to_c(&self, main: &mut Main) -> Result<CType, ErrorAt> {
 		Ok(match self {
 			Self::Void => CType::Void,
 			Self::U(bit_width) => match bit_width {
@@ -129,6 +129,13 @@ impl TanukiType {
 				_ => unreachable!(),
 			}
 			Self::Function => unreachable!(),
+			Self::FunctionPointer(return_type, parameter_types) => {
+				let mut c_parameter_types = Vec::new();
+				for parameter_type in parameter_types.iter() {
+					c_parameter_types.push(parameter_type.compile_to_c(main)?);
+				}
+				CType::FunctionPointer(return_type.compile_to_c(main)?.into(), c_parameter_types.into())
+			}
 			_ => todo!(),
 		})
 	}
@@ -269,8 +276,8 @@ impl TanukiCompileTimeValue {
 	pub fn compile_to_c(
 		&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize
 	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
-		let t_type = self.get_type();
-		let c_type = t_type.compile_to_c(main)?;
+		//let t_type = self.get_type();
+		//let c_type = t_type.compile_to_c(main)?;
 		let c_expression = match self {
 			TanukiCompileTimeValue::U(_, value) => CExpression::IntConstant(*value as i128),
 			TanukiCompileTimeValue::I(_, value) => CExpression::IntConstant(*value as i128),
@@ -303,10 +310,10 @@ impl TanukiCompileTimeValue {
 							};
 						}
 						let t_type = TanukiType::FunctionPointer(Box::new(return_type.clone()), parameter_types.into());
-						let c_expression = CExpression::TakeReference(CLValue::Variable("name".into()).into());
+						let c_expression = CExpression::TakeReference(CLValue::Variable(name.clone().into()).into());
 						let temp_name = format!("_tnk_temp_func_var_{function_temp_variable_count}");
 						*function_temp_variable_count += 1;
-						insert_into.push_statement(CStatement::VariableDeclaration(c_type, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+						insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c(main)?, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
 						return Ok((Some(temp_name.into()), t_type))
 					}
 					unreachable!();
@@ -315,6 +322,8 @@ impl TanukiCompileTimeValue {
 			},
 			_ => todo!(),
 		};
+		let t_type = self.get_type();
+		let c_type = t_type.compile_to_c(main)?;
 		let name = format!("_tnk_temp_var_{function_temp_variable_count}");
 		*function_temp_variable_count += 1;
 		insert_into.push_statement(CStatement::VariableDeclaration(c_type, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
