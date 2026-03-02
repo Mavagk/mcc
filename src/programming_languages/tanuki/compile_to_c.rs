@@ -128,6 +128,7 @@ impl TanukiType {
 				64 => CType::I64,
 				_ => unreachable!(),
 			}
+			Self::Function => unreachable!(),
 			_ => todo!(),
 		})
 	}
