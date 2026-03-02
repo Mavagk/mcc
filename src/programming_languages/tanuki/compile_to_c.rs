@@ -223,9 +223,9 @@ impl TanukiExpression {
 				// Return
 				Ok((return_variable_name, return_type))
 			}
-			//TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
-			//	todo!()
-			//}
+			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
+				todo!()
+			}
 			_ => return Err(Error::NotYetImplemented(format!("{:?} expression", self.variant)).at(Some(self.start_line), Some(self.start_column), None)),
 		}
 	}
