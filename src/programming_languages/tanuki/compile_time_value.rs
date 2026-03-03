@@ -133,7 +133,7 @@ impl AstNode for TanukiCompileTimeValue {
 	}
 }
 
-impl Neg for TanukiCompileTimeValue {
+/*impl Neg for TanukiCompileTimeValue {
 	type Output = Result<Option<TanukiCompileTimeValue>, Error>;
 
 	fn neg(self) -> Self::Output {
@@ -195,4 +195,4 @@ impl Div for TanukiCompileTimeValue {
 			_ => Ok(None),
 		}
 	}
-}
+}*/

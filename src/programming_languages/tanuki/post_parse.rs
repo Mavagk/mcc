@@ -57,8 +57,8 @@ impl TanukiExpression {
 				let rhs = take(rhs);
 				if !matches!(rhs.variant, TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Link(..)) {
 					let global_constant = TanukiGlobalConstant {
-						value_expression: *rhs, name, t_type: t_type.map(|t_type| *t_type), start_line, start_column, end_line, end_column, depends_on: global_variables_dependent_on,
-						has_been_const_compiled: false,
+						value_expression: *rhs, name, t_type: t_type.map(|t_type| *t_type), start_line, start_column, end_line, end_column, //depends_on: global_variables_dependent_on,
+						//has_been_const_compiled: false,
 					};
 					post_parse_data.global_constants.push(Some(global_constant));
 				}

@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fmt::{self, Formatter}, num::NonZeroUsize};
+use std::{fmt::{self, Formatter}, num::NonZeroUsize};
 
 use crate::{programming_languages::tanuki::expression::TanukiExpression, traits::ast_node::AstNode};
 
@@ -10,14 +10,14 @@ pub struct TanukiGlobalConstant {
 	pub start_column: NonZeroUsize,
 	pub end_line: NonZeroUsize,
 	pub end_column: NonZeroUsize,
-	pub depends_on: HashSet<Box<str>>,
-	pub has_been_const_compiled: bool
+	//pub depends_on: HashSet<Box<str>>,
+	//pub has_been_const_compiled: bool
 }
 
 
 impl AstNode for TanukiGlobalConstant {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		write!(f, "Global Constant {} depending on {:?}", self.name, self.depends_on)
+		write!(f, "Global Constant {}", self.name/*, self.depends_on*/)
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {

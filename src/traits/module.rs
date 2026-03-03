@@ -10,13 +10,13 @@ pub trait Module: Debug + AstNode + Any {
 	fn to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt>;
 
 	fn const_compile(
-		&mut self, _main: &mut Main, _global_items_const_compiled: &mut HashSet<(Box<str>, Box<Path>)>, _global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>,
-		_modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], _module_path: &Path,
-	) -> Result<bool, ErrorAt> {
-		Ok(true)
-	}
-
-	fn get_global_items(&self, _global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>) -> Result<(), ErrorAt> {
+		&mut self, _main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], _module_path: &Path, was_complication_done: &mut bool,
+		/*_global_items_const_compiled: &mut HashSet<(Box<str>, Box<Path>)>, _global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>,*/
+	) -> Result<(), ErrorAt> {
 		Ok(())
 	}
+
+	/*fn get_global_items(&self, _global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>) -> Result<(), ErrorAt> {
+		Ok(())
+	}*/
 }
