@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path};
 
 use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::TanukiType}}, traits::module::Module};
 
@@ -229,8 +229,25 @@ impl TanukiExpression {
 				// Return
 				Ok((return_variable_name, return_type))
 			}
-			TanukiExpressionVariant::FunctionCall { function_pointer: _, arguments: _ } => {
+			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
+				let (function_pointer_result_variable, function_pointer_type) = function_pointer.compile_r_value_to_c(
+					main, modules, insert_into, function_temp_variable_count, local_variables
+				)?;
+				let mut argument_results: Vec<CExpression> = Vec::new();
+				let mut argument_types = Vec::new();
+				for argument in arguments.iter() {
+					let result = function_pointer.compile_r_value_to_c(
+						main, modules, insert_into, function_temp_variable_count, local_variables
+					)?;
+					argument_results.push(CLValue::Variable(result.0.unwrap()).into());
+					argument_types.push(result.1);
+				}
+				let name = format!("_tnk_temp_fn_call_var_{function_temp_variable_count}");
+				*function_temp_variable_count += 1;
+				let c_expression = CExpression::FunctionPointerCall(CLValue::Variable(function_pointer_result_variable.unwrap().into()).into(), argument_results.into());
 				todo!()
+				//insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+				//Ok((Some(name.into()), lhs_type))
 			}
 			_ => return Err(Error::NotYetImplemented(format!("{:?} expression", self.variant)).at(Some(self.start_line), Some(self.start_column), None)),
 		}
@@ -280,7 +297,7 @@ impl TanukiCompileTimeValue {
 	/// Converts a Tanuki compile time value into a C constant.
 	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
 	pub fn compile_to_c(
-		&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize
+		&self, main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize
 	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
 		//let t_type = self.get_type();
 		//let c_type = t_type.compile_to_c(main)?;
@@ -288,7 +305,7 @@ impl TanukiCompileTimeValue {
 			TanukiCompileTimeValue::U(_, value) => CExpression::IntConstant(*value as i128),
 			TanukiCompileTimeValue::I(_, value) => CExpression::IntConstant(*value as i128),
 			TanukiCompileTimeValue::Void => return Ok((None, TanukiType::Void)),
-			TanukiCompileTimeValue::FunctionPointer(function_name, module_path, return_type, parameter_types) => {
+			TanukiCompileTimeValue::FunctionPointer(function_name, _module_path, return_type, parameter_types) => {
 				// TODO: Functions at top
 				let t_type = TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone());//TanukiType::FunctionPointer(Box::new(return_type.clone()), parameter_types.into());
 				let c_expression = CExpression::TakeReference(CLValue::Variable(function_name.clone().into()).into());

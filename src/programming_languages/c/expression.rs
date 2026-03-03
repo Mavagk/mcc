@@ -7,6 +7,7 @@ pub enum CExpression {
 	// Non-operators
 	LValueRead(Box<CLValue>),
 	FunctionCall(Box<str>, Box<[CExpression]>),
+	FunctionPointerCall(Box<CExpression>, Box<[CExpression]>),
 	IntConstant(i128),
 	StringConstant(Box<str>),
 	// Pointer operators
@@ -100,6 +101,7 @@ impl AstNode for CExpression {
 		match self {
 			Self::LValueRead(_) => write!(f, "Read L-Value"),
 			Self::FunctionCall(name, _) => write!(f, "Function Call \"{name}\""),
+			Self::FunctionPointerCall(_, _) => write!(f, "Function Call"),
 			Self::IntConstant(value) => write!(f, "Int Constant {value}"),
 			Self::StringConstant(value) => write!(f, "String Constant \"{value}\""),
 
@@ -164,6 +166,13 @@ impl AstNode for CExpression {
 				sub_expression.print(level, f)
 			}
 			Self::FunctionCall(_, arguments) => {
+				for argument in arguments {
+					argument.print(level, f)?;
+				}
+				Ok(())
+			}
+			Self::FunctionPointerCall(function_pointer, arguments) => {
+				function_pointer.print(level, f)?;
 				for argument in arguments {
 					argument.print(level, f)?;
 				}
@@ -274,6 +283,21 @@ impl AstNode for CExpression {
 			Self::FunctionCall(name, arguments) => {
 				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				let mut is_first_argument = true;
+				for argument in arguments {
+					if !is_first_argument {
+						writer.write_all(b", ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					}
+					argument.write_to_file(writer, indentation_level)?;
+					is_first_argument = false;
+				}
+				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+			Self::FunctionPointerCall(function_pointer, arguments) => {
+				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				function_pointer.write_to_file(writer, indentation_level)?;
+				//writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(b")(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				let mut is_first_argument = true;
 				for argument in arguments {
 					if !is_first_argument {
