@@ -400,9 +400,9 @@ impl TanukiExpression {
 					main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any
 					//modules, this_module, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Any, where_extra_dependencies_found
 				)?;
-				if l_value.is_none() {
-					return Ok(None);
-				}
+				//if l_value.is_none() {
+				//	return Ok(None);
+				//}
 				//if *where_extra_dependencies_found {
 				//	return Ok(None);
 				//}
@@ -450,14 +450,14 @@ impl TanukiExpression {
 			}
 			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
 				let result = function_pointer.const_compile_r_value(main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any)?;
-				if result.is_none() {
-					return Ok(None);
-				}
+				//if result.is_none() {
+				//	return Ok(None);
+				//}
 				for argument in arguments.iter_mut() {
 					let result = argument.const_compile_r_value(main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any)?;
-					if result.is_none() {
-						return Ok(None);
-					}
+					//if result.is_none() {
+					//	return Ok(None);
+					//}
 				}
 				None
 			}
