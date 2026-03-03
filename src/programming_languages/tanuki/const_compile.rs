@@ -438,6 +438,19 @@ impl TanukiExpression {
 				local_variables.pop();
 				block_result
 			}
+			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
+				let result = function_pointer.const_compile_l_value(main, modules, this_module, this_module_path, was_complication_done, local_variables, result_type)?;
+				if result.0.is_none() {
+					return Ok(None);
+				}
+				for argument in arguments.iter_mut() {
+					let result = argument.const_compile_l_value(main, modules, this_module, this_module_path, was_complication_done, local_variables, result_type)?;
+					if result.0.is_none() {
+						return Ok(None);
+					}
+				}
+				None
+			}
 			_ => None,
 		};
 		//if *where_extra_dependencies_found {

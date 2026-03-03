@@ -233,21 +233,30 @@ impl TanukiExpression {
 				let (function_pointer_result_variable, function_pointer_type) = function_pointer.compile_r_value_to_c(
 					main, modules, insert_into, function_temp_variable_count, local_variables
 				)?;
+				let (return_type, parameter_types) = match function_pointer_type {
+					TanukiType::FunctionPointer(return_type, argument_types) => (return_type, argument_types),
+					_ => todo!(),
+				};
+				if parameter_types.len() != arguments.len() {
+					todo!()
+				}
 				let mut argument_results: Vec<CExpression> = Vec::new();
 				let mut argument_types = Vec::new();
-				for argument in arguments.iter() {
-					let result = function_pointer.compile_r_value_to_c(
+				for (x, argument) in arguments.iter().enumerate() {
+					let result = argument.compile_r_value_to_c(
 						main, modules, insert_into, function_temp_variable_count, local_variables
 					)?;
+					if &result.1 != &parameter_types[x] {
+						todo!()
+					}
 					argument_results.push(CLValue::Variable(result.0.unwrap()).into());
 					argument_types.push(result.1);
 				}
 				let name = format!("_tnk_temp_fn_call_var_{function_temp_variable_count}");
 				*function_temp_variable_count += 1;
 				let c_expression = CExpression::FunctionPointerCall(CLValue::Variable(function_pointer_result_variable.unwrap().into()).into(), argument_results.into());
-				todo!()
-				//insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
-				//Ok((Some(name.into()), lhs_type))
+				insert_into.push_statement(CStatement::VariableDeclaration(return_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+				Ok((Some(name.into()), *return_type))
 			}
 			_ => return Err(Error::NotYetImplemented(format!("{:?} expression", self.variant)).at(Some(self.start_line), Some(self.start_column), None)),
 		}
