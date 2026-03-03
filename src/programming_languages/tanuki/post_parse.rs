@@ -293,7 +293,7 @@ impl TanukiExpression {
 					//depends_on_for_execution: function_depends_on_globals_for_execution, is_pure: true, is_const_compiled: false,
 				}));
 				*self = TanukiExpression {
-					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Function(mangled_function_name, main.module_being_processed.clone())),
+					variant: TanukiExpressionVariant::Function(mangled_function_name, main.module_being_processed.clone()),
 					start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
 				};
 			}
@@ -363,6 +363,7 @@ impl TanukiExpression {
 					argument.post_parse(main, post_parse_data, is_inside_function_or_block, assigned_to_name, is_l_value, global_variables_dependent_on, local_variables)?;
 				}
 			}
+			(TanukiExpressionVariant::Function(_, _), _, _) => unreachable!(),
 			(TanukiExpressionVariant::Export(..) | TanukiExpressionVariant::Import(..) | TanukiExpressionVariant::Link(..) | TanukiExpressionVariant::Entrypoint(..), true, _)
 				=> return Err(Error::CannotBeInsideBlockOrFunction.at(Some(self.start_line), Some(self.start_column), None)),
 		}

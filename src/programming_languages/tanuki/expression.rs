@@ -1,4 +1,4 @@
-use std::{fmt::{self, Formatter}, num::NonZeroUsize};
+use std::{fmt::{self, Formatter}, num::NonZeroUsize, path::Path};
 
 use crate::{programming_languages::tanuki::compile_time_value::TanukiCompileTimeValue, traits::{ast_node::AstNode, expression::Expression}};
 
@@ -18,6 +18,7 @@ pub enum TanukiExpressionVariant {
 	Variable(Box<str>),
 	FunctionCall { function_pointer: Box<TanukiExpression>, arguments: Box<[TanukiExpression]> },
 	FunctionDefinition { parameters: Box<[TanukiExpression]>, return_type: Option<Box<TanukiExpression>>, body_expression: Box<TanukiExpression> },
+	Function(Box<str>, Box<Path>),
 	//ModuleFunction { module_function_index: usize },
 	Index(Box<TanukiExpression>, Box<TanukiExpression>),
 	TypeAndValue(Box<TanukiExpression>, Box<TanukiExpression>),
@@ -216,17 +217,18 @@ impl AstNode for TanukiExpression {
 				}
 				Ok(())
 			},
-			TanukiExpressionVariant::U { .. }                                         => write!(f, "U"),
-			TanukiExpressionVariant::I { .. }                                         => write!(f, "I"),
-			TanukiExpressionVariant::F { .. }                                         => write!(f, "F"),
+			TanukiExpressionVariant::U { .. }                                                => write!(f, "U"),
+			TanukiExpressionVariant::I { .. }                                                => write!(f, "I"),
+			TanukiExpressionVariant::F { .. }                                                => write!(f, "F"),
+			TanukiExpressionVariant::Function(name, module_path) => write!(f, "Function {name} at {module_path:?}"),
 			//TanukiExpressionVariant::ModuleFunction { module_function_index } => write!(f, "Module Function {module_function_index}"),
-			TanukiExpressionVariant::Index { .. }                                     => write!(f, "Index"),
-			TanukiExpressionVariant::Variable(name)                        => write!(f, "Variable {name}"),
-			TanukiExpressionVariant::TypeAndValue(..)                                 => write!(f, "Type and Value"),
-			TanukiExpressionVariant::Import(..)                                       => write!(f, "Import"),
-			TanukiExpressionVariant::Export(..)                                       => write!(f, "Export"),
-			TanukiExpressionVariant::Link(..)                                         => write!(f, "Link"),
-			TanukiExpressionVariant::Entrypoint(..)                                   => write!(f, "Entrypoint"),
+			TanukiExpressionVariant::Index { .. }                                            => write!(f, "Index"),
+			TanukiExpressionVariant::Variable(name)                               => write!(f, "Variable {name}"),
+			TanukiExpressionVariant::TypeAndValue(..)                                        => write!(f, "Type and Value"),
+			TanukiExpressionVariant::Import(..)                                              => write!(f, "Import"),
+			TanukiExpressionVariant::Export(..)                                              => write!(f, "Export"),
+			TanukiExpressionVariant::Link(..)                                                => write!(f, "Link"),
+			TanukiExpressionVariant::Entrypoint(..)                                          => write!(f, "Entrypoint"),
 
 			TanukiExpressionVariant::Percent(..)                                    => write!(f, "Percent"),
 			TanukiExpressionVariant::Factorial(..)                                  => write!(f, "Factorial"),
@@ -393,6 +395,7 @@ impl AstNode for TanukiExpression {
 				}
 				Ok(())
 			}
+			TanukiExpressionVariant::Function(_, _) => Ok(()),
 			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
 				function_pointer.print(level, f)?;
 				for argument in arguments {

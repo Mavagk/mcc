@@ -3,49 +3,45 @@ use std::{any::Any, collections::HashMap, mem::take, path::Path};
 use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, global_constant::TanukiGlobalConstant, module::TanukiModule, t_type::TanukiType}, traits::module::Module};
 
 impl TanukiModule {
+	/// Const-compiles a Tanuki module. will set `was_complication_done` to `true` if any compilation was done. This function must be repeatedly called until `was_complication_done` is not set to `true`.
 	pub fn const_compile_globals(&mut self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], module_path: &Path, was_complication_done: &mut bool) -> Result<(), ErrorAt> {
 		// Const-compile globals that we can
 		for x in 0..self.global_constants.len() {
 			let global_constant = &mut self.global_constants[x];
 			let mut global_constant_removed = take(global_constant).unwrap();
-			// Const-compile
 			global_constant_removed.const_compile(main, modules, self, module_path, was_complication_done, &mut false)?;
 			let global_constant = &mut self.global_constants[x];
 			*global_constant = Some(global_constant_removed);
-			if !matches!(global_constant.as_ref().unwrap().value_expression.variant, TanukiExpressionVariant::Constant(_)) {
-				return Err(Error::UnableToConstCompile.at(Some(global_constant.as_ref().unwrap().start_line), Some(global_constant.as_ref().unwrap().start_column), None));
-			}
 		}
 		// Const-compile functions that we can
 		for x in 0..self.functions.len() {
 			let function = &mut self.functions[x];
 			let mut function_removed = take(function).unwrap();
-			// Const-compile
 			function_removed.const_compile(main, modules, self, module_path, was_complication_done, &mut false)?;
 			let function = &mut self.functions[x];
 			*function = Some(function_removed);
 		}
-		// Check for duplicate constants without the same value
-		// TODO: Redo
-		/*if global_items_to_const_compile_for_this_module.is_empty() {
-			for (x, global_constant_x) in self.global_constants.iter().enumerate() {
-				let global_constant_x = global_constant_x.as_ref().unwrap();
-				for (y, global_constant_y) in self.global_constants.iter().enumerate() {
-					let global_constant_y = global_constant_y.as_ref().unwrap();
-					if x == y || global_constant_x.name != global_constant_y.name {
-						continue;
-					}
-					match (&global_constant_x.value_expression.variant, &global_constant_y.value_expression.variant) {
-						(TanukiExpressionVariant::Constant(x_value), TanukiExpressionVariant::Constant(y_value)) => {
-							if x_value != y_value {
-								return Err(Error::DuplicateGlobalVariableWithDifferentValues.at(Some(global_constant_x.start_line), Some(global_constant_x.start_column), None));
-							}
+		// Check for duplicate constants without the same value that have been parsed
+		// Search over all constants
+		for (x, global_constant_x) in self.global_constants.iter().enumerate() {
+			let global_constant_x = global_constant_x.as_ref().unwrap();
+			// For any given constant, search over all other constants
+			for (y, global_constant_y) in self.global_constants.iter().enumerate() {
+				let global_constant_y = global_constant_y.as_ref().unwrap();
+				if x == y || global_constant_x.name != global_constant_y.name {
+					continue;
+				}
+				// If the constants has been parsed to a constant value, make sure they are the same
+				match (&global_constant_x.value_expression.variant, &global_constant_y.value_expression.variant) {
+					(TanukiExpressionVariant::Constant(x_value), TanukiExpressionVariant::Constant(y_value)) => {
+						if x_value != y_value {
+							return Err(Error::DuplicateGlobalVariableWithDifferentValues.at(Some(global_constant_x.start_line), Some(global_constant_x.start_column), None));
 						}
-						(_, _) => unreachable!(),
 					}
+					(_, _) => {},
 				}
 			}
-		}*/
+		}
 		// Return
 		Ok(())
 	}
@@ -116,7 +112,7 @@ impl TanukiExpression {
 		let Self { variant, start_line, start_column, .. } = self;
 		// Try to const-compile
 		let const_compiled_value = match variant {
-			TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Function(target_function_name, target_module_path)) => 'a: {
+			TanukiExpressionVariant::Function(target_function_name, target_module_path) => 'a: {
 				for (module_path, _, module) in modules.iter() {
 					if module_path != target_module_path {
 						continue;
