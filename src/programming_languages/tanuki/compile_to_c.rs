@@ -134,7 +134,7 @@ impl TanukiType {
 				64 => CType::I64,
 				_ => unreachable!(),
 			}
-			Self::Function => unreachable!(),
+			//Self::Function => unreachable!(),
 			Self::FunctionPointer(return_type, parameter_types) => {
 				let mut c_parameter_types = Vec::new();
 				for parameter_type in parameter_types.iter() {
