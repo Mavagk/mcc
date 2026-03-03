@@ -2,7 +2,10 @@ fnY = (; @u(8)) {
 	@u(8) 2
 };
 
-@entrypoint simpleFn = (; @u(8)) fnY();
+@entrypoint simpleFn = (; @u(8)) {
+	fnY();
+	fnY()
+};
 
 //fnA = (; @u(8)) 50 + 60;
 //
