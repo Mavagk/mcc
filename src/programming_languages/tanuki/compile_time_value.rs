@@ -1,6 +1,6 @@
-use std::{fmt::{self, Formatter}, ops::{Add, Div, Mul, Neg, Sub}, path::Path, u64};
+use std::{fmt::{self, Formatter}, path::Path, u64};
 
-use num::{BigInt, Signed, Zero};
+use num::{BigInt, Signed};
 
 use crate::{error::Error, programming_languages::tanuki::t_type::TanukiType, traits::ast_node::AstNode};
 

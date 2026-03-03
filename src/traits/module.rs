@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashSet, fmt::Debug, path::Path};
+use std::{any::Any, fmt::Debug, path::Path};
 
 use crate::{Main, error::ErrorAt, programming_languages::c::module::CModule, traits::ast_node::AstNode};
 
@@ -10,7 +10,7 @@ pub trait Module: Debug + AstNode + Any {
 	fn to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt>;
 
 	fn const_compile(
-		&mut self, _main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], _module_path: &Path, was_complication_done: &mut bool,
+		&mut self, _main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], _module_path: &Path, _was_complication_done: &mut bool,
 		/*_global_items_const_compiled: &mut HashSet<(Box<str>, Box<Path>)>, _global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>,*/
 	) -> Result<(), ErrorAt> {
 		Ok(())

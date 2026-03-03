@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fmt::{self, Formatter}, num::NonZeroUsize};
+use std::{fmt::{self, Formatter}, num::NonZeroUsize};
 
 use crate::{programming_languages::tanuki::expression::TanukiExpression, traits::ast_node::AstNode};
 
@@ -11,14 +11,14 @@ pub struct TanukiFunction {
 	pub start_column: NonZeroUsize,
 	pub end_line: NonZeroUsize,
 	pub end_column: NonZeroUsize,
-	pub depends_on_for_execution: HashSet<Box<str>>,
-	pub is_pure: bool,
-	pub is_const_compiled: bool,
+	//pub depends_on_for_execution: HashSet<Box<str>>,
+	//pub is_pure: bool,
+	//pub is_const_compiled: bool,
 }
 
 impl AstNode for TanukiFunction {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		write!(f, "Function {} depending on {:?}", self.name, self.depends_on_for_execution)
+		write!(f, "Function {}", self.name)
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {

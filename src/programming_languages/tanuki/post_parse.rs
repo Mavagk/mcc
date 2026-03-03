@@ -290,7 +290,7 @@ impl TanukiExpression {
 					name: mangled_function_name.clone(), parameters: new_parameters.into_boxed_slice(),
 					return_type: take(return_type).map(|return_type| *return_type),
 					body: take(body_expression), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column,
-					depends_on_for_execution: function_depends_on_globals_for_execution, is_pure: true, is_const_compiled: false,
+					//depends_on_for_execution: function_depends_on_globals_for_execution, is_pure: true, is_const_compiled: false,
 				}));
 				*self = TanukiExpression {
 					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Function(mangled_function_name, main.module_being_processed.clone())),
