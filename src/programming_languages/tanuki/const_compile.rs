@@ -250,13 +250,19 @@ impl TanukiExpression {
 				}
 				match variable {
 					// Return the value if there is
-					Some((_, value)) => value.clone(),
+					Some((_, value)) => {
+						*was_complication_done = true;
+						value.clone()
+					},
 					// Else read the global variable
 					None => 'a: {
 						for global_constant in this_module.global_constants.iter() {
 							if let Some(global_constant) = global_constant && global_constant.name == *name {
 								match &global_constant.value_expression.variant {
-									TanukiExpressionVariant::Constant(value) => break 'a Some(value.clone()),
+									TanukiExpressionVariant::Constant(value) => {
+										*was_complication_done = true;
+										break 'a Some(value.clone())
+									},
 									_ => return Ok(None),
 								}
 							}
@@ -404,7 +410,7 @@ impl TanukiExpression {
 				r_value.const_compile_r_value(main, modules, this_module, this_module_path, was_complication_done, local_variables, &l_value_type)?;
 				None
 			}
-			TanukiExpressionVariant::Block { sub_expressions, has_return_value } => {
+			TanukiExpressionVariant::Block { sub_expressions, has_return_value } => 'a: {
 				let sub_expressions_len = sub_expressions.len();
 				let mut block_result = None;
 				local_variables.push(HashMap::new());
@@ -414,12 +420,16 @@ impl TanukiExpression {
 							main, modules, this_module, this_module_path, was_complication_done, local_variables, result_type
 							//modules, this_module, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found
 						)?;
+						if sub_expression_result.is_none() {
+							return Ok(None);
+						}
 						//if *where_extra_dependencies_found {
 						//	return Ok(None);
 						//}
 						if sub_expressions_len == 1 {
-							block_result = sub_expression_result;
+							//block_result = sub_expression_result;
 							*was_complication_done = true;
+							break 'a sub_expression_result
 						}
 					}
 					else {
@@ -439,13 +449,13 @@ impl TanukiExpression {
 				block_result
 			}
 			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
-				let result = function_pointer.const_compile_l_value(main, modules, this_module, this_module_path, was_complication_done, local_variables, result_type)?;
-				if result.0.is_none() {
+				let result = function_pointer.const_compile_r_value(main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any)?;
+				if result.is_none() {
 					return Ok(None);
 				}
 				for argument in arguments.iter_mut() {
-					let result = argument.const_compile_l_value(main, modules, this_module, this_module_path, was_complication_done, local_variables, result_type)?;
-					if result.0.is_none() {
+					let result = argument.const_compile_r_value(main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any)?;
+					if result.is_none() {
 						return Ok(None);
 					}
 				}
@@ -531,3 +541,9 @@ impl TanukiExpression {
 pub enum CompileTimeLValue {
 	LocalVariable { name: Box<str>, block_level: usize },
 }
+
+/*pub enum ConstCompilationState {
+	Complete,
+	RequiresDependencies,
+	Incomplete,
+}*/

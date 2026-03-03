@@ -94,7 +94,10 @@ impl TanukiCompileTimeValue {
 					_ => unreachable!(),
 				})
 			}
-			_ => todo!()
+			_ => {
+				println!("{self:?} {type_to:?}");
+				todo!()
+			}
 		}
 	}
 }
