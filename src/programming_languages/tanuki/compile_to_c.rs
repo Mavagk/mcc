@@ -18,16 +18,22 @@ impl TanukiModule {
 			for global_constant in self.global_constants.iter() {
 				let global_constant = global_constant.as_ref().unwrap();
 				if &global_constant.name == entrypoint_name {
-					let function_name = match &global_constant.value_expression.variant {
-						TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Function(name, _module_path)) => name,
+					let (_name, _module_path, return_type, parameter_types) = match &global_constant.value_expression.variant {
+						TanukiExpressionVariant::Constant(TanukiCompileTimeValue::FunctionPointer(name, module_path, return_type, parameter_types)) =>
+							(name, module_path, return_type, parameter_types),
 						_ => return Err(Error::EntrypointOnNonFunction.at(Some(global_constant.start_line), Some(global_constant.start_column), None)),
 					};
 					for function in self.functions.iter() {
 						let entrypoint_wrapped_function = function.as_ref().unwrap();
-						if &entrypoint_wrapped_function.name != function_name {
-							continue;
+						//if &entrypoint_wrapped_function.name != function_name {
+						//	continue;
+						//}
+						if &**return_type != &TanukiType::U(8) {
+							return Err(Error::Unimplemented(
+								"Non-@u(8) return type".into()).at(Some(entrypoint_wrapped_function.parameters[0].start_line), Some(entrypoint_wrapped_function.parameters[0].start_column), None
+							));
 						}
-						if entrypoint_wrapped_function.parameters.len() != 0 {
+						if parameter_types.len() != 0 {
 							return Err(
 								Error::Unimplemented(
 									"Entrypoint with parameters".into()).at(Some(entrypoint_wrapped_function.parameters[0].start_line), Some(entrypoint_wrapped_function.parameters[0].start_column), None
@@ -282,7 +288,16 @@ impl TanukiCompileTimeValue {
 			TanukiCompileTimeValue::U(_, value) => CExpression::IntConstant(*value as i128),
 			TanukiCompileTimeValue::I(_, value) => CExpression::IntConstant(*value as i128),
 			TanukiCompileTimeValue::Void => return Ok((None, TanukiType::Void)),
-			TanukiCompileTimeValue::Function(name, target_module_name) => {
+			TanukiCompileTimeValue::FunctionPointer(function_name, module_path, return_type, parameter_types) => {
+				// TODO: Functions at top
+				let t_type = TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone());//TanukiType::FunctionPointer(Box::new(return_type.clone()), parameter_types.into());
+				let c_expression = CExpression::TakeReference(CLValue::Variable(function_name.clone().into()).into());
+				let temp_name = format!("_tnk_temp_func_var_{function_temp_variable_count}");
+				*function_temp_variable_count += 1;
+				insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c(main)?, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+				return Ok((Some(temp_name.into()), t_type))
+			}
+			/* => {
 				for (module_name, _, module) in modules.iter() {
 					if target_module_name != module_name {
 						continue;
@@ -319,7 +334,7 @@ impl TanukiCompileTimeValue {
 					unreachable!();
 				}
 				unreachable!()
-			},
+			},*/
 			_ => todo!(),
 		};
 		let t_type = self.get_type();

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, mem::take, path::Path};
+use std::{any::Any, collections::HashMap, mem::take, path::Path};
 
 use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, global_constant::TanukiGlobalConstant, module::TanukiModule, t_type::TanukiType}, traits::module::Module};
 
@@ -188,7 +188,7 @@ impl TanukiFunction {
 
 impl TanukiExpression {
 	pub fn const_compile_r_value(
-		&mut self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], this_module: &TanukiModule, module_path: &Path, was_complication_done: &mut bool,
+		&mut self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], this_module: &TanukiModule, this_module_path: &Path, was_complication_done: &mut bool,
 		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, result_type: &TanukiType
 		//&mut self, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], this_module: &TanukiModule, global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>,
 		//local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, result_type: &TanukiType, where_extra_dependencies_found: &mut bool,
@@ -197,6 +197,47 @@ impl TanukiExpression {
 		let Self { variant, start_line, start_column, .. } = self;
 		// Try to const-compile
 		let const_compiled_value = match variant {
+			TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Function(target_function_name, target_module_path)) => 'a: {
+				for (module_path, _, module) in modules.iter() {
+					if module_path != target_module_path {
+						continue;
+					}
+					let module: &TanukiModule = if &**module_path == this_module_path {
+						this_module
+					}
+					else {
+						match ((&**module.as_ref().unwrap()) as &dyn Any).downcast_ref() {
+							Some(module) => module,
+							None => return Err(Error::Unimplemented("Linking to non-Tanuki modules".into()).at(None, None, None)),
+						}
+					};
+					for function in module.functions.iter() {
+						// TODO: this function
+						let function = match function {
+							Some(function) => function,
+							None => continue,
+						};
+						if &function.name != target_function_name {
+							continue;
+						}
+						let return_type = match &function.return_type {
+							Some(TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(value)), .. }) => value,
+							_ => return Ok(None),
+						};
+						let mut parameter_types = Vec::new();
+						for parameter in function.parameters.iter() {
+							match &parameter.t_type {
+								Some(TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(value)), .. }) => parameter_types.push(value.clone()),
+								_ => return Ok(None),
+							};
+						}
+						*was_complication_done = true;
+						break 'a Some(TanukiCompileTimeValue::FunctionPointer(target_function_name.clone(), target_module_path.clone(), return_type.clone().into(), parameter_types.into()));
+					}
+					return Ok(None);
+				}
+				return Ok(None);
+			},
 			TanukiExpressionVariant::Constant(value) => Some(value.clone()),
 			TanukiExpressionVariant::Variable(name) => {
 				// Get if there is already a local variable with this name
@@ -239,7 +280,7 @@ impl TanukiExpression {
 				//	modules, this_module, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::CompileTimeInt, where_extra_dependencies_found
 				//)?;
 				let argument = sub_expression.const_compile_r_value(
-					main, modules, this_module, module_path, was_complication_done, local_variables, &TanukiType::CompileTimeInt,
+					main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::CompileTimeInt,
 				)?;
 				let argument = match argument {
 					Some(TanukiCompileTimeValue::CompileTimeInt(argument)) => argument,
@@ -285,14 +326,14 @@ impl TanukiExpression {
 				//	modules, this_module, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Type, where_extra_dependencies_found
 				//)
 				let type_expression_parsed = match type_expression.const_compile_r_value(
-					main, modules, this_module, module_path, was_complication_done, local_variables, &TanukiType::Type,
+					main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Type,
 					//modules, this_module, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Type, where_extra_dependencies_found
 				)? {
 					Some(TanukiCompileTimeValue::Type(type_expression_parsed)) => type_expression_parsed,
 					_ => return Ok(None),
 				};
 				let castee_expression_parsed = castee_expression.const_compile_r_value(
-					main, modules, this_module, module_path, was_complication_done, local_variables, &TanukiType::Any
+					main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any
 					//modules, this_module, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Any, where_extra_dependencies_found
 				)?;
 				match castee_expression_parsed {
@@ -350,7 +391,7 @@ impl TanukiExpression {
 			}*/
 			TanukiExpressionVariant::Assignment(l_value, r_value) => {
 				let (l_value, l_value_type) = l_value.const_compile_l_value(
-					main, modules, this_module, module_path, was_complication_done, local_variables, &TanukiType::Any
+					main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any
 					//modules, this_module, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Any, where_extra_dependencies_found
 				)?;
 				if l_value.is_none() {
@@ -360,7 +401,7 @@ impl TanukiExpression {
 				//	return Ok(None);
 				//}
 				//r_value.const_compile_r_value(modules, this_module, global_items_to_const_compile_for_this_module, local_variables, &l_value_type, where_extra_dependencies_found)?;
-				r_value.const_compile_r_value(main, modules, this_module, module_path, was_complication_done, local_variables, &l_value_type)?;
+				r_value.const_compile_r_value(main, modules, this_module, this_module_path, was_complication_done, local_variables, &l_value_type)?;
 				None
 			}
 			TanukiExpressionVariant::Block { sub_expressions, has_return_value } => {
@@ -370,7 +411,7 @@ impl TanukiExpression {
 				for (x, sub_expression) in sub_expressions.iter_mut().enumerate() {
 					if x == sub_expressions_len - 1 && *has_return_value {
 						let sub_expression_result = sub_expression.const_compile_r_value(
-							main, modules, this_module, module_path, was_complication_done, local_variables, result_type
+							main, modules, this_module, this_module_path, was_complication_done, local_variables, result_type
 							//modules, this_module, global_items_to_const_compile_for_this_module, local_variables, result_type, where_extra_dependencies_found
 						)?;
 						//if *where_extra_dependencies_found {
@@ -383,7 +424,7 @@ impl TanukiExpression {
 					}
 					else {
 						let result = sub_expression.const_compile_r_value(
-							main, modules, this_module, module_path, was_complication_done, local_variables, &TanukiType::Any
+							main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any
 							//modules, this_module, global_items_to_const_compile_for_this_module, local_variables, &TanukiType::Any, where_extra_dependencies_found
 						)?;
 						if result.is_none() {
