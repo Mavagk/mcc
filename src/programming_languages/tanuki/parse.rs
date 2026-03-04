@@ -216,7 +216,7 @@ impl TanukiExpression {
 						MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Keyword(TanukiKeyword::Import | TanukiKeyword::Link | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F), .. })) ||
 						!matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken
 						{
-							variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(..) | TanukiPartiallyParsedTokenVariant::SquareParenthesised(..), ..
+							variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(..), ..
 						})))
 				{
 					x += 1;
@@ -248,7 +248,7 @@ impl TanukiExpression {
 						TanukiKeyword::F => TanukiExpressionVariant::F(arguments),
 						_ => unreachable!(),
 					}, start_line, start_column, end_column, end_line });
-					break 'a;
+					continue 'a;
 				}
 				let operand = maybe_parsed_tokens[x].clone().unwrap_parsed();
 				maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(match maybe_parsed_tokens.remove(x + 1) {

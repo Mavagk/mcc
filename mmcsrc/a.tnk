@@ -3,7 +3,7 @@ fnY = (; @u(8)) {
 };
 
 @entrypoint simpleFn = (; @u(8)) {
-	{@u(8)} a = fnY();
+	@u(8) a = fnY();
 	a
 };
 
