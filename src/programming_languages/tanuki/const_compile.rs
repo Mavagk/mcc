@@ -183,7 +183,9 @@ impl TanukiExpression {
 				match variable {
 					// Return the value if there is
 					Some((_, value)) => {
-						*was_complication_done = true;
+						if value.is_some() {
+							*was_complication_done = true;
+						}
 						value.clone()
 					},
 					// Else read the global variable
