@@ -4,7 +4,7 @@ fnY = (; @u(8)) {
 
 @entrypoint simpleFn = (; @u(8)) {
 	@u(8) a = fnY();
-	a
+	a +% @u(8) 5
 };
 
 //fnA = (; @u(8)) 50 + 60;

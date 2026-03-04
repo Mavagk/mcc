@@ -1,6 +1,6 @@
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, num::NonZeroUsize, path::Path};
 
-use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::TanukiType}}, traits::module::Module};
+use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::TanukiType, token::TanukiInfixBinaryOperator}}, traits::module::Module};
 
 impl TanukiModule {
 	pub fn compile_to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)]) -> Result<CModule, ErrorAt> {
@@ -18,50 +18,50 @@ impl TanukiModule {
 			for global_constant in self.global_constants.iter() {
 				let global_constant = global_constant.as_ref().unwrap();
 				if &global_constant.name == entrypoint_name {
-					let (_name, _module_path, return_type, parameter_types) = match &global_constant.value_expression.variant {
+					let (name, _module_path, return_type, parameter_types) = match &global_constant.value_expression.variant {
 						TanukiExpressionVariant::Constant(TanukiCompileTimeValue::FunctionPointer(name, module_path, return_type, parameter_types)) =>
-							(name, module_path, return_type, parameter_types),
+							(name, module_path, &**return_type, parameter_types),
 						_ => return Err(Error::EntrypointOnNonFunction.at(Some(global_constant.start_line), Some(global_constant.start_column), None)),
 					};
-					for function in self.functions.iter() {
-						let entrypoint_wrapped_function = function.as_ref().unwrap();
-						//if &entrypoint_wrapped_function.name != function_name {
-						//	continue;
-						//}
-						if &**return_type != &TanukiType::U(8) {
-							return Err(Error::Unimplemented(
-								"Non-@u(8) return type".into()).at(Some(entrypoint_wrapped_function.parameters[0].start_line), Some(entrypoint_wrapped_function.parameters[0].start_column), None
-							));
-						}
-						if parameter_types.len() != 0 {
-							return Err(
-								Error::Unimplemented(
-									"Entrypoint with parameters".into()).at(Some(entrypoint_wrapped_function.parameters[0].start_line), Some(entrypoint_wrapped_function.parameters[0].start_column), None
-								)
-							);
-						}
-						match main.os {
-							Os::Unix => {
-								let mut c_compound_statement = CCompoundStatement::new();
-								c_compound_statement.push_statement(CStatement::VariableDeclaration(
-									CType::U8, "result".into(), Some(CInitializer::Expression(CExpression::FunctionCall(entrypoint_wrapped_function.name.clone().into(), Default::default())).into())
-								));
-								c_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("exit".into(), [CLValue::Variable("result".into()).into()].into())).into());
-								c_module.push_element(CModuleElement::FunctionDefinition { return_type: CType::Void, name: "_start".into(), parameters: Default::default(), body: Box::new(c_compound_statement) });
-							}
-							Os::Windows => {
-								let mut c_compound_statement = CCompoundStatement::new();
-								c_compound_statement.push_statement(CStatement::VariableDeclaration(
-									CType::U8, "result".into(), Some(CInitializer::Expression(CExpression::FunctionCall(entrypoint_wrapped_function.name.clone().into(), Default::default())).into())
-								));
-								c_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("exit".into(), [CLValue::Variable("result".into()).into()].into())).into());
-								c_module.push_element(CModuleElement::FunctionDefinition { return_type: CType::Void, name: "WinMain".into(), parameters: Default::default(), body: Box::new(c_compound_statement) });
-							}
-						}
-						//let c_compound_statement = CCompoundStatement::new();
-						//c_module.push_element(CModuleElement::FunctionDefinition { return_type: CType::Void, name: "_start".into(), parameters: Default::default(), body: Box::new(c_compound_statement) });
-						break;
+					//for function in self.functions.iter() {
+					//let entrypoint_wrapped_function = function.as_ref().unwrap();
+					//if &entrypoint_wrapped_function.name != function_name {
+					//	continue;
+					//}
+					if return_type != &TanukiType::U(8) {
+						return Err(Error::Unimplemented(
+							"Non-@u(8) return type".into()).at(Some(global_constant.value_expression.start_line), Some(global_constant.value_expression.start_column), None
+						));
 					}
+					if parameter_types.len() != 0 {
+						return Err(
+							Error::Unimplemented(
+								"Entrypoint with parameters".into()).at(Some(global_constant.value_expression.start_line), Some(global_constant.value_expression.start_column), None
+							)
+						);
+					}
+					match main.os {
+						Os::Unix => {
+							let mut c_compound_statement = CCompoundStatement::new();
+							c_compound_statement.push_statement(CStatement::VariableDeclaration(
+								CType::U8, "result".into(), Some(CInitializer::Expression(CExpression::FunctionCall(name.clone().into(), Default::default())).into())
+							));
+							c_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("exit".into(), [CLValue::Variable("result".into()).into()].into())).into());
+							c_module.push_element(CModuleElement::FunctionDefinition { return_type: CType::Void, name: "_start".into(), parameters: Default::default(), body: Box::new(c_compound_statement) });
+						}
+						Os::Windows => {
+							let mut c_compound_statement = CCompoundStatement::new();
+							c_compound_statement.push_statement(CStatement::VariableDeclaration(
+								CType::U8, "result".into(), Some(CInitializer::Expression(CExpression::FunctionCall(name.clone().into(), Default::default())).into())
+							));
+							c_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("exit".into(), [CLValue::Variable("result".into()).into()].into())).into());
+							c_module.push_element(CModuleElement::FunctionDefinition { return_type: CType::Void, name: "WinMain".into(), parameters: Default::default(), body: Box::new(c_compound_statement) });
+						}
+					}
+					//let c_compound_statement = CCompoundStatement::new();
+					//c_module.push_element(CModuleElement::FunctionDefinition { return_type: CType::Void, name: "_start".into(), parameters: Default::default(), body: Box::new(c_compound_statement) });
+					//break;
+					//}
 				}
 			}
 		}
@@ -157,20 +157,23 @@ impl TanukiExpression {
 			// Constants
 			TanukiExpressionVariant::Constant(constant) => constant.compile_to_c(main, modules, insert_into, function_temp_variable_count),
 			// Binary operators compile the arguments, assign to temp variables, add the variables and assign to a result temp variable that is returned
-			TanukiExpressionVariant::Addition(lhs_expression, rhs_expression) => {
-				let (lhs_result_variable, lhs_type) = lhs_expression.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables)?;
-				let (rhs_result_variable, rhs_type) = rhs_expression.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables)?;
-				if lhs_type != rhs_type {
-					return Err(Error::NotYetImplemented("+ between different types".into()).at(Some(self.start_line), Some(self.start_column), None));
-				}
-				if !matches!(lhs_type, TanukiType::U(_) | TanukiType::I(_)) {
-					return Err(Error::NotYetImplemented("Operator overloading".into()).at(Some(self.start_line), Some(self.start_column), None));
-				}
-				let name = format!("_tnk_temp_add_var_{function_temp_variable_count}");
-				*function_temp_variable_count += 1;
-				let c_expression = CExpression::Add(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
-				insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
-				Ok((Some(name.into()), lhs_type))
+			//TanukiExpressionVariant::Addition(lhs_expression, rhs_expression) => {
+			//	let (lhs_result_variable, lhs_type) = lhs_expression.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables)?;
+			//	let (rhs_result_variable, rhs_type) = rhs_expression.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables)?;
+			//	if lhs_type != rhs_type {
+			//		return Err(Error::NotYetImplemented("+ between different types".into()).at(Some(self.start_line), Some(self.start_column), None));
+			//	}
+			//	if !matches!(lhs_type, TanukiType::U(_) | TanukiType::I(_)) {
+			//		return Err(Error::NotYetImplemented("Operator overloading".into()).at(Some(self.start_line), Some(self.start_column), None));
+			//	}
+			//	let name = format!("_tnk_temp_add_var_{function_temp_variable_count}");
+			//	*function_temp_variable_count += 1;
+			//	let c_expression = CExpression::Add(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
+			//	insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+			//	Ok((Some(name.into()), lhs_type))
+			//}
+			TanukiExpressionVariant::InfixBinaryOperator(operator, lhs_expression, rhs_expression) => {
+				operator.compile_r_value_to_c(&**lhs_expression, &**rhs_expression, main, modules, insert_into, function_temp_variable_count, local_variables, self.start_line, self.start_column)
 			}
 			TanukiExpressionVariant::Assignment(lhs, rhs) => {
 				let (lhs_result_variable_name, lhs_type) = lhs.compile_l_value_to_c(main, insert_into, function_temp_variable_count, local_variables, &TanukiType::Any)?;
@@ -282,7 +285,7 @@ impl TanukiExpression {
 						*function_temp_variable_count += 1;
 						insert_into.push_statement(CStatement::VariableDeclaration(
 							CType::PointerTo(t_type.compile_to_c(main)?.into()).into(),
-							temp_var_name.clone().into(), Some(CInitializer::Expression(CExpression::TakeReference(CLValue::Variable(temp_var_name.clone().into()).into())).into())
+							temp_var_name.clone().into(), Some(CInitializer::Expression(CExpression::TakeReference(CLValue::Variable(name.clone().into()).into())).into())
 						));
 						break 'a Ok((Some(temp_var_name.into()), local_variable_type.clone()));
 					}
@@ -293,7 +296,7 @@ impl TanukiExpression {
 				*function_temp_variable_count += 1;
 				insert_into.push_statement(CStatement::VariableDeclaration(
 					CType::PointerTo(t_type.compile_to_c(main)?.into()).into(),
-					temp_var_name.clone().into(), Some(CInitializer::Expression(CExpression::TakeReference(CLValue::Variable(temp_var_name.clone().into()).into())).into())
+					temp_var_name.clone().into(), Some(CInitializer::Expression(CExpression::TakeReference(CLValue::Variable(name.clone().into()).into())).into())
 				));
 				Ok((Some(temp_var_name.into()), t_type.clone()))
 			}
@@ -369,5 +372,40 @@ impl TanukiCompileTimeValue {
 		*function_temp_variable_count += 1;
 		insert_into.push_statement(CStatement::VariableDeclaration(c_type, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
 		Ok((Some(name.into()), t_type))
+	}
+}
+
+impl TanukiInfixBinaryOperator {
+	/// Compiles a infix binary operator that is being used as a r-value into C expressions/statements and inserts the compiled C statements into `insert_into`.
+	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
+	pub fn compile_r_value_to_c(
+		&self, lhs_expression: &TanukiExpression, rhs_expression: &TanukiExpression,
+		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize, local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
+		start_line: NonZeroUsize, start_column: NonZeroUsize
+	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
+		match self {
+			Self::WrappingAddition | Self::WrappingSubtraction => {
+				let (lhs_result_variable, lhs_type) = lhs_expression.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables)?;
+				let (rhs_result_variable, rhs_type) = rhs_expression.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables)?;
+				match (self, &lhs_type, &rhs_type) {
+					(Self::WrappingAddition, TanukiType::U(lhs_bit_width), TanukiType::U(rhs_bit_width)) if lhs_bit_width == rhs_bit_width => {
+						let name = format!("_tnk_temp_add_var_{function_temp_variable_count}");
+						*function_temp_variable_count += 1;
+						let c_expression = CExpression::Add(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
+						insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+						Ok((Some(name.into()), lhs_type))
+					}
+					(Self::WrappingSubtraction, TanukiType::U(lhs_bit_width), TanukiType::U(rhs_bit_width)) if lhs_bit_width == rhs_bit_width => {
+						let name = format!("_tnk_temp_add_var_{function_temp_variable_count}");
+						*function_temp_variable_count += 1;
+						let c_expression = CExpression::Add(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
+						insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+						Ok((Some(name.into()), lhs_type))
+					}
+					_ => return Err(Error::NotYetImplemented(format!("{self} operator between {lhs_type:?} and {rhs_type:?} types").into()).at(Some(start_line), Some(start_column), None)),
+				}
+			},
+			_ => return Err(Error::NotYetImplemented(format!("{self} operator").into()).at(Some(start_line), Some(start_column), None)),
+		}
 	}
 }

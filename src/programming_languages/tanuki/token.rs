@@ -1,4 +1,4 @@
-use std::{fmt::{self, Debug, Formatter}, num::NonZeroUsize};
+use std::{fmt::{self, Debug, Display, Formatter}, num::NonZeroUsize};
 
 use num::BigUint;
 
@@ -200,6 +200,12 @@ pub enum TanukiPrefixUnaryOperator {
 	RangeToExclusive, // ..
 	/// Gives a half open range with the last value in the range being x.
 	RangeToInclusive, // ..=
+}
+
+impl Display for TanukiPrefixUnaryOperator {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		self.print_name(f)
+	}
 }
 
 impl TanukiPrefixUnaryOperator {
@@ -418,6 +424,12 @@ pub enum TanukiInfixBinaryOperator {
 
 	ExclusiveRange,
 	InclusiveRange,
+}
+
+impl Display for TanukiInfixBinaryOperator {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		self.print_name(f)
+	}
 }
 
 impl TanukiInfixBinaryOperator {
@@ -662,6 +674,12 @@ pub enum TanukiPostfixUnaryOperator {
 	//RangeFrom,    // ..
 }
 
+impl Display for TanukiPostfixUnaryOperator {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		self.print_name(f)
+	}
+}
+
 impl TanukiPostfixUnaryOperator {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self {
@@ -736,6 +754,12 @@ impl TanukiInfixTernaryOperator {
 	}
 }
 
+impl Display for TanukiInfixTernaryOperator {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		self.print_name(f)
+	}
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum TanukiNullaryOperator {
 	/// Returns a random number value from the output type.
@@ -743,6 +767,8 @@ pub enum TanukiNullaryOperator {
 
 	/// Returns a last-value constant. Indexing using the result gives the last value of the container being indexed.
 	Last, // ^
+
+	FullRange, // ..
 }
 
 impl TanukiNullaryOperator {
@@ -751,6 +777,8 @@ impl TanukiNullaryOperator {
 			Self::Roll => write!(f, "Roll ?"),
 
 			Self::Last => write!(f, "Last ^"),
+
+			Self::FullRange => write!(f, "Full Range .."),
 		}
 	}
 
@@ -760,8 +788,16 @@ impl TanukiNullaryOperator {
 
 			"^" => Self::Last,
 
+			".." => Self::FullRange,
+
 			_ => return None,
 		})
+	}
+}
+
+impl Display for TanukiNullaryOperator {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		self.print_name(f)
 	}
 }
 
