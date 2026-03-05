@@ -1,6 +1,6 @@
 use std::{collections::HashMap, num::NonZeroUsize, path::Path};
 
-use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::TanukiType, token::TanukiInfixBinaryOperator}}, traits::module::Module};
+use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}}, traits::module::Module};
 
 impl TanukiModule {
 	pub fn compile_to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)]) -> Result<CModule, ErrorAt> {
@@ -172,9 +172,16 @@ impl TanukiExpression {
 			//	insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
 			//	Ok((Some(name.into()), lhs_type))
 			//}
-			TanukiExpressionVariant::InfixBinaryOperator(operator, lhs_expression, rhs_expression) => {
-				operator.compile_r_value_to_c(&**lhs_expression, &**rhs_expression, main, modules, insert_into, function_temp_variable_count, local_variables, self.start_line, self.start_column)
-			}
+			TanukiExpressionVariant::NullaryOperator(operator) =>
+				operator.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables, self.start_line, self.start_column),
+			TanukiExpressionVariant::PrefixUnaryOperator(operator, operand) =>
+				operator.compile_r_value_to_c(&**operand, main, modules, insert_into, function_temp_variable_count, local_variables, self.start_line, self.start_column),
+			TanukiExpressionVariant::PostfixUnaryOperator(operator, operand) =>
+				operator.compile_r_value_to_c(&**operand, main, modules, insert_into, function_temp_variable_count, local_variables, self.start_line, self.start_column),
+			TanukiExpressionVariant::InfixBinaryOperator(operator, lhs_expression, rhs_expression) =>
+				operator.compile_r_value_to_c(&**lhs_expression, &**rhs_expression, main, modules, insert_into, function_temp_variable_count, local_variables, self.start_line, self.start_column),
+			TanukiExpressionVariant::InfixTernaryOperator(operator, lhs_expression, mhs_expression, rhs_expression) =>
+				operator.compile_r_value_to_c(&**lhs_expression, &**mhs_expression, &**rhs_expression, main, modules, insert_into, function_temp_variable_count, local_variables, self.start_line, self.start_column),
 			TanukiExpressionVariant::Assignment(lhs, rhs) => {
 				let (lhs_result_variable_name, lhs_type) = lhs.compile_l_value_to_c(main, insert_into, function_temp_variable_count, local_variables, &TanukiType::Any)?;
 				let (rhs_result_variable_name, rhs_type) = rhs.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables)?;
@@ -375,6 +382,48 @@ impl TanukiCompileTimeValue {
 	}
 }
 
+impl TanukiNullaryOperator {
+	/// Compiles a infix binary operator that is being used as a r-value into C expressions/statements and inserts the compiled C statements into `insert_into`.
+	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
+	pub fn compile_r_value_to_c(
+		&self,
+		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize, local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
+		start_line: NonZeroUsize, start_column: NonZeroUsize
+	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
+		match self {
+			_ => return Err(Error::NotYetImplemented(format!("{self} operator").into()).at(Some(start_line), Some(start_column), None)),
+		}
+	}
+}
+
+impl TanukiPrefixUnaryOperator {
+	/// Compiles a infix binary operator that is being used as a r-value into C expressions/statements and inserts the compiled C statements into `insert_into`.
+	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
+	pub fn compile_r_value_to_c(
+		&self, operand: &TanukiExpression,
+		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize, local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
+		start_line: NonZeroUsize, start_column: NonZeroUsize
+	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
+		match self {
+			_ => return Err(Error::NotYetImplemented(format!("{self} operator").into()).at(Some(start_line), Some(start_column), None)),
+		}
+	}
+}
+
+impl TanukiPostfixUnaryOperator {
+	/// Compiles a infix binary operator that is being used as a r-value into C expressions/statements and inserts the compiled C statements into `insert_into`.
+	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
+	pub fn compile_r_value_to_c(
+		&self, operand: &TanukiExpression,
+		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize, local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
+		start_line: NonZeroUsize, start_column: NonZeroUsize
+	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
+		match self {
+			_ => return Err(Error::NotYetImplemented(format!("{self} operator").into()).at(Some(start_line), Some(start_column), None)),
+		}
+	}
+}
+
 impl TanukiInfixBinaryOperator {
 	/// Compiles a infix binary operator that is being used as a r-value into C expressions/statements and inserts the compiled C statements into `insert_into`.
 	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
@@ -405,6 +454,20 @@ impl TanukiInfixBinaryOperator {
 					_ => return Err(Error::NotYetImplemented(format!("{self} operator between {lhs_type:?} and {rhs_type:?} types").into()).at(Some(start_line), Some(start_column), None)),
 				}
 			},
+			_ => return Err(Error::NotYetImplemented(format!("{self} operator").into()).at(Some(start_line), Some(start_column), None)),
+		}
+	}
+}
+
+impl TanukiInfixTernaryOperator {
+	/// Compiles a infix binary operator that is being used as a r-value into C expressions/statements and inserts the compiled C statements into `insert_into`.
+	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
+	pub fn compile_r_value_to_c(
+		&self, lhs_expression: &TanukiExpression, mhs_expression: &TanukiExpression, rhs_expression: &TanukiExpression,
+		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize, local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
+		start_line: NonZeroUsize, start_column: NonZeroUsize
+	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
+		match self {
 			_ => return Err(Error::NotYetImplemented(format!("{self} operator").into()).at(Some(start_line), Some(start_column), None)),
 		}
 	}
