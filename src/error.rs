@@ -72,7 +72,8 @@ pub enum Error {
 	DivisionByZero,
 	ModuloByZero,
 	MultipleEntrypoints,
-	EntrypointOnNonFunction
+	EntrypointOnNonFunction,
+	NegativeFactorial,
 }
 
 impl Error {
@@ -175,6 +176,7 @@ impl Display for Error {
 			Self::ModuloByZero => write!(f, "Modulo by zero"),
 			Self::MultipleEntrypoints => write!(f, "Multiple entrypoints"),
 			Self::EntrypointOnNonFunction => write!(f, "@entrypoint used on non-function"),
+			Self::NegativeFactorial => write!(f, "Factorial of negative"),
 		}
 	}
 }

@@ -1,6 +1,6 @@
 use std::{any::Any, collections::HashMap, hash::{DefaultHasher, Hash, Hasher}, mem::take, path::Path};
 
-use num::{BigInt, FromPrimitive, One, Zero};
+use num::{BigInt, FromPrimitive, One, Signed, ToPrimitive, Zero};
 
 use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionParameter}, global_constant::TanukiGlobalConstant, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}, traits::module::Module};
 
@@ -539,8 +539,8 @@ impl TanukiNullaryOperator {
 	/// If this expression has been compiled to a constant value, it will return it.
 	pub fn const_compile_r_value(
 		&mut self,
-		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], this_module: &mut TanukiModule, this_module_path: &Path, was_complication_done: &mut bool,
-		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, _result_type: &TanukiType, dependencies_need_const_compiling: &mut bool
+		_main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], _this_module: &mut TanukiModule, _this_module_path: &Path, _was_complication_done: &mut bool,
+		_local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, _result_type: &TanukiType, _dependencies_need_const_compiling: &mut bool
 	) -> Result<Option<TanukiCompileTimeValue>, ErrorAt> {
 		match self {
 			_ => Ok(None),
@@ -559,7 +559,39 @@ impl TanukiPrefixUnaryOperator {
 		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, _result_type: &TanukiType, dependencies_need_const_compiling: &mut bool
 	) -> Result<Option<TanukiCompileTimeValue>, ErrorAt> {
 		match self {
-			_ => Ok(None),
+			Self::Read | Self::Not | Self::Reciprocal | Self::BitshiftRightOne | Self::ComplexConjugate | Self::Signum |
+			Self::Negation | Self::SaturatingNegation | Self::WrappingNegation | Self::TryNegation |
+			Self::Square | Self::SaturatingSquare | Self::WrappingSquare | Self::TrySquare |
+			Self::BitshiftLeftOne | Self::SaturatingBitshiftLeftOne | Self::WrappingBitshiftLeftOne | Self::TryBitshiftLeftOne |
+			Self::Dereference | Self::NthToLast | Self::RangeToExclusive | Self::RangeToInclusive => {
+				let operand = match operand_expression.const_compile_r_value(
+					main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
+				)? {
+					Some(operand_expression) => operand_expression,
+					_ => return Ok(None),
+				};
+				Ok(match (self, operand) {
+					(Self::Read, operand) => Some(operand),
+					(Self::Not, TanukiCompileTimeValue::CompileTimeInt(operand)) => Some(TanukiCompileTimeValue::CompileTimeInt(!operand)),
+					(Self::Negation, TanukiCompileTimeValue::CompileTimeInt(operand)) => Some(TanukiCompileTimeValue::CompileTimeInt(-operand)),
+					(Self::Square, TanukiCompileTimeValue::CompileTimeInt(operand)) => Some(TanukiCompileTimeValue::CompileTimeInt(&operand * &operand)),
+					(Self::BitshiftLeftOne, TanukiCompileTimeValue::CompileTimeInt(operand)) => Some(TanukiCompileTimeValue::CompileTimeInt(operand << 1)),
+					(Self::BitshiftRightOne, TanukiCompileTimeValue::CompileTimeInt(operand)) => Some(TanukiCompileTimeValue::CompileTimeInt(operand >> 1)),
+					(Self::Signum, TanukiCompileTimeValue::CompileTimeInt(operand)) => Some(TanukiCompileTimeValue::CompileTimeInt(operand.signum())),
+					_ => None,
+				})
+			}
+			Self::AddressOf | Self::Increment | Self::SaturatingIncrement | Self::WrappingIncrement | Self::Decrement | Self::SaturatingDecrement | Self::WrappingDecrement => {
+				let (l_value, _t_type) = match operand_expression.const_compile_l_value(
+					main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling
+				)? {
+					(Some(l_value), t_type) => (l_value, t_type),
+					_ => return Ok(None),
+				};
+				Ok(match (self, l_value) {
+					_ => None,
+				})
+			}
 		}
 	}
 }
@@ -575,7 +607,45 @@ impl TanukiPostfixUnaryOperator {
 		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, _result_type: &TanukiType, dependencies_need_const_compiling: &mut bool
 	) -> Result<Option<TanukiCompileTimeValue>, ErrorAt> {
 		match self {
-			_ => Ok(None),
+			Self::Percent | Self::Factorial | Self::SaturatingFactorial | Self::WrappingFactorial | Self::TryFactorial |
+			Self::TryPropagate | Self::Unwrap => {
+				let operand = match operand_expression.const_compile_r_value(
+					main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
+				)? {
+					Some(operand) => operand,
+					_ => return Ok(None),
+				};
+				Ok(match (self, operand) {
+					(Self::Percent, TanukiCompileTimeValue::CompileTimeInt(operand)) => Some(TanukiCompileTimeValue::CompileTimeInt(operand / 100)),
+					(Self::Factorial, TanukiCompileTimeValue::CompileTimeInt(operand)) => Some(TanukiCompileTimeValue::CompileTimeInt({
+						if operand.is_negative() {
+							return Err(Error::NegativeFactorial.at(Some(operand_expression.start_line), Some(operand_expression.start_column), None))
+						}
+						let operand: usize = match operand.to_usize() {
+							Some(operand) => operand,
+							None => return Err(Error::IntegerOverflow.at(Some(operand_expression.start_line), Some(operand_expression.start_column), None)),
+						};
+						let mut result = BigInt::one();
+						for x in 0..= operand {
+							result *= x;
+						}
+						result
+					})),
+					_ => None,
+				})
+			}
+			Self::Increment | Self::SaturatingIncrement | Self::WrappingIncrement | Self::Decrement | Self::SaturatingDecrement | Self::WrappingDecrement => {
+				let (l_value, _t_type) = match operand_expression.const_compile_l_value(
+					main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling
+				)? {
+					(Some(l_value), t_type) => (l_value, t_type),
+					_ => return Ok(None),
+				};
+				Ok(match (self, l_value) {
+					//Self::AddressOf => None,
+					_ => None,
+				})
+			}
 		}
 	}
 }
@@ -593,7 +663,14 @@ impl TanukiInfixBinaryOperator {
 		match self {
 			Self::Addition | Self::Subtraction | Self::Multiplication | Self::Division | Self::Modulo | Self::Exponent |
 			Self::WrappingAddition | Self::WrappingSubtraction | Self::WrappingMultiplication | Self::WrappingDivision | Self::WrappingModulo | Self::WrappingExponent |
-			Self::NonShortCircuitAnd | Self::NonShortCircuitOr | Self::NonShortCircuitXor | Self::ShortCircuitAnd | Self::ShortCircuitOr | Self::ShortCircuitXor | Self::BitshiftLeft | Self::BitshiftRight => {
+			Self::SaturatingAddition | Self::SaturatingSubtraction | Self::SaturatingMultiplication | Self::SaturatingDivision | Self::SaturatingModulo | Self::SaturatingExponent |
+			Self::TryAddition | Self::TrySubtraction | Self::TryMultiplication | Self::TryDivision | Self::TryModulo | Self::TryExponent |
+			Self::BitshiftLeft | Self::SaturatingBitshiftLeft | Self::WrappingBitshiftLeft | Self::TryBitshiftLeft | Self::BitshiftRight |
+			Self::NonShortCircuitAnd | Self::NonShortCircuitOr | Self::NonShortCircuitXor | Self::ShortCircuitAnd | Self::ShortCircuitOr | Self::ShortCircuitXor |
+			Self::NonShortCircuitNand | Self::NonShortCircuitNor | Self::NonShortCircuitXnor | Self::ShortCircuitNand | Self::ShortCircuitNor | Self::ShortCircuitXnor |
+			Self::LessThan | Self::LessThanOrEqualTo | Self::GreaterThan | Self::GreaterThanOrEqualTo | Self::ThreeWayCompare |
+			Self::Equality | Self::Inequality | Self::ReferenceEquality | Self::ReferenceInequality | Self::Minimum | Self::Maximum |
+			Self::ShortCircuitingNullCoalescing | Self::NonShortCircuitingNullCoalescing | Self::ExclusiveRange | Self::InclusiveRange | Self::Append => {
 				let (lhs_operand, rhs_operand) = match (
 					lhs_expression.const_compile_r_value(
 						main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
@@ -605,54 +682,60 @@ impl TanukiInfixBinaryOperator {
 					(Some(lhs_operand), Some(rhs_operand)) => (lhs_operand, rhs_operand),
 					_ => return Ok(None),
 				};
-				match (self, lhs_operand, rhs_operand) {
+				Ok(match (self, lhs_operand, rhs_operand) {
 					(Self::Addition, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
-						Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand + rhs_operand))),
+						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand + rhs_operand)),
 					(Self::Subtraction, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
-						Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand - rhs_operand))),
+						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand - rhs_operand)),
 					(Self::Multiplication, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
-						Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand * rhs_operand))),
+						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand * rhs_operand)),
 					(Self::Division, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) => {
 						if rhs_operand.is_zero() {
 							return Err(Error::DivisionByZero.at(Some(lhs_expression.start_line), Some(lhs_expression.start_column), None));
 						}
-						Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand / rhs_operand)))
+						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand / rhs_operand))
 					}
 					(Self::Modulo, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) => {
 						if rhs_operand.is_zero() {
 							return Err(Error::ModuloByZero.at(Some(lhs_expression.start_line), Some(lhs_expression.start_column), None));
 						}
-						Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand % rhs_operand)))
+						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand % rhs_operand))
 					}
 					(Self::Exponent, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) => {
 						let exponent = match rhs_operand.try_into() {
 							Err(_) => return Ok(None),
 							Ok(exponent) => exponent,
 						};
-						Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand.pow(exponent))))
+						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand.pow(exponent)))
 					}
 					(Self::NonShortCircuitAnd | Self::ShortCircuitAnd, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
-						Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand & rhs_operand))),
+						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand & rhs_operand)),
 					(Self::NonShortCircuitOr | Self::ShortCircuitOr, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
-						Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand | rhs_operand))),
+						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand | rhs_operand)),
 					(Self::NonShortCircuitXor | Self::ShortCircuitXor, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
-						Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand ^ rhs_operand))),
+						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand ^ rhs_operand)),
+					(Self::NonShortCircuitNand | Self::ShortCircuitNand, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
+						Some(TanukiCompileTimeValue::CompileTimeInt(!(lhs_operand & rhs_operand))),
+					(Self::NonShortCircuitNor | Self::ShortCircuitNor, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
+						Some(TanukiCompileTimeValue::CompileTimeInt(!(lhs_operand | rhs_operand))),
+					(Self::NonShortCircuitXnor | Self::ShortCircuitXnor, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
+						Some(TanukiCompileTimeValue::CompileTimeInt(!(lhs_operand ^ rhs_operand))),
 					(Self::BitshiftLeft, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) => {
 						let rhs_operand: u128 = match rhs_operand.try_into() {
 							Err(_) => return Ok(None),
 							Ok(rhs_operand) => rhs_operand,
 						};
-						Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand << rhs_operand)))
+						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand << rhs_operand))
 					}
 					(Self::BitshiftRight, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) => {
 						let rhs_operand: u128 = match rhs_operand.try_into() {
 							Err(_) => return Ok(None),
 							Ok(rhs_operand) => rhs_operand,
 						};
-						Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand >> rhs_operand)))
+						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand >> rhs_operand))
 					}
 					(Self::ThreeWayCompare, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
-						Ok(Some(TanukiCompileTimeValue::CompileTimeInt({
+						Some(TanukiCompileTimeValue::CompileTimeInt({
 							if lhs_operand == rhs_operand {
 								BigInt::ZERO
 							}
@@ -662,11 +745,16 @@ impl TanukiInfixBinaryOperator {
 							else {
 								BigInt::from_i8(-1).unwrap()
 							}
-						}))),
-					_ => Ok(None)
-				}
+						})),
+					(Self::Minimum, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
+						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand.min(rhs_operand))),
+					(Self::Maximum, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
+						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand.max(rhs_operand))),
+					_ => None
+				})
 			}
-			_ => Ok(None),
+			Self::MemberAccess | Self::As | Self::SaturatingAs | Self::WrappingAs | Self::TryAs | Self::Pipe => Ok(None),
+			Self::None => unreachable!(),
 		}
 	}
 }
@@ -682,7 +770,25 @@ impl TanukiInfixTernaryOperator {
 		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, _result_type: &TanukiType, dependencies_need_const_compiling: &mut bool
 	) -> Result<Option<TanukiCompileTimeValue>, ErrorAt> {
 		match self {
-			_ => Ok(None),
+			Self::NonShortCircuitingConditional | Self::ShortCircuitingConditional => {
+				let (lhs_operand, mhs_operand, rhs_operand) = match (
+					lhs_expression.const_compile_r_value(
+						main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
+					)?,
+					mhs_expression.const_compile_r_value(
+						main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
+					)?,
+					rhs_expression.const_compile_r_value(
+						main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
+					)?
+				) {
+					(Some(lhs_operand), Some(mhs_operand), Some(rhs_operand)) => (lhs_operand, mhs_operand, rhs_operand),
+					_ => return Ok(None),
+				};
+				Ok(match (self, lhs_operand, mhs_operand, rhs_operand) {
+					_ => None
+				})
+			}
 		}
 	}
 }
