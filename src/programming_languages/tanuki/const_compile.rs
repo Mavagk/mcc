@@ -2,7 +2,7 @@ use std::{any::Any, collections::HashMap, hash::{DefaultHasher, Hash, Hasher}, m
 
 use num::{BigInt, FromPrimitive, One, Signed, ToPrimitive, Zero};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionParameter}, global_constant::TanukiGlobalConstant, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}, traits::{ast_node::AstNode, module::Module}};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionParameter}, global_constant::TanukiGlobalConstant, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}, traits::module::Module};
 
 impl TanukiModule {
 	/// Const-compiles a Tanuki module. Will set `was_complication_done` to `true` if any compilation was done. This function must be repeatedly called until `was_complication_done` is not set to `true`.
@@ -25,24 +25,24 @@ impl TanukiModule {
 		}
 		// Const-compile imports
 		let mut x = 0;
-		while x < self.imports.len() {
-			if x >= self.imports.len() {
-				break;
-			}
+		'a: while x < self.imports.len() {
 			let import = &self.imports[x];
 			if &*import.module_path == module_path {
 				todo!()
 			}
 			let mut module = None;
 			for (x_module_path, _, x_module) in modules.iter() {
-				if module_path == &**x_module_path {
+				if &*import.module_path == &**x_module_path {
 					module = x_module.as_ref();
 					break;
 				}
 			}
 			let module = match module {
 				Some(module) => &**module,
-				None => todo!(),
+				None => {
+					x += 1;
+					continue;
+				}
 			};
 			let module: &TanukiModule = match (module as &dyn Any).downcast_ref() {
 				Some(module) => module,
@@ -57,7 +57,7 @@ impl TanukiModule {
 					}
 					else {
 						x += 1;
-						continue;
+						continue 'a;
 					}
 				}
 			}
@@ -77,12 +77,12 @@ impl TanukiModule {
 			}
 			self.global_constants.push(Some(TanukiGlobalConstant {
 				value_expression: TanukiExpression {
-					variant: TanukiExpressionVariant::Constant(constant.clone()), start_line: constant.start_line().unwrap(), start_column: constant.start_column().unwrap(),
-					end_line: constant.end_line().unwrap(), end_column: constant.end_column().unwrap()
+					variant: TanukiExpressionVariant::Constant(constant.clone()), start_line: import.start_line, start_column: import.start_column, end_line: import.end_line, end_column: import.end_column
 				},
 				name: import.name.clone(), t_type: None, start_line: import.start_line, start_column: import.start_column, end_line: import.end_line, end_column: import.end_column
 			}));
 			self.imports.remove(x);
+			*was_complication_done = true;
 		}
 		// Check for duplicate constants without the same value that have been parsed
 		// Search over all constants
@@ -322,7 +322,8 @@ impl TanukiExpression {
 								}
 							}
 						}
-						return Err(Error::VariableNotFound.at(Some(*start_line), Some(*start_column), None));
+						None
+						//return Err(Error::VariableNotFound.at(Some(*start_line), Some(*start_column), None));
 					}
 				}
 			}
