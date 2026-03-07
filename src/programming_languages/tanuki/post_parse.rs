@@ -100,7 +100,7 @@ impl TanukiExpression {
 				module.push(argument);
 				main.add_module_to_compile((module.clone().into_boxed_path(), false));
 				post_parse_data.imports.push(TanukiImport {
-					name: assigned_to_name.into(), module_from: module.into_boxed_path(), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
+					name: assigned_to_name.into(), module_path: module.into_boxed_path(), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
 				});
 			},
 			TanukiExpressionVariant::Link(arguments) => {

@@ -4,7 +4,7 @@ use crate::traits::ast_node::AstNode;
 
 pub struct TanukiImport {
 	pub name: Box<str>,
-	pub module_from: Box<Path>,
+	pub module_path: Box<Path>,
 	pub start_line: NonZeroUsize,
 	pub start_column: NonZeroUsize,
 	pub end_line: NonZeroUsize,
@@ -13,7 +13,7 @@ pub struct TanukiImport {
 
 impl AstNode for TanukiImport {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		write!(f, "Import {:?} {}", self.module_from, self.name)
+		write!(f, "Import {:?} {}", self.module_path, self.name)
 	}
 
 	fn print_sub_nodes(&self, _level: usize, _f: &mut Formatter<'_>) -> fmt::Result {

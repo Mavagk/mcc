@@ -2,7 +2,7 @@ use std::{any::Any, collections::HashMap, hash::{DefaultHasher, Hash, Hasher}, m
 
 use num::{BigInt, FromPrimitive, One, Signed, ToPrimitive, Zero};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionParameter}, global_constant::TanukiGlobalConstant, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}, traits::module::Module};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionParameter}, global_constant::TanukiGlobalConstant, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}, traits::{ast_node::AstNode, module::Module}};
 
 impl TanukiModule {
 	/// Const-compiles a Tanuki module. Will set `was_complication_done` to `true` if any compilation was done. This function must be repeatedly called until `was_complication_done` is not set to `true`.
@@ -22,6 +22,67 @@ impl TanukiModule {
 			function_removed.const_compile(main, modules, self, module_path, was_complication_done, &mut false)?;
 			let function = &mut self.functions[x];
 			*function = Some(function_removed);
+		}
+		// Const-compile imports
+		let mut x = 0;
+		while x < self.imports.len() {
+			if x >= self.imports.len() {
+				break;
+			}
+			let import = &self.imports[x];
+			if &*import.module_path == module_path {
+				todo!()
+			}
+			let mut module = None;
+			for (x_module_path, _, x_module) in modules.iter() {
+				if module_path == &**x_module_path {
+					module = x_module.as_ref();
+					break;
+				}
+			}
+			let module = match module {
+				Some(module) => &**module,
+				None => todo!(),
+			};
+			let module: &TanukiModule = match (module as &dyn Any).downcast_ref() {
+				Some(module) => module,
+				None => return Err(Error::Unimplemented("Linking to non-Tanuki modules".into()).at(None, None, None)),
+			};
+			let mut constant = None;
+			for module_global_constant in module.global_constants.iter() {
+				let module_global_constant = module_global_constant.as_ref().unwrap();
+				if module_global_constant.name == import.name {
+					if let TanukiExpressionVariant::Constant(module_global_constant) = &module_global_constant.value_expression.variant {
+						constant = Some(module_global_constant);
+					}
+					else {
+						x += 1;
+						continue;
+					}
+				}
+			}
+			let constant = match constant {
+				Some(constant) => constant,
+				None => todo!(),
+			};
+			let mut is_exported = false;
+			for export in module.exports.iter() {
+				if export.name == import.name {
+					is_exported = true;
+					break;
+				}
+			}
+			if !is_exported {
+				todo!()
+			}
+			self.global_constants.push(Some(TanukiGlobalConstant {
+				value_expression: TanukiExpression {
+					variant: TanukiExpressionVariant::Constant(constant.clone()), start_line: constant.start_line().unwrap(), start_column: constant.start_column().unwrap(),
+					end_line: constant.end_line().unwrap(), end_column: constant.end_column().unwrap()
+				},
+				name: import.name.clone(), t_type: None, start_line: import.start_line, start_column: import.start_column, end_line: import.end_line, end_column: import.end_column
+			}));
+			self.imports.remove(x);
 		}
 		// Check for duplicate constants without the same value that have been parsed
 		// Search over all constants
