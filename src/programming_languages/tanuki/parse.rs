@@ -37,7 +37,7 @@ impl TanukiModule {
 			}
 		}
 		Ok(Self {
-			parsed_expressions: expressions.into_boxed_slice(), functions: Vec::new(), global_constants: Vec::new(), exports: Vec::new(), imports: Vec::new(), links: Vec::new(),
+			parsed_expressions: expressions.into_boxed_slice(), functions: Vec::new(), global_constants: Vec::new(), exports: Vec::new(),//, imports: Vec::new(), links: Vec::new(),
 			entrypoint: None,
 		})
 	}
@@ -241,8 +241,34 @@ impl TanukiExpression {
 						_ => unreachable!(),
 					};
 					maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(TanukiExpression { variant: match keyword {
-						TanukiKeyword::Import => TanukiExpressionVariant::Import(arguments),
-						TanukiKeyword::Link => TanukiExpressionVariant::Link(arguments),
+						TanukiKeyword::Import => {
+							if arguments.len() != 1 {
+								return Err(Error::Unimplemented("@import with argument count that is not one".into()).at(Some(start_line), Some(start_column), None));
+							}
+							let argument = &arguments[0];
+							let argument = match &argument.variant {
+								TanukiExpressionVariant::Constant(TanukiCompileTimeValue::CompileTimeString(path)) => &**path,
+								_ => return Err(Error::Unimplemented("@import with argument that is not a string".into()).at(Some(argument.start_line), Some(argument.start_column), None)),
+							};
+							let mut module_path = main.module_being_processed.parent().unwrap().to_path_buf();
+							module_path.push(argument);
+							main.add_module_to_compile((module_path.clone().into_boxed_path(), false));
+							TanukiExpressionVariant::ImportConstant { name: None, module_path: module_path.into_boxed_path() }
+						},
+						TanukiKeyword::Link => {
+							if arguments.len() != 1 {
+								return Err(Error::Unimplemented("@link with argument count that is not one".into()).at(Some(start_line), Some(start_column), None));
+							}
+							let argument = &arguments[0];
+							let argument = match &argument.variant {
+								TanukiExpressionVariant::Constant(TanukiCompileTimeValue::CompileTimeString(path)) => &**path,
+								_ => return Err(Error::Unimplemented("@link with argument that is not a string".into()).at(Some(argument.start_line), Some(argument.start_column), None)),
+							};
+							let mut library_path = main.module_being_processed.parent().unwrap().to_path_buf();
+							library_path.push(argument);
+							main.add_module_to_compile((library_path.clone().into_boxed_path(), false));
+							TanukiExpressionVariant::Link { name: None, library_path: library_path.into_boxed_path() }
+						},
 						TanukiKeyword::U => TanukiExpressionVariant::U(arguments),
 						TanukiKeyword::I => TanukiExpressionVariant::I(arguments),
 						TanukiKeyword::F => TanukiExpressionVariant::F(arguments),

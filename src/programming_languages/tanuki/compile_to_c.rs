@@ -203,6 +203,7 @@ impl TanukiExpression {
 						break 'a Ok((Some(name.clone()), local_variable_type.clone()));
 					}
 				}
+				// TODO: If a global constant has not been const-compiled
 				unreachable!();
 			}
 			//

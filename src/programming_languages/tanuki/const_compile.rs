@@ -24,7 +24,7 @@ impl TanukiModule {
 			*function = Some(function_removed);
 		}
 		// Const-compile imports
-		let mut x = 0;
+		/*let mut x = 0;
 		'a: while x < self.imports.len() {
 			let import = &self.imports[x];
 			if &*import.module_path == module_path {
@@ -83,7 +83,7 @@ impl TanukiModule {
 			}));
 			self.imports.remove(x);
 			*was_complication_done = true;
-		}
+		}*/
 		// Check for duplicate constants without the same value that have been parsed
 		// Search over all constants
 		for (x, global_constant_x) in self.global_constants.iter().enumerate() {
@@ -194,7 +194,7 @@ impl TanukiExpression {
 			// Do nothing to already const-compiled values
 			TanukiExpressionVariant::Constant(value) => Some(value.clone()),
 			// Function pointer expressions get converted to a function pointer constant if the parameter and return types of the function have been const-compiled
-			TanukiExpressionVariant::Function(target_function_name, target_module_path) => 'a: {
+			TanukiExpressionVariant::Function { name: target_function_name, module_path: target_module_path } => 'a: {
 				for (module_path, _, module) in modules.iter() {
 					if module_path != target_module_path {
 						continue;
@@ -282,7 +282,7 @@ impl TanukiExpression {
 					//depends_on_for_execution: function_depends_on_globals_for_execution, is_pure: true, is_const_compiled: false,
 				}));
 				*self = TanukiExpression {
-					variant: TanukiExpressionVariant::Function(mangled_function_name, main.module_being_processed.clone()),
+					variant: TanukiExpressionVariant::Function { name: mangled_function_name, module_path: main.module_being_processed.clone() },//TanukiExpressionVariant::Function(mangled_function_name, main.module_being_processed.clone()),
 					start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
 				};
 				*was_complication_done = true;
@@ -322,8 +322,7 @@ impl TanukiExpression {
 								}
 							}
 						}
-						None
-						//return Err(Error::VariableNotFound.at(Some(*start_line), Some(*start_column), None));
+						return Err(Error::VariableNotFound.at(Some(*start_line), Some(*start_column), None));
 					}
 				}
 			}
@@ -520,6 +519,64 @@ impl TanukiExpression {
 					}
 				}
 				None
+			}
+			TanukiExpressionVariant::ImportConstant { name, module_path } => {
+				let mut module = None;
+				for (x_module_path, _, x_module) in modules.iter() {
+					if &**module_path == &**x_module_path {
+						module = x_module.as_ref();
+						break;
+					}
+				}
+				let module = match module {
+					Some(module) => &**module,
+					None => {
+						return Ok(None);
+						//x += 1;
+						//continue;
+					}
+				};
+				let module: &TanukiModule = match (module as &dyn Any).downcast_ref() {
+					Some(module) => module,
+					None => return Err(Error::Unimplemented("Linking to non-Tanuki modules".into()).at(None, None, None)),
+				};
+				let mut constant = None;
+				for module_global_constant in module.global_constants.iter() {
+					let module_global_constant = module_global_constant.as_ref().unwrap();
+					if &module_global_constant.name == name.as_ref().unwrap() {
+						if let TanukiExpressionVariant::Constant(module_global_constant) = &module_global_constant.value_expression.variant {
+							constant = Some(module_global_constant);
+						}
+						else {
+							return Ok(None);
+							//x += 1;
+							//continue 'a;
+						}
+					}
+				}
+				let constant = match constant {
+					Some(constant) => constant,
+					None => todo!(),
+				};
+				let mut is_exported = false;
+				for export in module.exports.iter() {
+					if &export.name == name.as_ref().unwrap() {
+						is_exported = true;
+						break;
+					}
+				}
+				if !is_exported {
+					todo!()
+				}
+				//self.global_constants.push(Some(TanukiGlobalConstant {
+				//	value_expression: TanukiExpression {
+				//		variant: TanukiExpressionVariant::Constant(constant.clone()), start_line: import.start_line, start_column: import.start_column, end_line: import.end_line, end_column: import.end_column
+				//	},
+				//	name: import.name.clone(), t_type: None, start_line: import.start_line, start_column: import.start_column, end_line: import.end_line, end_column: import.end_column
+				//}));
+				//self.imports.remove(x);
+				*was_complication_done = true;
+				Some(constant.clone())
 			}
 			_ => None,
 		};
