@@ -521,6 +521,11 @@ impl TanukiExpression {
 				None
 			}
 			TanukiExpressionVariant::ImportConstant { name, module_path } => {
+				let name = match (name, global_variable_assigned_to_name) {
+					(Some(name), _) => &**name,
+					(None, Some(name)) => name,
+					(None, None) => todo!(),
+				};
 				let mut module = None;
 				for (x_module_path, _, x_module) in modules.iter() {
 					if &**module_path == &**x_module_path {
@@ -543,7 +548,10 @@ impl TanukiExpression {
 				let mut constant = None;
 				for module_global_constant in module.global_constants.iter() {
 					let module_global_constant = module_global_constant.as_ref().unwrap();
-					if &module_global_constant.name == name.as_ref().unwrap() {
+					if !module_global_constant.export {
+						todo!()
+					}
+					if &*module_global_constant.name == name {
 						if let TanukiExpressionVariant::Constant(module_global_constant) = &module_global_constant.value_expression.variant {
 							constant = Some(module_global_constant);
 						}
@@ -558,16 +566,16 @@ impl TanukiExpression {
 					Some(constant) => constant,
 					None => todo!(),
 				};
-				let mut is_exported = false;
-				for export in module.exports.iter() {
-					if &export.name == name.as_ref().unwrap() {
-						is_exported = true;
-						break;
-					}
-				}
-				if !is_exported {
-					todo!()
-				}
+				//let mut is_exported = false;
+				//for export in module.exports.iter() {
+				//	if &export.name == name.as_ref().unwrap() {
+				//		is_exported = true;
+				//		break;
+				//	}
+				//}
+				//if !is_exported {
+				//	todo!()
+				//}
 				//self.global_constants.push(Some(TanukiGlobalConstant {
 				//	value_expression: TanukiExpression {
 				//		variant: TanukiExpressionVariant::Constant(constant.clone()), start_line: import.start_line, start_column: import.start_column, end_line: import.end_line, end_column: import.end_column

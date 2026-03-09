@@ -37,7 +37,7 @@ impl TanukiModule {
 			}
 		}
 		Ok(Self {
-			parsed_expressions: expressions.into_boxed_slice(), functions: Vec::new(), global_constants: Vec::new(), exports: Vec::new(),//, imports: Vec::new(), links: Vec::new(),
+			parsed_expressions: expressions.into_boxed_slice(), functions: Vec::new(), global_constants: Vec::new(),//, exports: Vec::new(),//, imports: Vec::new(), links: Vec::new(),
 			entrypoint: None,
 		})
 	}

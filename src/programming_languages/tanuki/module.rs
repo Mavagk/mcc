@@ -1,12 +1,12 @@
 use std::{fmt::{self, Debug, Formatter}, num::NonZeroUsize, path::Path};
 
-use crate::{Main, error::ErrorAt, programming_languages::{c::module::CModule, tanuki::{export::TanukiExport, expression::TanukiExpression, function::TanukiFunction, global_constant::TanukiGlobalConstant}}, traits::{ast_node::AstNode, module::Module}};
+use crate::{Main, error::ErrorAt, programming_languages::{c::module::CModule, tanuki::{expression::TanukiExpression, function::TanukiFunction, global_constant::TanukiGlobalConstant}}, traits::{ast_node::AstNode, module::Module}};
 
 pub struct TanukiModule {
 	pub parsed_expressions: Box<[TanukiExpression]>,
 	pub functions: Vec<Option<TanukiFunction>>,
 	pub global_constants: Vec<Option<TanukiGlobalConstant>>,
-	pub exports: Vec<TanukiExport>,
+	//pub exports: Vec<TanukiExport>,
 	//pub imports: Vec<TanukiImport>,
 	//pub links: Vec<TanukiLink>,
 	pub entrypoint: Option<Box<str>>,
@@ -45,9 +45,9 @@ impl AstNode for TanukiModule {
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
-		for export in self.exports.iter() {
-			export.print(level, f)?;
-		}
+		//for export in self.exports.iter() {
+		//	export.print(level, f)?;
+		//}
 		//for import in self.imports.iter() {
 			//import.print(level, f)?;
 		//}
