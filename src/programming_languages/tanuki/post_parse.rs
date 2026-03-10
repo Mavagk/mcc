@@ -23,7 +23,7 @@ impl TanukiModule {
 
 impl TanukiExpression {
 	pub fn post_parse(
-		&mut self, main: &mut Main, post_parse_data: &mut TanukiModulePostParseData, is_inside_function_or_block: bool, /*assigned_to_name: Option<&str>, */is_l_value: bool,
+		&mut self, main: &mut Main, post_parse_data: &mut TanukiModulePostParseData, is_inside_function_or_block: bool, is_l_value: bool,
 		global_variables_dependent_on: &mut HashSet<Box<str>>, local_variables: &mut Vec<HashSet<Box<str>>>
 	) -> Result<(), ErrorAt> {
 		match &mut self.variant {
@@ -33,7 +33,7 @@ impl TanukiExpression {
 				let start_column = lhs.start_column;
 				let end_line = rhs.end_line;
 				let end_column = rhs.end_column;
-				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, /*None, */true, &mut HashSet::new(), &mut Vec::new())?;
+				lhs.post_parse(main, post_parse_data, is_inside_function_or_block, true, &mut HashSet::new(), &mut Vec::new())?;
 				let lhs = take(lhs);
 				let (name, t_type, is_exported) = match lhs.clone().variant {
 					TanukiExpressionVariant::Variable(name) => (name, None, false),
@@ -63,7 +63,7 @@ impl TanukiExpression {
 				*self = *lhs.clone();
 			}
 			TanukiExpressionVariant::Entrypoint(to_be_entrypoint) => {
-				to_be_entrypoint.post_parse(main, post_parse_data, is_inside_function_or_block, /*None, */is_l_value, global_variables_dependent_on, local_variables)?;
+				to_be_entrypoint.post_parse(main, post_parse_data, is_inside_function_or_block, is_l_value, global_variables_dependent_on, local_variables)?;
 				match &mut to_be_entrypoint.variant {
 					TanukiExpressionVariant::Variable(name) => {
 						if let Some(current_entrypoint) = post_parse_data.entrypoint && current_entrypoint != name {

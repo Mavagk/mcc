@@ -2,6 +2,7 @@ use std::{fmt::{self, Debug, Formatter}, num::NonZeroUsize, path::Path};
 
 use crate::{Main, error::ErrorAt, programming_languages::{c::module::CModule, tanuki::{expression::TanukiExpression, function::TanukiFunction, global_constant::TanukiGlobalConstant}}, traits::{ast_node::AstNode, module::Module}};
 
+/// A Tanuki module that has been parsed from a single file.
 pub struct TanukiModule {
 	pub parsed_expressions: Box<[TanukiExpression]>,
 	pub functions: Vec<Option<TanukiFunction>>,

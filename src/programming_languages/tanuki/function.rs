@@ -2,6 +2,7 @@ use std::{fmt::{self, Formatter}, num::NonZeroUsize};
 
 use crate::{programming_languages::tanuki::expression::TanukiExpression, traits::ast_node::AstNode};
 
+/// A Tanuki function.
 pub struct TanukiFunction {
 	pub name: Box<str>,
 	pub parameters: Box<[TanukiFunctionParameter]>,

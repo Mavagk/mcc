@@ -3,6 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use crate::traits::ast_node::AstNode;
 
 #[derive(Clone, PartialEq, Eq)]
+/// A type of a Tanuki value.
 pub enum TanukiType {
 	CompileTimeInt,
 	CompileTimeFloat,

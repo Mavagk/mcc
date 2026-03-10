@@ -5,6 +5,7 @@ use num::{BigInt, Signed};
 use crate::{error::Error, programming_languages::tanuki::t_type::TanukiType, traits::ast_node::AstNode};
 
 #[derive(Debug, Clone, PartialEq)]
+/// A value that is known at compile time.
 pub enum TanukiCompileTimeValue {
 	CompileTimeInt(BigInt),
 	CompileTimeFloat(f64),
@@ -20,6 +21,7 @@ pub enum TanukiCompileTimeValue {
 }
 
 impl TanukiCompileTimeValue {
+	/// Returns the type of this value.
 	pub fn get_type(&self) -> TanukiType {
 		match self {
 			Self::CompileTimeInt(_)                                                                         => TanukiType::CompileTimeInt,
@@ -36,6 +38,7 @@ impl TanukiCompileTimeValue {
 		}
 	}
 
+	/// Can this be contained in a variable of a type.
 	pub fn is_of_type(&self, t_type: &TanukiType) -> bool {
 		match t_type {
 			TanukiType::Any => true,
@@ -43,9 +46,12 @@ impl TanukiCompileTimeValue {
 		}
 	}
 
-	pub fn cast_to(self, type_to: &TanukiType, is_explicit: bool) -> Result<Self, Error> {
+	/// Cast this value to a given type.
+	/// If `can_be_lossy` is `true` data can be lost in the cast, eg. 3.4 as @int will give 3.
+	/// If `can_be_lossy` is `false` data cannot be lost in the cast, eg. 3.4 as @int will throw an error.
+	pub fn cast_to(self, type_to: &TanukiType, can_be_lossy: bool) -> Result<Self, Error> {
 		let type_from = self.get_type();
-		match (type_from, type_to, is_explicit) {
+		match (type_from, type_to, can_be_lossy) {
 			(type_from, type_to, _) if &type_from == type_to => Ok(self),
 			(_, TanukiType::Any, _) => Ok(self),
 			(TanukiType::CompileTimeInt | TanukiType::U(_) | TanukiType::I(_), TanukiType::CompileTimeInt | TanukiType::U(_) | TanukiType::I(_), _) => {

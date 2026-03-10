@@ -2,6 +2,7 @@ use std::{fmt::{self, Formatter}, num::NonZeroUsize};
 
 use crate::{programming_languages::tanuki::expression::TanukiExpression, traits::ast_node::AstNode};
 
+/// A Tanuki global constant.
 pub struct TanukiGlobalConstant {
 	pub value_expression: TanukiExpression,
 	pub name: Box<str>,

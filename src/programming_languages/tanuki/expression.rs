@@ -3,6 +3,7 @@ use std::{fmt::{self, Formatter}, num::NonZeroUsize, path::Path};
 use crate::{programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}, traits::{ast_node::AstNode, expression::Expression}};
 
 #[derive(Debug, Clone)]
+/// A Tanuki expression that cas been parsed from a file.
 pub struct TanukiExpression {
 	pub variant: TanukiExpressionVariant,
 	pub start_line: NonZeroUsize,
