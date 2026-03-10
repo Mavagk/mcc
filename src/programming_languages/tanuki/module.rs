@@ -6,9 +6,6 @@ pub struct TanukiModule {
 	pub parsed_expressions: Box<[TanukiExpression]>,
 	pub functions: Vec<Option<TanukiFunction>>,
 	pub global_constants: Vec<Option<TanukiGlobalConstant>>,
-	//pub exports: Vec<TanukiExport>,
-	//pub imports: Vec<TanukiImport>,
-	//pub links: Vec<TanukiLink>,
 	pub entrypoint: Option<Box<str>>,
 }
 
@@ -21,16 +18,7 @@ impl Module for TanukiModule {
 		Ok(Some(self.compile_to_c_module(main, modules)?))
 	}
 
-	/*fn get_global_items(&self, global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>) -> Result<(), ErrorAt> {
-		self.get_global_items_for_module(global_items_to_const_compile_for_this_module)
-	}*/
-
-	fn const_compile(
-		&mut self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], module_path: &Path, was_complication_done: &mut bool,
-		//&mut self, main: &mut Main, global_items_const_compiled: &mut HashSet<(Box<str>, Box<Path>)>, global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>,
-		//modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], module_path: &Path,
-	) -> Result<(), ErrorAt> {
-		//self.const_compile_globals(main, global_items_const_compiled, global_items_to_const_compile_for_this_module, modules, module_path)
+	fn const_compile(&mut self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], module_path: &Path, was_complication_done: &mut bool) -> Result<(), ErrorAt> {
 		self.const_compile_globals(main, modules, module_path, was_complication_done)
 	}
 }
@@ -45,15 +33,6 @@ impl AstNode for TanukiModule {
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
-		//for export in self.exports.iter() {
-		//	export.print(level, f)?;
-		//}
-		//for import in self.imports.iter() {
-			//import.print(level, f)?;
-		//}
-		//for link in self.links.iter() {
-		//	link.print(level, f)?;
-		//}
 		for expression in &self.parsed_expressions {
 			expression.print(level, f)?;
 		}

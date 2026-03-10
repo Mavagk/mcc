@@ -15,7 +15,6 @@ pub enum TanukiType {
 	F(u8),
 	Type,
 	Any,
-	//Function,
 	FunctionPointer(Box<TanukiType>, Box<[TanukiType]>),
 }
 
@@ -33,7 +32,6 @@ impl AstNode for TanukiType {
 			Self::F(bit_width)     => write!(f, "F{bit_width}"),
 			Self::Any                   => write!(f, "Any"),
 			Self::Type                  => write!(f, "Type"),
-			//Self::Function              => write!(f, "Function"),
 			Self::FunctionPointer(_, _) => write!(f, "Function Pointer"),
 		}
 	}
@@ -41,7 +39,7 @@ impl AstNode for TanukiType {
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::CompileTimeInt | Self::CompileTimeFloat | Self::CompileTimeBool | Self::CompileTimeChar | Self::CompileTimeString | Self::Void | Self::U(_) | Self::I(_) | Self::F(_) |
-			Self::Any | Self::Type/* | Self::Function*/ => Ok(()),
+			Self::Any | Self::Type => Ok(()),
 			Self::FunctionPointer(return_type, parameter_types) => {
 				return_type.print(level, f)?;
 				for parameter_type in parameter_types.iter() {

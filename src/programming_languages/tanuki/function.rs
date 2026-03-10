@@ -11,9 +11,6 @@ pub struct TanukiFunction {
 	pub start_column: NonZeroUsize,
 	pub end_line: NonZeroUsize,
 	pub end_column: NonZeroUsize,
-	//pub depends_on_for_execution: HashSet<Box<str>>,
-	//pub is_pure: bool,
-	//pub is_const_compiled: bool,
 }
 
 impl AstNode for TanukiFunction {

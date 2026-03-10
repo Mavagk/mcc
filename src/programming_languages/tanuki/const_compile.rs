@@ -23,67 +23,6 @@ impl TanukiModule {
 			let function = &mut self.functions[x];
 			*function = Some(function_removed);
 		}
-		// Const-compile imports
-		/*let mut x = 0;
-		'a: while x < self.imports.len() {
-			let import = &self.imports[x];
-			if &*import.module_path == module_path {
-				todo!()
-			}
-			let mut module = None;
-			for (x_module_path, _, x_module) in modules.iter() {
-				if &*import.module_path == &**x_module_path {
-					module = x_module.as_ref();
-					break;
-				}
-			}
-			let module = match module {
-				Some(module) => &**module,
-				None => {
-					x += 1;
-					continue;
-				}
-			};
-			let module: &TanukiModule = match (module as &dyn Any).downcast_ref() {
-				Some(module) => module,
-				None => return Err(Error::Unimplemented("Linking to non-Tanuki modules".into()).at(None, None, None)),
-			};
-			let mut constant = None;
-			for module_global_constant in module.global_constants.iter() {
-				let module_global_constant = module_global_constant.as_ref().unwrap();
-				if module_global_constant.name == import.name {
-					if let TanukiExpressionVariant::Constant(module_global_constant) = &module_global_constant.value_expression.variant {
-						constant = Some(module_global_constant);
-					}
-					else {
-						x += 1;
-						continue 'a;
-					}
-				}
-			}
-			let constant = match constant {
-				Some(constant) => constant,
-				None => todo!(),
-			};
-			let mut is_exported = false;
-			for export in module.exports.iter() {
-				if export.name == import.name {
-					is_exported = true;
-					break;
-				}
-			}
-			if !is_exported {
-				todo!()
-			}
-			self.global_constants.push(Some(TanukiGlobalConstant {
-				value_expression: TanukiExpression {
-					variant: TanukiExpressionVariant::Constant(constant.clone()), start_line: import.start_line, start_column: import.start_column, end_line: import.end_line, end_column: import.end_column
-				},
-				name: import.name.clone(), t_type: None, start_line: import.start_line, start_column: import.start_column, end_line: import.end_line, end_column: import.end_column
-			}));
-			self.imports.remove(x);
-			*was_complication_done = true;
-		}*/
 		// Check for duplicate constants without the same value that have been parsed
 		// Search over all constants
 		for (x, global_constant_x) in self.global_constants.iter().enumerate() {
@@ -236,22 +175,6 @@ impl TanukiExpression {
 				return Ok(None);
 			},
 			TanukiExpressionVariant::FunctionDefinition { parameters, return_type, body_expression } => {
-				//let mut function_depends_on_globals_for_execution = HashSet::new();
-				//let mut function_local_variables = Vec::new();
-				//function_local_variables.push(HashSet::new());
-				// Parse sub-expressions
-				//for parameter in parameters.iter_mut() {
-				//	parameter.post_parse(
-				//		main, post_parse_data, true, None, true, &mut function_depends_on_globals_for_execution, &mut function_local_variables
-				//	)?;
-				//}
-				//if let Some(return_type) = return_type {
-				//	return_type.post_parse(
-				//		main, post_parse_data, true, None, false, &mut function_depends_on_globals_for_execution, &mut function_local_variables
-				//	)?;
-				//}
-				//body_expression.post_parse(main, post_parse_data, true, None, false, &mut function_depends_on_globals_for_execution, &mut function_local_variables)?;
-				//
 				let mut new_parameters = Vec::new();
 				for parameter in take(parameters) {
 					new_parameters.push(match parameter.variant {
@@ -279,10 +202,9 @@ impl TanukiExpression {
 					name: mangled_function_name.clone(), parameters: new_parameters.into_boxed_slice(),
 					return_type: take(return_type).map(|return_type| *return_type),
 					body: take(body_expression), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column,
-					//depends_on_for_execution: function_depends_on_globals_for_execution, is_pure: true, is_const_compiled: false,
 				}));
 				*self = TanukiExpression {
-					variant: TanukiExpressionVariant::Function { name: mangled_function_name, module_path: main.module_being_processed.clone() },//TanukiExpressionVariant::Function(mangled_function_name, main.module_being_processed.clone()),
+					variant: TanukiExpressionVariant::Function { name: mangled_function_name, module_path: main.module_being_processed.clone() },
 					start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
 				};
 				*was_complication_done = true;
@@ -537,8 +459,6 @@ impl TanukiExpression {
 					Some(module) => &**module,
 					None => {
 						return Ok(None);
-						//x += 1;
-						//continue;
 					}
 				};
 				let module: &TanukiModule = match (module as &dyn Any).downcast_ref() {
@@ -557,8 +477,6 @@ impl TanukiExpression {
 						}
 						else {
 							return Ok(None);
-							//x += 1;
-							//continue 'a;
 						}
 					}
 				}
@@ -566,23 +484,6 @@ impl TanukiExpression {
 					Some(constant) => constant,
 					None => todo!(),
 				};
-				//let mut is_exported = false;
-				//for export in module.exports.iter() {
-				//	if &export.name == name.as_ref().unwrap() {
-				//		is_exported = true;
-				//		break;
-				//	}
-				//}
-				//if !is_exported {
-				//	todo!()
-				//}
-				//self.global_constants.push(Some(TanukiGlobalConstant {
-				//	value_expression: TanukiExpression {
-				//		variant: TanukiExpressionVariant::Constant(constant.clone()), start_line: import.start_line, start_column: import.start_column, end_line: import.end_line, end_column: import.end_column
-				//	},
-				//	name: import.name.clone(), t_type: None, start_line: import.start_line, start_column: import.start_column, end_line: import.end_line, end_column: import.end_column
-				//}));
-				//self.imports.remove(x);
 				*was_complication_done = true;
 				Some(constant.clone())
 			}

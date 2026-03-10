@@ -127,7 +127,6 @@ impl AstNode for TanukiExpression {
 				}
 				body_expression.print(level, f)
 			}
-			//TanukiExpressionVariant::Link(arguments) |
 			TanukiExpressionVariant::U(arguments) | TanukiExpressionVariant::I(arguments) | TanukiExpressionVariant::F(arguments) => {
 				for argument in arguments {
 					argument.print(level, f)?;

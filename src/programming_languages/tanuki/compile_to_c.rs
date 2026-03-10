@@ -23,11 +23,6 @@ impl TanukiModule {
 							(name, module_path, &**return_type, parameter_types),
 						_ => return Err(Error::EntrypointOnNonFunction.at(Some(global_constant.start_line), Some(global_constant.start_column), None)),
 					};
-					//for function in self.functions.iter() {
-					//let entrypoint_wrapped_function = function.as_ref().unwrap();
-					//if &entrypoint_wrapped_function.name != function_name {
-					//	continue;
-					//}
 					if return_type != &TanukiType::U(8) {
 						return Err(Error::Unimplemented(
 							"Non-@u(8) return type".into()).at(Some(global_constant.value_expression.start_line), Some(global_constant.value_expression.start_column), None
@@ -58,10 +53,6 @@ impl TanukiModule {
 							c_module.push_element(CModuleElement::FunctionDefinition { return_type: CType::Void, name: "WinMain".into(), parameters: Default::default(), body: Box::new(c_compound_statement) });
 						}
 					}
-					//let c_compound_statement = CCompoundStatement::new();
-					//c_module.push_element(CModuleElement::FunctionDefinition { return_type: CType::Void, name: "_start".into(), parameters: Default::default(), body: Box::new(c_compound_statement) });
-					//break;
-					//}
 				}
 			}
 		}
@@ -156,22 +147,7 @@ impl TanukiExpression {
 		match &self.variant {
 			// Constants
 			TanukiExpressionVariant::Constant(constant) => constant.compile_to_c(main, modules, insert_into, function_temp_variable_count),
-			// Binary operators compile the arguments, assign to temp variables, add the variables and assign to a result temp variable that is returned
-			//TanukiExpressionVariant::Addition(lhs_expression, rhs_expression) => {
-			//	let (lhs_result_variable, lhs_type) = lhs_expression.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables)?;
-			//	let (rhs_result_variable, rhs_type) = rhs_expression.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables)?;
-			//	if lhs_type != rhs_type {
-			//		return Err(Error::NotYetImplemented("+ between different types".into()).at(Some(self.start_line), Some(self.start_column), None));
-			//	}
-			//	if !matches!(lhs_type, TanukiType::U(_) | TanukiType::I(_)) {
-			//		return Err(Error::NotYetImplemented("Operator overloading".into()).at(Some(self.start_line), Some(self.start_column), None));
-			//	}
-			//	let name = format!("_tnk_temp_add_var_{function_temp_variable_count}");
-			//	*function_temp_variable_count += 1;
-			//	let c_expression = CExpression::Add(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
-			//	insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
-			//	Ok((Some(name.into()), lhs_type))
-			//}
+			// Operators
 			TanukiExpressionVariant::NullaryOperator(operator) =>
 				operator.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables, self.start_line, self.start_column),
 			TanukiExpressionVariant::PrefixUnaryOperator(operator, operand) =>
@@ -206,7 +182,7 @@ impl TanukiExpression {
 				// TODO: If a global constant has not been const-compiled
 				unreachable!();
 			}
-			//
+			// Blocks
 			TanukiExpressionVariant::Block { sub_expressions, has_return_value } => {
 				let sub_expressions_len = sub_expressions.len();
 				let mut return_variable_name = None;
@@ -319,8 +295,6 @@ impl TanukiCompileTimeValue {
 	pub fn compile_to_c(
 		&self, main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize
 	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
-		//let t_type = self.get_type();
-		//let c_type = t_type.compile_to_c(main)?;
 		let c_expression = match self {
 			TanukiCompileTimeValue::U(_, value) => CExpression::IntConstant(*value as i128),
 			TanukiCompileTimeValue::I(_, value) => CExpression::IntConstant(*value as i128),
@@ -334,44 +308,6 @@ impl TanukiCompileTimeValue {
 				insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c(main)?, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
 				return Ok((Some(temp_name.into()), t_type))
 			}
-			/* => {
-				for (module_name, _, module) in modules.iter() {
-					if target_module_name != module_name {
-						continue;
-					}
-					let module: &TanukiModule = match ((&**module.as_ref().unwrap()) as &dyn Any).downcast_ref() {
-						Some(module) => module,
-						None => return Err(Error::Unimplemented("Linking to non-Tanuki modules".into()).at(None, None, None)),
-					};
-					for function in module.functions.iter() {
-						let function = function.as_ref().unwrap();
-						if &function.name != name {
-							continue;
-						}
-						let return_type = match &function.return_type {
-							None => return Err(Error::Unimplemented("Function without return type".into()).at(None, None, None)),
-							Some(TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(value)), .. }) => value,
-							_ => unreachable!(),
-						};
-						let mut parameter_types = Vec::new();
-						for parameter in function.parameters.iter() {
-							match &parameter.t_type {
-								None => return Err(Error::Unimplemented("Function argument without type".into()).at(None, None, None)),
-								Some(TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(value)), .. }) => parameter_types.push(value.clone()),
-								_ => unreachable!(),
-							};
-						}
-						let t_type = TanukiType::FunctionPointer(Box::new(return_type.clone()), parameter_types.into());
-						let c_expression = CExpression::TakeReference(CLValue::Variable(name.clone().into()).into());
-						let temp_name = format!("_tnk_temp_func_var_{function_temp_variable_count}");
-						*function_temp_variable_count += 1;
-						insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c(main)?, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
-						return Ok((Some(temp_name.into()), t_type))
-					}
-					unreachable!();
-				}
-				unreachable!()
-			},*/
 			_ => todo!(),
 		};
 		let t_type = self.get_type();

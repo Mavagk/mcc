@@ -16,7 +16,6 @@ pub enum TanukiCompileTimeValue {
 	I(u8, i64),
 	F(u8, f64),
 	Type(TanukiType),
-	//Function(Box<str>, Box<Path>),
 	FunctionPointer(Box<str>, Box<Path>, Box<TanukiType>, Box<[TanukiType]>),
 }
 
@@ -33,7 +32,6 @@ impl TanukiCompileTimeValue {
 			Self::I(bit_width, _)                                                                      => TanukiType::I(*bit_width),
 			Self::F(bit_width, _)                                                                      => TanukiType::F(*bit_width),
 			Self::Type(_)                                                                                   => TanukiType::Type,
-			//Self::Function(_, _)                                                                            => TanukiType::Function,
 			Self::FunctionPointer(_, _, return_type, parameter_types) => TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone()),
 		}
 	}
@@ -115,7 +113,6 @@ impl AstNode for TanukiCompileTimeValue {
 			Self::I(bit_width, value)                                  => write!(f, "I{bit_width} {value}"),
 			Self::F(bit_width, value)                                  => write!(f, "F{bit_width} {value}"),
 			Self::Type(_)                                                         => write!(f, "Type"),
-			//Self::Function(name, module_path)              => write!(f, "Function {name} of {module_path:?}"),
 			Self::FunctionPointer(name, module_path, _, _) => write!(f, "Function Pointer {name} of {module_path:?}"),
 		}
 	}
@@ -135,67 +132,3 @@ impl AstNode for TanukiCompileTimeValue {
 		}
 	}
 }
-
-/*impl Neg for TanukiCompileTimeValue {
-	type Output = Result<Option<TanukiCompileTimeValue>, Error>;
-
-	fn neg(self) -> Self::Output {
-		match self {
-			TanukiCompileTimeValue::CompileTimeInt(value) => Ok(Some(TanukiCompileTimeValue::CompileTimeInt(-value))),
-			_ => Ok(None), //Err(Error::CannotUseUnaryOperatorForType { type_t: format!("{:?}", self.get_type()), operator: "-".to_string() }),
-		}
-	}
-}
-
-impl Add for TanukiCompileTimeValue {
-	type Output = Result<Option<TanukiCompileTimeValue>, Error>;
-
-	fn add(self, rhs: Self) -> Self::Output {
-		match (self, rhs) {
-			(TanukiCompileTimeValue::CompileTimeInt(lhs_value), TanukiCompileTimeValue::CompileTimeInt(rhs_value)) => Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_value + rhs_value))),
-			//(lhs, rhs)
-			//	=> Err(Error::CannotUseBinaryOperatorForType { lhs_type_t: format!("{:?}", lhs.get_type()), rhs_type_t: format!("{:?}", rhs.get_type()), operator: "+".into() }),
-			_ => Ok(None),
-		}
-	}
-}
-
-impl Sub for TanukiCompileTimeValue {
-	type Output = Result<Option<TanukiCompileTimeValue>, Error>;
-
-	fn sub(self, rhs: Self) -> Self::Output {
-		match (self, rhs) {
-			(TanukiCompileTimeValue::CompileTimeInt(lhs_value), TanukiCompileTimeValue::CompileTimeInt(rhs_value)) => Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_value - rhs_value))),
-			//(lhs, rhs)
-			//	=> Err(Error::CannotUseBinaryOperatorForType { lhs_type_t: format!("{:?}", lhs.get_type()), rhs_type_t: format!("{:?}", rhs.get_type()), operator: "-".into() }),
-			_ => Ok(None),
-		}
-	}
-}
-
-impl Mul for TanukiCompileTimeValue {
-	type Output = Result<Option<TanukiCompileTimeValue>, Error>;
-
-	fn mul(self, rhs: Self) -> Self::Output {
-		match (self, rhs) {
-			(TanukiCompileTimeValue::CompileTimeInt(lhs_value), TanukiCompileTimeValue::CompileTimeInt(rhs_value)) => Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_value * rhs_value))),
-			//(lhs, rhs)
-			//	=> Err(Error::CannotUseBinaryOperatorForType { lhs_type_t: format!("{:?}", lhs.get_type()), rhs_type_t: format!("{:?}", rhs.get_type()), operator: "*".into() }),
-			_ => Ok(None),
-		}
-	}
-}
-
-impl Div for TanukiCompileTimeValue {
-	type Output = Result<Option<TanukiCompileTimeValue>, Error>;
-
-	fn div(self, rhs: Self) -> Self::Output {
-		match (self, rhs) {
-			(TanukiCompileTimeValue::CompileTimeInt(lhs_value), _) if lhs_value.is_zero() => Err(Error::DivisionByZero),
-			(TanukiCompileTimeValue::CompileTimeInt(lhs_value), TanukiCompileTimeValue::CompileTimeInt(rhs_value)) => Ok(Some(TanukiCompileTimeValue::CompileTimeInt(lhs_value / rhs_value))),
-			//(lhs, rhs)
-			//	=> Err(Error::CannotUseBinaryOperatorForType { lhs_type_t: format!("{:?}", lhs.get_type()), rhs_type_t: format!("{:?}", rhs.get_type()), operator: "/".into() }),
-			_ => Ok(None),
-		}
-	}
-}*/

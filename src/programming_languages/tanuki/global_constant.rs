@@ -11,14 +11,12 @@ pub struct TanukiGlobalConstant {
 	pub end_line: NonZeroUsize,
 	pub end_column: NonZeroUsize,
 	pub export: bool,
-	//pub depends_on: HashSet<Box<str>>,
-	//pub has_been_const_compiled: bool
 }
 
 
 impl AstNode for TanukiGlobalConstant {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		write!(f, "Global Constant {}", self.name/*, self.depends_on*/)?;
+		write!(f, "Global Constant {}", self.name)?;
 		if self.export {
 			write!(f, " Exported")?;
 		}
