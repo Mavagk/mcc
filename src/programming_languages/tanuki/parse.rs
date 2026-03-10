@@ -272,18 +272,64 @@ impl TanukiExpression {
 							TanukiExpressionVariant::ImportConstant { name: None, module_path: module_path.into_boxed_path() }
 						},
 						TanukiKeyword::Link => {
-							if arguments.len() != 1 {
-								return Err(Error::Unimplemented("@link with argument count that is not one".into()).at(Some(start_line), Some(start_column), None));
+							let arguments_len = arguments.len();
+							if arguments_len < 2 {
+								return Err(Error::Unimplemented("@link with argument count that is less than two".into()).at(Some(start_line), Some(start_column), None));
 							}
-							let argument = &arguments[0];
-							let argument = match &argument.variant {
+							let mut arguments = arguments.into_iter();
+							// Get the library path
+							let library_path_argument = arguments.next().unwrap();
+							let library_path_argument = match &library_path_argument.variant {
 								TanukiExpressionVariant::Constant(TanukiCompileTimeValue::CompileTimeString(path)) => &**path,
-								_ => return Err(Error::Unimplemented("@link with argument that is not a string".into()).at(Some(argument.start_line), Some(argument.start_column), None)),
+								_ => return Err(
+									Error::Unimplemented("@link with library path argument that is not a string".into())
+										.at(Some(library_path_argument.start_line), Some(library_path_argument.start_column), None)
+								),
 							};
 							let mut library_path = main.module_being_processed.parent().unwrap().to_path_buf();
-							library_path.push(argument);
-							main.add_module_to_compile((library_path.clone().into_boxed_path(), false));
-							TanukiExpressionVariant::Link { name: None, library_path: library_path.into_boxed_path() }
+							library_path.push(library_path_argument);
+							// Get the arguments
+							let mut argument_types = Vec::new();
+							for _ in 0..arguments_len - 2 {
+								argument_types.push(arguments.next().unwrap());
+							}
+							// Get the return type
+							let return_type = arguments.next().unwrap();
+							// Return
+							TanukiExpressionVariant::Link {
+								name: None, library_path: library_path.into_boxed_path(), argument_types: argument_types.into_boxed_slice(), return_type: Some(return_type.into()), link_if: None
+							}
+						},
+						TanukiKeyword::LinkIf => {
+							let arguments_len = arguments.len();
+							if arguments_len < 3 {
+								return Err(Error::Unimplemented("@link_if with argument count that is less than three".into()).at(Some(start_line), Some(start_column), None));
+							}
+							let mut arguments = arguments.into_iter();
+							// Get the library path
+							let library_path_argument = arguments.next().unwrap();
+							let library_path_argument = match &library_path_argument.variant {
+								TanukiExpressionVariant::Constant(TanukiCompileTimeValue::CompileTimeString(path)) => &**path,
+								_ => return Err(
+									Error::Unimplemented("@link with library path argument that is not a string".into())
+										.at(Some(library_path_argument.start_line), Some(library_path_argument.start_column), None)
+								),
+							};
+							let mut library_path = main.module_being_processed.parent().unwrap().to_path_buf();
+							library_path.push(library_path_argument);
+							// Get the arguments
+							let mut argument_types = Vec::new();
+							for _ in 0..arguments_len - 3 {
+								argument_types.push(arguments.next().unwrap());
+							}
+							// Get the return type
+							let return_type = arguments.next().unwrap();
+							// Get the linking condition
+							let link_if = arguments.next().unwrap();
+							// Return
+							TanukiExpressionVariant::Link {
+								name: None, library_path: library_path.into_boxed_path(), argument_types: argument_types.into_boxed_slice(), return_type: Some(return_type.into()), link_if: Some(link_if.into())
+							}
 						},
 						TanukiKeyword::U => TanukiExpressionVariant::U(arguments),
 						TanukiKeyword::I => TanukiExpressionVariant::I(arguments),

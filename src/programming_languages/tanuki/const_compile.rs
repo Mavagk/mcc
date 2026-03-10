@@ -487,6 +487,56 @@ impl TanukiExpression {
 				*was_complication_done = true;
 				Some(constant.clone())
 			}
+			TanukiExpressionVariant::Link { name, library_path: _, argument_types, return_type, link_if } => 'a: {
+				if name.is_none() {
+					// Set the name of the item to link to to that of the variable this expression is being assigned to
+					*name = match global_variable_assigned_to_name {
+						Some(name) => Some(name.into()),
+						None => None,
+					};
+				}
+				// Const-compile link condition
+				if let Some(link_if_some) = link_if {
+					let link_if_value = link_if_some.const_compile_r_value(
+						main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Bool, dependencies_need_const_compiling, global_variable_assigned_to_name
+					)?;
+					if *dependencies_need_const_compiling {
+						return Ok(None);
+					}
+					match link_if_value {
+						Some(TanukiCompileTimeValue::Bool(true)) => {
+							*link_if = None;
+							*was_complication_done = true;
+						},
+						Some(TanukiCompileTimeValue::Bool(false)) => {
+							*was_complication_done = true;
+							break 'a Some(TanukiCompileTimeValue::Void);
+						}
+						Some(_) => unreachable!(),
+						None => return Ok(None),
+					}
+				}
+				// Const-compile arguments
+				for argument_type in argument_types.iter_mut() {
+					argument_type.const_compile_r_value(
+						main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Type, dependencies_need_const_compiling, global_variable_assigned_to_name
+					)?;
+					if *dependencies_need_const_compiling {
+						return Ok(None);
+					}
+				}
+				// Const-compile return type
+				if let Some(return_type) = return_type {
+					return_type.const_compile_r_value(
+						main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Type, dependencies_need_const_compiling, global_variable_assigned_to_name
+					)?;
+					if *dependencies_need_const_compiling {
+						return Ok(None);
+					}
+				}
+				// Return
+				None
+			},
 			_ => None,
 		};
 		// Cast

@@ -24,7 +24,7 @@ pub enum TanukiExpressionVariant {
 	TypeAndValue(Box<TanukiExpression>, Box<TanukiExpression>),
 	ImportConstant { name: Option<Box<str>>, module_path: Box<Path> },
 	Export(Box<TanukiExpression>),
-	Link { name: Option<Box<str>>, library_path: Box<Path> },
+	Link { name: Option<Box<str>>, library_path: Box<Path>, argument_types: Box<[TanukiExpression]>, return_type: Option<Box<TanukiExpression>>, link_if: Option<Box<TanukiExpression>> },
 	Entrypoint(Box<TanukiExpression>),
 	U(Box<[TanukiExpression]>),
 	I(Box<[TanukiExpression]>),
@@ -83,7 +83,7 @@ impl AstNode for TanukiExpression {
 				write!(f, " from {module_path:?}")
 			}
 			TanukiExpressionVariant::Export(..)                                                            => write!(f, "Export"),
-			TanukiExpressionVariant::Link { name, library_path } => {
+			TanukiExpressionVariant::Link { name, library_path, .. } => {
 				write!(f, "Link")?;
 				if let Some(name) = name {
 					write!(f, " {name}")?;
@@ -111,7 +111,7 @@ impl AstNode for TanukiExpression {
 				}
 				Ok(())
 			}
-			TanukiExpressionVariant::Function { .. } | TanukiExpressionVariant::ImportConstant { .. } | TanukiExpressionVariant::Link { .. } => Ok(()),
+			TanukiExpressionVariant::Function { .. } | TanukiExpressionVariant::ImportConstant { .. } => Ok(()),
 			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
 				function_pointer.print(level, f)?;
 				for argument in arguments {
@@ -151,6 +151,19 @@ impl AstNode for TanukiExpression {
 				rhs.print(level, f)
 			}
 			TanukiExpressionVariant::NullaryOperator(_) => Ok(()),
+			TanukiExpressionVariant::Link { argument_types, return_type, link_if, .. } => {
+				for argument in argument_types.iter() {
+					argument.print(level, f)?;
+				}
+				writeln!(f)?;
+				if let Some(return_type) = return_type {
+					return_type.print(level, f)?;
+				}
+				if let Some(link_if) = link_if {
+					link_if.print(level, f)?;
+				}
+				Ok(())
+			}
 		}
 	}
 
