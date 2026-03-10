@@ -16,6 +16,7 @@ pub enum TanukiCompileTimeValue {
 	U(u8, u64),
 	I(u8, i64),
 	F(u8, f64),
+	Bool(bool),
 	Type(TanukiType),
 	FunctionPointer(Box<str>, Box<Path>, Box<TanukiType>, Box<[TanukiType]>),
 }
@@ -33,6 +34,7 @@ impl TanukiCompileTimeValue {
 			Self::U(bit_width, _)                                                                      => TanukiType::U(*bit_width),
 			Self::I(bit_width, _)                                                                      => TanukiType::I(*bit_width),
 			Self::F(bit_width, _)                                                                      => TanukiType::F(*bit_width),
+			Self::Bool(_)                                                                                   => TanukiType::Bool,
 			Self::Type(_)                                                                                   => TanukiType::Type,
 			Self::FunctionPointer(_, _, return_type, parameter_types) => TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone()),
 		}
@@ -118,6 +120,7 @@ impl AstNode for TanukiCompileTimeValue {
 			Self::U(bit_width, value)                                  => write!(f, "U{bit_width} {value}"),
 			Self::I(bit_width, value)                                  => write!(f, "I{bit_width} {value}"),
 			Self::F(bit_width, value)                                  => write!(f, "F{bit_width} {value}"),
+			Self::Bool(value)                                              => write!(f, "Bool {value}"),
 			Self::Type(_)                                                         => write!(f, "Type"),
 			Self::FunctionPointer(name, module_path, _, _) => write!(f, "Function Pointer {name} of {module_path:?}"),
 		}
@@ -126,7 +129,7 @@ impl AstNode for TanukiCompileTimeValue {
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::CompileTimeInt(_) | Self::CompileTimeFloat(_) | Self::CompileTimeBool(_) | Self::CompileTimeChar(_) | Self::CompileTimeString(_) |
-			Self::Void | Self::U(_, _) | Self::I(_, _) | Self::F(_, _)/* | Self::Function(_, _)*/ => Ok(()),
+			Self::Void | Self::U(_, _) | Self::I(_, _) | Self::F(_, _) | Self::Bool(_) => Ok(()),
 			Self::Type(type_t) => type_t.print(level, f),
 			Self::FunctionPointer(_, _, return_type, parameter_types) => {
 				return_type.print(level, f)?;

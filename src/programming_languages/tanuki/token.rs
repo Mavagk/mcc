@@ -815,6 +815,8 @@ pub enum TanukiKeyword {
 	Continue,
 	Redo,
 	Entrypoint,
+	Bool,
+	Int,
 }
 
 impl TanukiKeyword {
@@ -832,6 +834,8 @@ impl TanukiKeyword {
 			Self::Continue   => write!(f, "Continue"),
 			Self::Redo       => write!(f, "Redo"),
 			Self::Entrypoint => write!(f, "Entrypoint"),
+			Self::Bool       => write!(f, "Bool"),
+			Self::Int        => write!(f, "Int"),
 		}
 	}
 
@@ -849,6 +853,8 @@ impl TanukiKeyword {
 			"continue"   => Some(Self::Continue),
 			"redo"       => Some(Self::Redo),
 			"entrypoint" => Some(Self::Entrypoint),
+			"bool"       => Some(Self::Bool),
+			"inr"        => Some(Self::Int),
 			_ => None,
 		}
 	}

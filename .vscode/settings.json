@@ -13,6 +13,8 @@
 		"pointee",
 		"putc",
 		"putchar",
+		"stdbool",
+		"stddef",
 		"stdint",
 		"tanuki",
 		"Xnor"

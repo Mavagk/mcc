@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, module::TanukiModule, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiKeyword, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader};
+use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiKeyword, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader};
 
 #[derive(Debug, Clone)]
 pub struct TanukiPartiallyParsedToken {
@@ -37,7 +37,7 @@ impl TanukiModule {
 			}
 		}
 		Ok(Self {
-			parsed_expressions: expressions.into_boxed_slice(), functions: Vec::new(), global_constants: Vec::new(),//, exports: Vec::new(),//, imports: Vec::new(), links: Vec::new(),
+			parsed_expressions: expressions.into_boxed_slice(), functions: Vec::new(), global_constants: Vec::new(),
 			entrypoint: None,
 		})
 	}
@@ -82,6 +82,22 @@ impl TanukiExpression {
 				}),
 				TanukiTokenVariant::Identifier(name) => MaybeParsedToken::Parsed(TanukiExpression {
 					variant: TanukiExpressionVariant::Variable(name.clone()),
+					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
+				}),
+				TanukiTokenVariant::Keyword(TanukiKeyword::Bool) => MaybeParsedToken::Parsed(TanukiExpression {
+					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(TanukiType::Bool)),
+					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
+				}),
+				TanukiTokenVariant::Keyword(TanukiKeyword::True) => MaybeParsedToken::Parsed(TanukiExpression {
+					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Bool(true)),
+					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
+				}),
+				TanukiTokenVariant::Keyword(TanukiKeyword::False) => MaybeParsedToken::Parsed(TanukiExpression {
+					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Bool(false)),
+					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
+				}),
+				TanukiTokenVariant::Keyword(TanukiKeyword::Int) => MaybeParsedToken::Parsed(TanukiExpression {
+					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(TanukiType::CompileTimeInt)),
 					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
 				}),
 				// If there is a block

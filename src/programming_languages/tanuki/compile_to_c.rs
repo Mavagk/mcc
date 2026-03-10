@@ -9,6 +9,8 @@ impl TanukiModule {
 		// Add imports needed for the language
 		c_module.push_element(CModuleElement::AngleInclude("stdint.h".into()));
 		c_module.push_element(CModuleElement::AngleInclude("stdlib.h".into()));
+		c_module.push_element(CModuleElement::AngleInclude("stddef.h".into()));
+		c_module.push_element(CModuleElement::AngleInclude("stdbool.h".into()));
 		// Compile functions
 		for function in self.functions.iter() {
 			c_module.push_element(function.as_ref().unwrap().compile_to_c(main, modules)?);
