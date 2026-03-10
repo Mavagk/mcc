@@ -125,7 +125,6 @@ impl TanukiType {
 				64 => CType::I64,
 				_ => unreachable!(),
 			}
-			//Self::Function => unreachable!(),
 			Self::FunctionPointer(return_type, parameter_types) => {
 				let mut c_parameter_types = Vec::new();
 				for parameter_type in parameter_types.iter() {
@@ -355,6 +354,19 @@ impl TanukiPrefixUnaryOperator {
 					_ => return Err(Error::NotYetImplemented(format!("{self} operator between on {operand_type:?} types").into()).at(Some(start_line), Some(start_column), None)),
 				}
 			},
+			Self::Not => {
+				let (operand_result_variable, operand_type) = operand.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables)?;
+				match (self, &operand_type) {
+					(Self::WrappingNegation, TanukiType::U(_)) => {
+						let name = format!("_tnk_temp_bit_not_var_{function_temp_variable_count}");
+						*function_temp_variable_count += 1;
+						let c_expression = CExpression::BitwiseNot(CLValue::Variable(operand_result_variable.unwrap()).into());
+						insert_into.push_statement(CStatement::VariableDeclaration(operand_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+						Ok((Some(name.into()), operand_type))
+					}
+					_ => return Err(Error::NotYetImplemented(format!("{self} operator on {operand_type:?} types").into()).at(Some(start_line), Some(start_column), None)),
+				}
+			},
 			_ => return Err(Error::NotYetImplemented(format!("{self} operator").into()).at(Some(start_line), Some(start_column), None)),
 		}
 	}
@@ -387,6 +399,7 @@ impl TanukiInfixBinaryOperator {
 				let (lhs_result_variable, lhs_type) = lhs_expression.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables)?;
 				let (rhs_result_variable, rhs_type) = rhs_expression.compile_r_value_to_c(main, modules, insert_into, function_temp_variable_count, local_variables)?;
 				match (self, &lhs_type, &rhs_type) {
+					// U + U
 					(Self::WrappingAddition, TanukiType::U(lhs_bit_width), TanukiType::U(rhs_bit_width)) if lhs_bit_width == rhs_bit_width => {
 						let name = format!("_tnk_temp_add_var_{function_temp_variable_count}");
 						*function_temp_variable_count += 1;
@@ -394,6 +407,7 @@ impl TanukiInfixBinaryOperator {
 						insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
 						Ok((Some(name.into()), lhs_type))
 					}
+					// U - U
 					(Self::WrappingSubtraction, TanukiType::U(lhs_bit_width), TanukiType::U(rhs_bit_width)) if lhs_bit_width == rhs_bit_width => {
 						let name = format!("_tnk_temp_add_var_{function_temp_variable_count}");
 						*function_temp_variable_count += 1;
@@ -401,10 +415,54 @@ impl TanukiInfixBinaryOperator {
 						insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
 						Ok((Some(name.into()), lhs_type))
 					}
+					// U * U
 					(Self::WrappingMultiplication, TanukiType::U(lhs_bit_width), TanukiType::U(rhs_bit_width)) if lhs_bit_width == rhs_bit_width => {
 						let name = format!("_tnk_temp_mul_var_{function_temp_variable_count}");
 						*function_temp_variable_count += 1;
 						let c_expression = CExpression::Multiply(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
+						insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+						Ok((Some(name.into()), lhs_type))
+					}
+					// Bitwise
+					(Self::NonShortCircuitAnd, TanukiType::U(lhs_bit_width), TanukiType::U(rhs_bit_width)) if lhs_bit_width == rhs_bit_width => {
+						let name = format!("_tnk_temp_bit_and_var_{function_temp_variable_count}");
+						*function_temp_variable_count += 1;
+						let c_expression = CExpression::BitwiseAnd(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
+						insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+						Ok((Some(name.into()), lhs_type))
+					}
+					(Self::NonShortCircuitOr, TanukiType::U(lhs_bit_width), TanukiType::U(rhs_bit_width)) if lhs_bit_width == rhs_bit_width => {
+						let name = format!("_tnk_temp_bit_or_var_{function_temp_variable_count}");
+						*function_temp_variable_count += 1;
+						let c_expression = CExpression::BitwiseOr(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
+						insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+						Ok((Some(name.into()), lhs_type))
+					}
+					(Self::NonShortCircuitXor, TanukiType::U(lhs_bit_width), TanukiType::U(rhs_bit_width)) if lhs_bit_width == rhs_bit_width => {
+						let name = format!("_tnk_temp_bit_xor_var_{function_temp_variable_count}");
+						*function_temp_variable_count += 1;
+						let c_expression = CExpression::BitwiseXor(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
+						insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+						Ok((Some(name.into()), lhs_type))
+					}
+					(Self::NonShortCircuitNand, TanukiType::U(lhs_bit_width), TanukiType::U(rhs_bit_width)) if lhs_bit_width == rhs_bit_width => {
+						let name = format!("_tnk_temp_bit_nand_var_{function_temp_variable_count}");
+						*function_temp_variable_count += 1;
+						let c_expression = CExpression::BitwiseNot(CExpression::BitwiseAnd(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into()).into());
+						insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+						Ok((Some(name.into()), lhs_type))
+					}
+					(Self::NonShortCircuitNor, TanukiType::U(lhs_bit_width), TanukiType::U(rhs_bit_width)) if lhs_bit_width == rhs_bit_width => {
+						let name = format!("_tnk_temp_bit_nor_var_{function_temp_variable_count}");
+						*function_temp_variable_count += 1;
+						let c_expression = CExpression::BitwiseNot(CExpression::BitwiseOr(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into()).into());
+						insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+						Ok((Some(name.into()), lhs_type))
+					}
+					(Self::NonShortCircuitXnor, TanukiType::U(lhs_bit_width), TanukiType::U(rhs_bit_width)) if lhs_bit_width == rhs_bit_width => {
+						let name = format!("_tnk_temp_bit_xnor_var_{function_temp_variable_count}");
+						*function_temp_variable_count += 1;
+						let c_expression = CExpression::BitwiseNot(CExpression::BitwiseXor(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into()).into());
 						insert_into.push_statement(CStatement::VariableDeclaration(lhs_type.compile_to_c(main)?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
 						Ok((Some(name.into()), lhs_type))
 					}
