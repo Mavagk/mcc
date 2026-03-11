@@ -269,6 +269,9 @@ fn main() {
 		if let Some(3) = args.optimization_level {
 			command.arg("-s");
 		}
+		for link_to in main_struct.link_to.iter() {
+			command.arg(format!("-l{}", link_to.to_string_lossy()));
+		}
 		match command.output() {
 			Ok(result) if result.status.success() => {},
 			Ok(result) => {
@@ -298,6 +301,7 @@ pub struct Main {
 	pub output_directory: Box<Path>,
 	pub target_triple: Box<str>,
 	pub os: Os,
+	pub link_to: Vec<Box<Path>>,
 }
 
 impl Main {
@@ -331,6 +335,7 @@ impl Main {
 			module_being_processed: PathBuf::new().into_boxed_path(),
 			target_triple: "".into(),
 			os: Os::Unix,
+			link_to: Vec::new(),
 		})
 	}
 

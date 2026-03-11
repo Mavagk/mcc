@@ -19,24 +19,26 @@ pub enum TanukiCompileTimeValue {
 	Bool(bool),
 	Type(TanukiType),
 	FunctionPointer(Box<str>, Box<Path>, Box<TanukiType>, Box<[TanukiType]>),
+	LinkedFunctionPointer(Box<str>, Box<TanukiType>, Box<[TanukiType]>),
 }
 
 impl TanukiCompileTimeValue {
 	/// Returns the type of this value.
 	pub fn get_type(&self) -> TanukiType {
 		match self {
-			Self::CompileTimeInt(_)                                                                         => TanukiType::CompileTimeInt,
-			Self::CompileTimeFloat(_)                                                                       => TanukiType::CompileTimeFloat,
-			Self::CompileTimeBool(_)                                                                        => TanukiType::CompileTimeBool,
-			Self::CompileTimeChar(_)                                                                        => TanukiType::CompileTimeChar,
-			Self::CompileTimeString(_)                                                                      => TanukiType::CompileTimeString,
-			Self::Void                                                                                      => TanukiType::Void,
-			Self::U(bit_width, _)                                                                      => TanukiType::U(*bit_width),
-			Self::I(bit_width, _)                                                                      => TanukiType::I(*bit_width),
-			Self::F(bit_width, _)                                                                      => TanukiType::F(*bit_width),
-			Self::Bool(_)                                                                                   => TanukiType::Bool,
-			Self::Type(_)                                                                                   => TanukiType::Type,
-			Self::FunctionPointer(_, _, return_type, parameter_types) => TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone()),
+			Self::CompileTimeInt(_)                                                                            => TanukiType::CompileTimeInt,
+			Self::CompileTimeFloat(_)                                                                          => TanukiType::CompileTimeFloat,
+			Self::CompileTimeBool(_)                                                                           => TanukiType::CompileTimeBool,
+			Self::CompileTimeChar(_)                                                                           => TanukiType::CompileTimeChar,
+			Self::CompileTimeString(_)                                                                         => TanukiType::CompileTimeString,
+			Self::Void                                                                                         => TanukiType::Void,
+			Self::U(bit_width, _)                                                                         => TanukiType::U(*bit_width),
+			Self::I(bit_width, _)                                                                         => TanukiType::I(*bit_width),
+			Self::F(bit_width, _)                                                                         => TanukiType::F(*bit_width),
+			Self::Bool(_)                                                                                      => TanukiType::Bool,
+			Self::Type(_)                                                                                      => TanukiType::Type,
+			Self::FunctionPointer(_, _, return_type, parameter_types)    => TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone()),
+			Self::LinkedFunctionPointer(_, return_type, parameter_types) => TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone()),
 		}
 	}
 
@@ -123,6 +125,7 @@ impl AstNode for TanukiCompileTimeValue {
 			Self::Bool(value)                                              => write!(f, "Bool {value}"),
 			Self::Type(_)                                                         => write!(f, "Type"),
 			Self::FunctionPointer(name, module_path, _, _) => write!(f, "Function Pointer {name} of {module_path:?}"),
+			Self::LinkedFunctionPointer(name, _, _)                    => write!(f, "Linked Function Pointer {name}"),
 		}
 	}
 
@@ -131,7 +134,7 @@ impl AstNode for TanukiCompileTimeValue {
 			Self::CompileTimeInt(_) | Self::CompileTimeFloat(_) | Self::CompileTimeBool(_) | Self::CompileTimeChar(_) | Self::CompileTimeString(_) |
 			Self::Void | Self::U(_, _) | Self::I(_, _) | Self::F(_, _) | Self::Bool(_) => Ok(()),
 			Self::Type(type_t) => type_t.print(level, f),
-			Self::FunctionPointer(_, _, return_type, parameter_types) => {
+			Self::FunctionPointer(_, _, return_type, parameter_types) | Self::LinkedFunctionPointer(_, return_type, parameter_types) => {
 				return_type.print(level, f)?;
 				for parameter_type in parameter_types.iter() {
 					parameter_type.print(level, f)?;
