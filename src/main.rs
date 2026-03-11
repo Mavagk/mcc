@@ -301,7 +301,7 @@ pub struct Main {
 	pub output_directory: Box<Path>,
 	pub target_triple: Box<str>,
 	pub os: Os,
-	pub link_to: Vec<Box<Path>>,
+	pub link_to: HashSet<Box<Path>>,
 }
 
 impl Main {
@@ -335,7 +335,7 @@ impl Main {
 			module_being_processed: PathBuf::new().into_boxed_path(),
 			target_triple: "".into(),
 			os: Os::Unix,
-			link_to: Vec::new(),
+			link_to: HashSet::new(),
 		})
 	}
 

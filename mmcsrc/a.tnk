@@ -6,7 +6,10 @@
 
 A = @import("b.tnk");
 
+Beep = @link_if("kernel32", @u(32), @u(32), @i(32), @true);
+
 @entrypoint simpleFn = (; @u(8)) {
+	//Beep(@u(32) 100, @u(32) 100);
 	//t = @true;
 	A
 	//@u(8) a = fnY();

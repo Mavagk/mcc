@@ -309,7 +309,19 @@ impl TanukiCompileTimeValue {
 				insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c(main)?, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
 				return Ok((Some(temp_name.into()), t_type))
 			}
-			_ => todo!(),
+			TanukiCompileTimeValue::LinkedFunctionPointer(function_name, return_type, parameter_types) => {
+				// TODO: Functions at top
+				let t_type = TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone());//TanukiType::FunctionPointer(Box::new(return_type.clone()), parameter_types.into());
+				let c_expression = CExpression::TakeReference(CLValue::Variable(function_name.clone().into()).into());
+				let temp_name = format!("_tnk_temp_link_func_var_{function_temp_variable_count}");
+				*function_temp_variable_count += 1;
+				insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c(main)?, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+				return Ok((Some(temp_name.into()), t_type))
+			}
+			_ => {
+				println!("{self:?}");
+				todo!()
+			},
 		};
 		let t_type = self.get_type();
 		let c_type = t_type.compile_to_c(main)?;

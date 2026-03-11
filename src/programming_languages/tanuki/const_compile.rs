@@ -487,7 +487,7 @@ impl TanukiExpression {
 				*was_complication_done = true;
 				Some(constant.clone())
 			}
-			TanukiExpressionVariant::Link { name, library_path: _, argument_types, return_type, link_if } => 'a: {
+			TanukiExpressionVariant::Link { name, library_path, argument_types, return_type, link_if } => 'a: {
 				if name.is_none() {
 					// Set the name of the item to link to to that of the variable this expression is being assigned to
 					*name = match global_variable_assigned_to_name {
@@ -534,8 +534,28 @@ impl TanukiExpression {
 						return Ok(None);
 					}
 				}
-				// Return
-				None
+				// Convert to constant
+				let name = match name {
+					Some(name) => name,
+					None => todo!(),
+				};
+				let return_type = match &return_type {
+					Some(return_type) => match &**return_type {
+						TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(t_type)), .. } => t_type.clone(),
+						_ => unreachable!(),
+					},
+					None => TanukiType::Void,
+				};
+				let mut result_argument_types = Vec::new();
+				for argument_type in argument_types.iter() {
+					result_argument_types.push(match &argument_type {
+						TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(t_type)), .. } => t_type.clone(),
+						_ => unreachable!(),
+					});
+				}
+				*was_complication_done = true;
+				main.link_to.insert(library_path.clone());
+				Some(TanukiCompileTimeValue::LinkedFunctionPointer(name.clone(), return_type.into(), result_argument_types.into()))
 			},
 			_ => None,
 		};

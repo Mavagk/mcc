@@ -229,7 +229,9 @@ impl TanukiExpression {
 					) && (!maybe_parsed_tokens[x].is_parsed() || (!matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken {
 						variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(..) | TanukiPartiallyParsedTokenVariant::SquareParenthesised(..), ..
 					})))) && (!matches!(maybe_parsed_tokens[x], 
-						MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Keyword(TanukiKeyword::Import | TanukiKeyword::Link | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F), .. })) ||
+						MaybeParsedToken::Unparsed(
+							TanukiToken { variant: TanukiTokenVariant::Keyword(TanukiKeyword::Import | TanukiKeyword::Link | TanukiKeyword::LinkIf | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F), .. }
+						)) ||
 						!matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken
 						{
 							variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(..), ..
@@ -240,7 +242,7 @@ impl TanukiExpression {
 				}
 				// Parse
 				if matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken {
-					variant: TanukiTokenVariant::Keyword(TanukiKeyword::Import | TanukiKeyword::Link | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F), ..
+					variant: TanukiTokenVariant::Keyword(TanukiKeyword::Import | TanukiKeyword::Link | TanukiKeyword::LinkIf | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F), ..
 				})) {
 					let operand = maybe_parsed_tokens[x].clone().unwrap_unparsed();
 					let (keyword, start_line, start_column) = match operand {
