@@ -24,7 +24,7 @@ pub enum TanukiExpressionVariant {
 	TypeAndValue(Box<TanukiExpression>, Box<TanukiExpression>),
 	ImportConstant { name: Option<Box<str>>, module_path: Box<Path> },
 	Export(Box<TanukiExpression>),
-	Link { name: Option<Box<str>>, library_path: Box<Path>, argument_types: Box<[TanukiExpression]>, return_type: Option<Box<TanukiExpression>>, link_if: Option<Box<TanukiExpression>> },
+	Link { name: Option<Box<str>>, library_path: Box<Path>, parameter_types: Box<[TanukiExpression]>, return_type: Option<Box<TanukiExpression>>, link_if: Option<Box<TanukiExpression>> },
 	Entrypoint(Box<TanukiExpression>),
 	U(Box<[TanukiExpression]>),
 	I(Box<[TanukiExpression]>),
@@ -151,7 +151,7 @@ impl AstNode for TanukiExpression {
 				rhs.print(level, f)
 			}
 			TanukiExpressionVariant::NullaryOperator(_) => Ok(()),
-			TanukiExpressionVariant::Link { argument_types, return_type, link_if, .. } => {
+			TanukiExpressionVariant::Link { parameter_types: argument_types, return_type, link_if, .. } => {
 				for argument in argument_types.iter() {
 					argument.print(level, f)?;
 				}

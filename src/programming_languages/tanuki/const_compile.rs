@@ -109,9 +109,11 @@ impl TanukiFunction {
 			_ => return Ok(()),
 		};
 		// Const-compile the function body
-		self.body.const_compile_r_value(
-			main, modules, this_module, module_path, was_complication_done, &mut local_variables, &return_type, dependencies_need_const_compiling, None
-		)?;
+		if let Some(body) = &mut self.body {
+			body.const_compile_r_value(
+				main, modules, this_module, module_path, was_complication_done, &mut local_variables, &return_type, dependencies_need_const_compiling, None
+			)?;
+		}
 		// Return
 		Ok(())
 	}
@@ -197,11 +199,10 @@ impl TanukiExpression {
 					Some(assigned_to_name) => format!("{assigned_to_name}_{}", module_hash.finish()).into_boxed_str(),
 					None => format!("_tnk_fn_{module_function_index}_{}", module_hash.finish()).into_boxed_str(),
 				};
-				//global_variables_dependent_on.insert(mangled_function_name.clone());
 				this_module.functions.push(Some(TanukiFunction {
 					name: mangled_function_name.clone(), parameters: new_parameters.into_boxed_slice(),
 					return_type: take(return_type).map(|return_type| *return_type),
-					body: take(body_expression), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column,
+					body: Some(take(body_expression)), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column,
 				}));
 				*self = TanukiExpression {
 					variant: TanukiExpressionVariant::Function { name: mangled_function_name, module_path: main.module_being_processed.clone() },
@@ -487,7 +488,7 @@ impl TanukiExpression {
 				*was_complication_done = true;
 				Some(constant.clone())
 			}
-			TanukiExpressionVariant::Link { name, library_path, argument_types, return_type, link_if } => 'a: {
+			TanukiExpressionVariant::Link { name, library_path, parameter_types, return_type, link_if } => 'a: {
 				if name.is_none() {
 					// Set the name of the item to link to to that of the variable this expression is being assigned to
 					*name = match global_variable_assigned_to_name {
@@ -516,8 +517,8 @@ impl TanukiExpression {
 						None => return Ok(None),
 					}
 				}
-				// Const-compile arguments
-				for argument_type in argument_types.iter_mut() {
+				// Const-compile parameters
+				for argument_type in parameter_types.iter_mut() {
 					argument_type.const_compile_r_value(
 						main, modules, this_module, this_module_path, was_complication_done, local_variables, &TanukiType::Type, dependencies_need_const_compiling, global_variable_assigned_to_name
 					)?;
@@ -534,11 +535,23 @@ impl TanukiExpression {
 						return Ok(None);
 					}
 				}
-				// Convert to constant
+				// Get name
 				let name = match name {
 					Some(name) => name,
 					None => todo!(),
 				};
+				// Push function
+				let mut parameters = Vec::new();
+				for parameter_type in parameter_types.iter() {
+					parameters.push(TanukiFunctionParameter {
+						t_type: Some(parameter_type.clone()), name: "".into(), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
+					});
+				}
+				this_module.functions.push(Some(TanukiFunction {
+					name: name.clone(), parameters: parameters.into(), return_type: return_type.clone().map(|return_type| *return_type).into(),
+					body: None, start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
+				}));
+				// Convert to constant
 				let return_type = match &return_type {
 					Some(return_type) => match &**return_type {
 						TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(t_type)), .. } => t_type.clone(),
@@ -547,7 +560,7 @@ impl TanukiExpression {
 					None => TanukiType::Void,
 				};
 				let mut result_argument_types = Vec::new();
-				for argument_type in argument_types.iter() {
+				for argument_type in parameter_types.iter() {
 					result_argument_types.push(match &argument_type {
 						TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(t_type)), .. } => t_type.clone(),
 						_ => unreachable!(),

@@ -5,6 +5,7 @@ use crate::{error::{Error, ErrorAt}, programming_languages::c::{statement::CComp
 #[derive(Debug)]
 pub enum CModuleElement {
 	FunctionDefinition { return_type: CType, name: Box<str>, parameters: Box<[CFunctionParameter]>, body: Box<CCompoundStatement> },
+	FunctionDeclaration { return_type: CType, name: Box<str>, parameters: Box<[CFunctionParameter]> },
 	AngleInclude(Box<str>),
 	DoubleQuotesInclude(Box<str>),
 }
@@ -17,6 +18,7 @@ impl AstNode for CModuleElement {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::FunctionDefinition { name, .. } => write!(f, "Function Definition \"{name}\""),
+			Self::FunctionDeclaration { name, .. } => write!(f, "Function Declaration \"{name}\""),
 			Self::AngleInclude(name) => write!(f, "Include <{name}>"),
 			Self::DoubleQuotesInclude(name) => write!(f, "Include \"{name}\""),
 		}
@@ -31,6 +33,14 @@ impl AstNode for CModuleElement {
 					argument.print(level, f)?;
 				}
 				body.print(level, f)?;
+				Ok(())
+			}
+			Self::FunctionDeclaration { return_type, parameters: arguments, .. } => {
+				return_type.print(level, f)?;
+				writeln!(f)?;
+				for argument in arguments {
+					argument.print(level, f)?;
+				}
 				Ok(())
 			}
 			Self::AngleInclude(_) | Self::DoubleQuotesInclude(_) => Ok(()),
@@ -54,6 +64,21 @@ impl AstNode for CModuleElement {
 				}
 				writer.write_all(b") ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				body.write_to_file(writer, indentation_level)
+			}
+			Self::FunctionDeclaration { return_type, name, parameters } => {
+				return_type.write_to_file(writer, indentation_level)?;
+				writer.write_all(b" ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				let mut is_first_parameter = true;
+				for parameter in parameters {
+					if !is_first_parameter {
+						writer.write_all(b", ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					}
+					parameter.write_to_file(writer, indentation_level)?;
+					is_first_parameter = false;
+				}
+				writer.write_all(b");").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
 			Self::AngleInclude(name) => {
 				writer.write_all(b"#include <").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
@@ -91,9 +116,11 @@ impl AstNode for CFunctionParameter {
 	}
 
 	fn write_to_file(&self, writer: &mut BufWriter<File>, indentation_level: usize) -> Result<(), ErrorAt> {
-		self.param_type.write_to_file_with_name(writer, indentation_level, &self.name)
-		//self.param_type.write_to_file(writer, indentation_level)?;
-		//writer.write_all(b" ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
-		//writer.write_all(self.name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+		if self.name.is_empty() {
+			self.param_type.write_to_file(writer, indentation_level)
+		}
+		else {
+			self.param_type.write_to_file_with_name(writer, indentation_level, &self.name)
+		}
 	}
 }

@@ -299,7 +299,7 @@ impl TanukiExpression {
 							let return_type = arguments.next().unwrap();
 							// Return
 							TanukiExpressionVariant::Link {
-								name: None, library_path: library_path.into_boxed_path(), argument_types: argument_types.into_boxed_slice(), return_type: Some(return_type.into()), link_if: None
+								name: None, library_path: library_path.into_boxed_path(), parameter_types: argument_types.into_boxed_slice(), return_type: Some(return_type.into()), link_if: None
 							}
 						},
 						TanukiKeyword::LinkIf => {
@@ -330,7 +330,7 @@ impl TanukiExpression {
 							let link_if = arguments.next().unwrap();
 							// Return
 							TanukiExpressionVariant::Link {
-								name: None, library_path: library_path.into_boxed_path(), argument_types: argument_types.into_boxed_slice(), return_type: Some(return_type.into()), link_if: Some(link_if.into())
+								name: None, library_path: library_path.into_boxed_path(), parameter_types: argument_types.into_boxed_slice(), return_type: Some(return_type.into()), link_if: Some(link_if.into())
 							}
 						},
 						TanukiKeyword::U => TanukiExpressionVariant::U(arguments),

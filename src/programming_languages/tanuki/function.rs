@@ -7,7 +7,7 @@ pub struct TanukiFunction {
 	pub name: Box<str>,
 	pub parameters: Box<[TanukiFunctionParameter]>,
 	pub return_type: Option<TanukiExpression>,
-	pub body: TanukiExpression,
+	pub body: Option<TanukiExpression>,
 	pub start_line: NonZeroUsize,
 	pub start_column: NonZeroUsize,
 	pub end_line: NonZeroUsize,
@@ -26,7 +26,10 @@ impl AstNode for TanukiFunction {
 		if let Some(return_type) = &self.return_type {
 			return_type.print(level, f)?;
 		}
-		self.body.print(level, f)
+		if let Some(body) = &self.body {
+			body.print(level, f)?;
+		}
+		Ok(())
 	}
 
 	fn start_line(&self) -> Option<NonZeroUsize> {

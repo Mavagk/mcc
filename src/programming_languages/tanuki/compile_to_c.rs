@@ -88,23 +88,32 @@ impl TanukiFunction {
 			let c_type = t_type.compile_to_c(main)?;
 			c_parameters.push(CFunctionParameter::new(c_type, parameter.name.clone()));
 		}
-		// Compile body
-		let mut function_temp_variable_count = 0;
-		let mut c_compound_statement = CCompoundStatement::new();
-		let (body_result_value_name, returned_type) = self.body.compile_r_value_to_c(
-			main, modules, &mut c_compound_statement, &mut function_temp_variable_count, &mut local_variables
-		)?;
-		// Return body value if it is not a void value
-		if let Some(body_result_value_name) = body_result_value_name {
-			c_compound_statement.push_statement(CStatement::Return(Some(CLValue::Variable(body_result_value_name).into())));
+		// If this is a function definition, compile the body
+		if let Some(body) = &self.body {
+			// Compile body
+			let mut function_temp_variable_count = 0;
+			let mut c_compound_statement = CCompoundStatement::new();
+			let (body_result_value_name, returned_type) = body.compile_r_value_to_c(
+				main, modules, &mut c_compound_statement, &mut function_temp_variable_count, &mut local_variables
+			)?;
+			// Return body value if it is not a void value
+			if let Some(body_result_value_name) = body_result_value_name {
+				c_compound_statement.push_statement(CStatement::Return(Some(CLValue::Variable(body_result_value_name).into())));
+			}
+			if return_type != &returned_type {
+				todo!()
+			}
+			// Pack into struct
+			Ok(CModuleElement::FunctionDefinition {
+				return_type: return_type.compile_to_c(main)?, name: self.name.clone(), parameters: c_parameters.into(), body: Box::new(c_compound_statement)
+			})
 		}
-		if return_type != &returned_type {
-			todo!()
+		// Else it is a function definition
+		else {
+			Ok(CModuleElement::FunctionDeclaration {
+				return_type: return_type.compile_to_c(main)?, name: self.name.clone(), parameters: c_parameters.into()
+			})
 		}
-		// Pack into struct
-		Ok(CModuleElement::FunctionDefinition {
-			return_type: return_type.compile_to_c(main)?, name: self.name.clone(), parameters: c_parameters.into(), body: Box::new(c_compound_statement)
-		})
 	}
 }
 
