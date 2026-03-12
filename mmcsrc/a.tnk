@@ -4,16 +4,17 @@
 
 //A = 8;
 
-A = @import("b.tnk");
+//A = @import("b.tnk");
 
 Beep = @link_if("kernel32", @u(32), @u(32), @i(32), @true);
 
 @entrypoint simpleFn = (; @u(8)) {
-	//Beep(@u(32) 100, @u(32) 100);
+	//Beep(@u(32) 1000, @u(32) 1000);
 	//t = @true;
-	A
+	//A
 	//@u(8) a = fnY();
 	//a +% @u(8) 5
+	2
 };
 
 //fnA = (; @u(8)) 50 + 60;
