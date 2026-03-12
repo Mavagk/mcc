@@ -230,9 +230,13 @@ fn main() {
 			path.hash(&mut hasher);
 			let hash = hasher.finish();
 			let path_end: String = path.file_name().unwrap().to_string_lossy().into();
-			filepath.push(format!("{hash:016X}_{path_end}.c"));
+			filepath.push(format!("{hash:016X}_{path_end}"));
+			let mut header_filepath = filepath.clone();
+			filepath.set_extension("c");
+			header_filepath.set_extension("h");
 			// Delete the file if it already exists
 			_ = remove_file(&filepath);
+			_ = remove_file(&header_filepath);
 			// Create file
 			let file = match File::create(&filepath) {
 				Ok(file) => file,
@@ -243,6 +247,10 @@ fn main() {
 			};
 			// Write C module to C source
 			let mut writer = BufWriter::new(file);
+			if let Err(error) = writer.write_all(format!("#include \"{}\"\n\n", header_filepath.file_name().unwrap().to_string_lossy()).as_bytes()) {
+				println!("Error while writing C module to disk \"{}\": {error}.", filepath.to_string_lossy());
+				return;
+			}
 			if let Err(error) = c_module.write_to_file(&mut writer, 0) {
 				println!("Error while writing C module to disk \"{}\": {error}.", path.to_string_lossy());
 				return;
@@ -253,6 +261,26 @@ fn main() {
 			}
 			// Add to list of C files to be compiled
 			c_files_to_compile.insert(filepath);
+			// Create header file
+			let file = match File::create(&header_filepath) {
+				Ok(file) => file,
+				Err(error) => {
+					println!("Error while writing header file \"{}\": {error}.", header_filepath.to_string_lossy());
+					return;
+				}
+			};
+			// Write C module to C header source
+			let mut writer = BufWriter::new(file);
+			if let Err(error) = c_module.write_header_to_file(&mut writer, 0) {
+				println!("Error while writing C module header file to disk \"{}\": {error}.", header_filepath.to_string_lossy());
+				return;
+			}
+			if let Err(error) = writer.flush() {
+				println!("Error while writing C module header file to disk \"{}\": {error}.", header_filepath.to_string_lossy());
+				return;
+			}
+			// Add header to list of C files to be compiled
+			c_files_to_compile.insert(header_filepath);
 		}
 		// Compile C files into executable
 		let mut command = Command::new("gcc");

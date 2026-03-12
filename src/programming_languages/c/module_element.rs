@@ -65,7 +65,13 @@ impl AstNode for CModuleElement {
 				writer.write_all(b") ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				body.write_to_file(writer, indentation_level)
 			}
-			Self::FunctionDeclaration { return_type, name, parameters } => {
+			Self::FunctionDeclaration { .. } | Self::AngleInclude(..) | Self::DoubleQuotesInclude(..) => Ok(())
+		}
+	}
+
+	fn write_header_to_file(&self, writer: &mut BufWriter<File>, indentation_level: usize) -> Result<(), ErrorAt> {
+		match self {
+			Self::FunctionDeclaration { return_type, name, parameters } | Self::FunctionDefinition { return_type, name, parameters, .. } => {
 				return_type.write_to_file(writer, indentation_level)?;
 				writer.write_all(b" ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;

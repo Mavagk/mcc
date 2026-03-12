@@ -52,4 +52,8 @@ pub trait AstNode {
 	fn write_to_file(&self, _writer: &mut BufWriter<File>, _indentation_level: usize) -> Result<(), ErrorAt> {
 		unimplemented!()
 	}
+
+	fn write_header_to_file(&self, _writer: &mut BufWriter<File>, _indentation_level: usize) -> Result<(), ErrorAt> {
+		unimplemented!()
+	}
 }

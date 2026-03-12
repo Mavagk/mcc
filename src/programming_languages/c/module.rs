@@ -43,10 +43,24 @@ impl AstNode for CModule {
 	fn write_to_file(&self, writer: &mut BufWriter<File>, indentation_level: usize) -> Result<(), ErrorAt> {
 		let mut is_first_element = true;
 		for module_element in self.elements.iter() {
-			if !is_first_element {
+			if !is_first_element && !matches!(module_element, CModuleElement::FunctionDeclaration { .. } | CModuleElement::AngleInclude(..) | CModuleElement::DoubleQuotesInclude(..)) {
 				writer.write_all(b"\n\n").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 			}
 			module_element.write_to_file(writer, indentation_level)?;
+			if !matches!(module_element, CModuleElement::FunctionDeclaration { .. } | CModuleElement::AngleInclude(..) | CModuleElement::DoubleQuotesInclude(..)) {
+				is_first_element = false;
+			}
+		}
+		Ok(())
+	}
+
+	fn write_header_to_file(&self, writer: &mut BufWriter<File>, indentation_level: usize) -> Result<(), ErrorAt> {
+		let mut is_first_element = true;
+		for module_element in self.elements.iter() {
+			if !is_first_element {
+				writer.write_all(b"\n").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+			}
+			module_element.write_header_to_file(writer, indentation_level)?;
 			is_first_element = false;
 		}
 		Ok(())
