@@ -1,6 +1,8 @@
-use std::{collections::HashSet, num::NonZeroUsize};
+use std::{collections::HashSet, num::NonZeroUsize, path::PathBuf};
 
-use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiKeyword, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader};
+use num::ToPrimitive;
+
+use crate::{Main, Os, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiKeyword, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader};
 
 #[derive(Debug, Clone)]
 pub struct TanukiPartiallyParsedToken {
@@ -230,7 +232,9 @@ impl TanukiExpression {
 						variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(..) | TanukiPartiallyParsedTokenVariant::SquareParenthesised(..), ..
 					})))) && (!matches!(maybe_parsed_tokens[x], 
 						MaybeParsedToken::Unparsed(
-							TanukiToken { variant: TanukiTokenVariant::Keyword(TanukiKeyword::Import | TanukiKeyword::Link | TanukiKeyword::LinkIf | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F), .. }
+							TanukiToken { variant: TanukiTokenVariant::Keyword(
+								TanukiKeyword::Import | TanukiKeyword::ImportStd | TanukiKeyword::Link | TanukiKeyword::LinkIf | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F | TanukiKeyword::Info
+							), .. }
 						)) ||
 						!matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken
 						{
@@ -242,7 +246,9 @@ impl TanukiExpression {
 				}
 				// Parse
 				if matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken {
-					variant: TanukiTokenVariant::Keyword(TanukiKeyword::Import | TanukiKeyword::Link | TanukiKeyword::LinkIf | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F), ..
+					variant: TanukiTokenVariant::Keyword(
+						TanukiKeyword::Import | TanukiKeyword::ImportStd | TanukiKeyword::Link | TanukiKeyword::LinkIf | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F | TanukiKeyword::Info
+					), ..
 				})) {
 					let operand = maybe_parsed_tokens[x].clone().unwrap_unparsed();
 					let (keyword, start_line, start_column) = match operand {
@@ -259,19 +265,33 @@ impl TanukiExpression {
 						_ => unreachable!(),
 					};
 					maybe_parsed_tokens[x] = MaybeParsedToken::Parsed(TanukiExpression { variant: match keyword {
-						TanukiKeyword::Import => {
+						TanukiKeyword::Import | TanukiKeyword::ImportStd => {
 							if arguments.len() != 1 {
-								return Err(Error::Unimplemented("@import with argument count that is not one".into()).at(Some(start_line), Some(start_column), None));
+								return Err(Error::Unimplemented("Import with argument count that is not one".into()).at(Some(start_line), Some(start_column), None));
 							}
 							let argument = &arguments[0];
 							let argument = match &argument.variant {
 								TanukiExpressionVariant::Constant(TanukiCompileTimeValue::CompileTimeString(path)) => &**path,
-								_ => return Err(Error::Unimplemented("@import with argument that is not a string".into()).at(Some(argument.start_line), Some(argument.start_column), None)),
+								_ => return Err(Error::Unimplemented("Import with argument that is not a string".into()).at(Some(argument.start_line), Some(argument.start_column), None)),
 							};
-							let mut module_path = main.module_being_processed.parent().unwrap().to_path_buf();
+							let mut module_path = match keyword {
+								TanukiKeyword::Import    => main.module_being_processed.parent().unwrap().to_path_buf(),
+								TanukiKeyword::ImportStd => main.tnk_std_directory.clone().into_path_buf(),
+								_ => unreachable!(),
+							};
 							module_path.push(argument);
-							main.add_module_to_compile((module_path.clone().into_boxed_path(), false));
-							TanukiExpressionVariant::ImportConstant { name: None, module_path: module_path.into_boxed_path() }
+							let mut new_path = PathBuf::new();
+							for component in module_path.components() {
+								let component = component.as_os_str();
+								if component.to_string_lossy() == ".." {
+									new_path.pop();
+								}
+								else {
+									new_path.push(component);
+								}
+							}
+							main.add_module_to_compile((new_path.clone().into_boxed_path(), false));
+							TanukiExpressionVariant::ImportConstant { name: None, module_path: new_path.clone().into_boxed_path() }
 						},
 						TanukiKeyword::Link => {
 							let arguments_len = arguments.len();
@@ -288,8 +308,7 @@ impl TanukiExpression {
 										.at(Some(library_path_argument.start_line), Some(library_path_argument.start_column), None)
 								),
 							};
-							let mut library_path = main.module_being_processed.parent().unwrap().to_path_buf();
-							library_path.push(library_path_argument);
+							let library_path: PathBuf = library_path_argument.into();
 							// Get the arguments
 							let mut argument_types = Vec::new();
 							for _ in 0..arguments_len - 2 {
@@ -317,8 +336,7 @@ impl TanukiExpression {
 										.at(Some(library_path_argument.start_line), Some(library_path_argument.start_column), None)
 								),
 							};
-							let mut library_path = main.module_being_processed.parent().unwrap().to_path_buf();
-							library_path.push(library_path_argument);
+							let library_path: PathBuf = library_path_argument.into();
 							// Get the arguments
 							let mut argument_types = Vec::new();
 							for _ in 0..arguments_len - 3 {
@@ -333,6 +351,22 @@ impl TanukiExpression {
 								name: None, library_path: library_path.into_boxed_path(), parameter_types: argument_types.into_boxed_slice(), return_type: Some(return_type.into()), link_if: Some(link_if.into())
 							}
 						},
+						TanukiKeyword::Info => {
+							if arguments.len() != 1 {
+								return Err(Error::Unimplemented("@_info with argument count that is not one".into()).at(Some(start_line), Some(start_column), None));
+							}
+							let argument = &arguments[0];
+							let argument_value = match &argument.variant {
+								TanukiExpressionVariant::Constant(TanukiCompileTimeValue::CompileTimeInt(argument_value)) => argument_value,
+								_ => return Err(Error::Unimplemented("@_info with argument that is not an integer".into()).at(Some(argument.start_line), Some(argument.start_column), None)),
+							};
+							let argument_value = match argument_value.to_u8() {
+								Some(0) => TanukiCompileTimeValue::Bool(main.os == Os::Windows), // Is windows
+								Some(1) => TanukiCompileTimeValue::Bool(main.os == Os::Unix), // Is unix
+								_ => return Err(Error::Unimplemented("This info constant".into()).at(Some(argument.start_line), Some(argument.start_column), None)),
+							};
+							TanukiExpressionVariant::Constant(argument_value)
+						}
 						TanukiKeyword::U => TanukiExpressionVariant::U(arguments),
 						TanukiKeyword::I => TanukiExpressionVariant::I(arguments),
 						TanukiKeyword::F => TanukiExpressionVariant::F(arguments),

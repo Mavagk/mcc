@@ -1,4 +1,0 @@
-@export BOOL = @i(32);
-@export DWORD = @u(32);
-
-@export Beep = @link_if("kernel32", DWORD, DWORD, BOOL, @true);

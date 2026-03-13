@@ -340,6 +340,8 @@ pub struct Main {
 	pub target_triple: Box<str>,
 	pub os: Os,
 	pub link_to: HashSet<Box<Path>>,
+	pub std_directory: Box<Path>,
+	pub tnk_std_directory: Box<Path>,
 }
 
 impl Main {
@@ -362,6 +364,10 @@ impl Main {
 			Some(output_directory_argument) => output_directory.push(output_directory_argument),
 			None => output_directory.push("bin"),
 		}
+		let mut std_directory = home_directory.clone().into_path_buf();
+		std_directory.push("std");
+		let mut tnk_std_directory = std_directory.clone();
+		tnk_std_directory.push("tnk");
 		// Pack into struct
 		Ok(Self {
 			modules_to_compile: arguments.source_files.iter().cloned().collect(),
@@ -374,6 +380,8 @@ impl Main {
 			target_triple: "".into(),
 			os: Os::Unix,
 			link_to: HashSet::new(),
+			std_directory: std_directory.into_boxed_path(),
+			tnk_std_directory: tnk_std_directory.into_boxed_path(),
 		})
 	}
 
@@ -408,6 +416,7 @@ fn parse_module_to_ast(main: &mut Main, args: &Arguments, module_path: &Path) ->
 	Ok(module)
 }
 
+#[derive(PartialEq, Eq)]
 pub enum Os {
 	Windows,
 	Unix,

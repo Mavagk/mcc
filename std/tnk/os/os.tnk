@@ -1,0 +1,2 @@
+@export IS_WINDOWS = @_info(0);
+@export IS_UNIX = @_info(1);

@@ -1,0 +1,2 @@
+@export BOOL = @i(32);
+@export DWORD = @u(32);

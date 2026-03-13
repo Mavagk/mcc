@@ -1,0 +1,6 @@
+IS_WINDOWS = @import("../os/os.tnk");
+
+DWORD = @import("types.tnk");
+BOOL = @import("types.tnk");
+
+@export Beep = @link_if("kernel32", DWORD, DWORD, BOOL, IS_WINDOWS);

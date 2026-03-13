@@ -804,6 +804,7 @@ impl Display for TanukiNullaryOperator {
 #[derive(Debug, Clone, Copy)]
 pub enum TanukiKeyword {
 	Import,
+	ImportStd,
 	Export,
 	Link,
 	LinkIf,
@@ -818,12 +819,14 @@ pub enum TanukiKeyword {
 	Entrypoint,
 	Bool,
 	Int,
+	Info,
 }
 
 impl TanukiKeyword {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self {
 			Self::Import     => write!(f, "Import"),
+			Self::ImportStd  => write!(f, "Import STD"),
 			Self::Export     => write!(f, "Export"),
 			Self::Link       => write!(f, "Link"),
 			Self::LinkIf     => write!(f, "Link If"),
@@ -838,12 +841,14 @@ impl TanukiKeyword {
 			Self::Entrypoint => write!(f, "Entrypoint"),
 			Self::Bool       => write!(f, "Bool"),
 			Self::Int        => write!(f, "Int"),
+			Self::Info       => write!(f, "Info"),
 		}
 	}
 
 	pub fn from_name(name: &str) -> Option<Self> {
 		match name {
 			"import"     => Some(Self::Import),
+			"import_std" => Some(Self::ImportStd),
 			"export"     => Some(Self::Export),
 			"link"       => Some(Self::Link),
 			"link_if"    => Some(Self::LinkIf),
@@ -857,7 +862,8 @@ impl TanukiKeyword {
 			"redo"       => Some(Self::Redo),
 			"entrypoint" => Some(Self::Entrypoint),
 			"bool"       => Some(Self::Bool),
-			"inr"        => Some(Self::Int),
+			"int"        => Some(Self::Int),
+			"_info"      => Some(Self::Info),
 			_ => None,
 		}
 	}

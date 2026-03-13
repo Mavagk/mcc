@@ -1,5 +1,5 @@
 @export A = 10;
 
-DWORD = @import("windows.tnk");
+DWORD = @import_std("win/types.tnk");
 
 @export fnY = (; DWORD) 1000;
