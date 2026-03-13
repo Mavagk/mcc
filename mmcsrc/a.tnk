@@ -4,15 +4,13 @@
 
 //A = 8;
 
-BOOL = @i(32);
-DWORD = @u(32);
-
 A = @import("b.tnk");
+fnY = @import("b.tnk");
 
-Beep = @link_if("kernel32", DWORD, DWORD, BOOL, @true);
+Beep = @import("windows.tnk");
 
 @entrypoint simpleFn = (; @u(8)) {
-	Beep(@u(32) 1000, @u(32) 1000);
+	Beep(fnY(), @u(32) 1000);
 	//t = @true;
 	A
 	//@u(8) a = fnY();

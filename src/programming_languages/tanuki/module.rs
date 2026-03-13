@@ -1,4 +1,4 @@
-use std::{fmt::{self, Debug, Formatter}, num::NonZeroUsize, path::Path};
+use std::{collections::HashSet, fmt::{self, Debug, Formatter}, num::NonZeroUsize, path::Path};
 
 use crate::{Main, error::ErrorAt, programming_languages::{c::module::CModule, tanuki::{expression::TanukiExpression, function::TanukiFunction, global_constant::TanukiGlobalConstant}}, traits::{ast_node::AstNode, module::Module}};
 
@@ -8,6 +8,7 @@ pub struct TanukiModule {
 	pub functions: Vec<Option<TanukiFunction>>,
 	pub global_constants: Vec<Option<TanukiGlobalConstant>>,
 	pub entrypoint: Option<Box<str>>,
+	pub mangled_module_names_to_include_in_c: HashSet<Box<str>>,
 }
 
 impl Module for TanukiModule {

@@ -1,4 +1,4 @@
-use std::num::NonZeroUsize;
+use std::{collections::HashSet, num::NonZeroUsize};
 
 use crate::{Main, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiKeyword, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader};
 
@@ -38,7 +38,7 @@ impl TanukiModule {
 		}
 		Ok(Self {
 			parsed_expressions: expressions.into_boxed_slice(), functions: Vec::new(), global_constants: Vec::new(),
-			entrypoint: None,
+			entrypoint: None, mangled_module_names_to_include_in_c: HashSet::new()
 		})
 	}
 }

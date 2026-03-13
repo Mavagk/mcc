@@ -11,6 +11,10 @@ impl TanukiModule {
 		c_module.push_element(CModuleElement::AngleIncludeInHeader("stdlib.h".into()));
 		c_module.push_element(CModuleElement::AngleIncludeInHeader("stddef.h".into()));
 		c_module.push_element(CModuleElement::AngleIncludeInHeader("stdbool.h".into()));
+		// Add imports of other file headers
+		for mangled_module_name in self.mangled_module_names_to_include_in_c.iter() {
+			c_module.push_element(CModuleElement::DoubleQuotesIncludeInHeader(format!("{mangled_module_name}.h").into()));
+		}
 		// Compile functions
 		for function in self.functions.iter() {
 			c_module.push_element(function.as_ref().unwrap().compile_to_c(main, modules)?);

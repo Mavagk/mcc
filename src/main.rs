@@ -275,7 +275,7 @@ fn main() {
 			};
 			// Write C module to C header source
 			let mut writer = BufWriter::new(file);
-			if let Err(error) = writer.write_all(format!("#ifndef {mangled_name}\n#define {mangled_name}\n").as_bytes()) {
+			if let Err(error) = writer.write_all(format!("#ifndef _tnk_include_gard_{mangled_name}\n#define _tnk_include_gard_{mangled_name}\n").as_bytes()) {
 				println!("Error while writing C module to disk \"{}\": {error}.", header_filepath.to_string_lossy());
 				return;
 			}

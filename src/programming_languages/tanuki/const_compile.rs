@@ -450,9 +450,11 @@ impl TanukiExpression {
 					(None, None) => todo!(),
 				};
 				let mut module = None;
-				for (x_module_path, _, x_module, _mangled_name) in modules.iter() {
+				let mut module_mangled_name = None;
+				for (x_module_path, _, x_module, x_mangled_name) in modules.iter() {
 					if &**module_path == &**x_module_path {
 						module = x_module.as_ref();
+						module_mangled_name = Some(&**x_mangled_name);
 						break;
 					}
 				}
@@ -462,18 +464,22 @@ impl TanukiExpression {
 						return Ok(None);
 					}
 				};
+				let module_mangled_name = module_mangled_name.unwrap();
 				let module: &TanukiModule = match (module as &dyn Any).downcast_ref() {
 					Some(module) => module,
 					None => return Err(Error::Unimplemented("Linking to non-Tanuki modules".into()).at(None, None, None)),
 				};
 				let mut constant = None;
 				for module_global_constant in module.global_constants.iter() {
-					let module_global_constant = module_global_constant.as_ref().unwrap();
-					if !module_global_constant.export {
-						todo!()
-					}
-					if &*module_global_constant.name == name {
-						if let TanukiExpressionVariant::Constant(module_global_constant) = &module_global_constant.value_expression.variant {
+					let module_global_constant_expression = module_global_constant.as_ref().unwrap();
+					if &*module_global_constant_expression.name == name {
+						if let TanukiExpressionVariant::Constant(module_global_constant) = &module_global_constant_expression.value_expression.variant {
+							if !module_global_constant_expression.export {
+								//*dependencies_need_const_compiling = true;
+								//return Ok(None);
+								//println!("{name} {module_path:?}");
+								todo!()
+							}
 							constant = Some(module_global_constant);
 						}
 						else {
@@ -486,6 +492,7 @@ impl TanukiExpression {
 					None => todo!(),
 				};
 				*was_complication_done = true;
+				this_module.mangled_module_names_to_include_in_c.insert(module_mangled_name.into());
 				Some(constant.clone())
 			}
 			TanukiExpressionVariant::Link { name, library_path, parameter_types, return_type, link_if } => 'a: {
