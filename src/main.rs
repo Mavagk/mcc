@@ -108,8 +108,16 @@ fn main() {
 			}
 			Ok(module) => module,
 		};
+		// Get mangled name
+		let mut mangled_name: PathBuf = PathBuf::new();//main_struct.output_directory.clone().into();
+		let mut hasher = DefaultHasher::new();
+		module_path.0.hash(&mut hasher);
+		let hash = hasher.finish();
+		let path_end: String = module_path.0.file_stem().unwrap().to_string_lossy().into();
+		mangled_name.push(format!("{hash:016X}_{path_end}"));
+		let mangled_name: Box<str> = mangled_name.to_string_lossy().into();
 		// Insert into parsed module list
-		parsed_modules.push((module_path.0, module_path.1, Some(module)));
+		parsed_modules.push((module_path.0, module_path.1, Some(module), mangled_name));
 	}
 	if args.do_stop_after_parse {
 		return;
@@ -178,7 +186,7 @@ fn main() {
 		//	return;
 		//}
 	}
-	for (path, _, module) in parsed_modules.iter() {
+	for (path, _, module, _mangled_name) in parsed_modules.iter() {
 		println!("AST of {} after const-compile", path.to_string_lossy());
 		println!("{:?}", (&module).as_ref().unwrap());
 	}
@@ -187,7 +195,7 @@ fn main() {
 	}
 	// Execute entrypoint modules if "--execute-interpreted" is set
 	if args.execute_interpreted {
-		for (path, is_entrypoint, module) in parsed_modules.iter() {
+		for (path, is_entrypoint, module, _mangled_name) in parsed_modules.iter() {
 			main_struct.module_being_processed = path.clone();
 			if *is_entrypoint {
 				match module.as_ref().unwrap().interpreted_execute_entrypoint(&mut main_struct) {
@@ -207,7 +215,7 @@ fn main() {
 		// Source to source compile to C if "--execute-interpreted" is not set
 		_ = create_dir_all(&main_struct.output_directory);
 		let mut c_files_to_compile = HashSet::new();
-		for (path, is_entrypoint, module) in parsed_modules.iter() {
+		for (path, is_entrypoint, module, mangled_name) in parsed_modules.iter() {
 			main_struct.module_being_processed = path.clone();
 			// Source to source compile module to C module
 			let c_module = match module.as_ref().unwrap().to_c_module(&mut main_struct, &*parsed_modules, *is_entrypoint) {
@@ -226,11 +234,7 @@ fn main() {
 			}
 			// Get output filepath
 			let mut filepath: PathBuf = main_struct.output_directory.clone().into();
-			let mut hasher = DefaultHasher::new();
-			path.hash(&mut hasher);
-			let hash = hasher.finish();
-			let path_end: String = path.file_name().unwrap().to_string_lossy().into();
-			filepath.push(format!("{hash:016X}_{path_end}"));
+			filepath.push(&**mangled_name);
 			let mut header_filepath = filepath.clone();
 			filepath.set_extension("c");
 			header_filepath.set_extension("h");
@@ -247,7 +251,7 @@ fn main() {
 			};
 			// Write C module to C source
 			let mut writer = BufWriter::new(file);
-			if let Err(error) = writer.write_all(format!("#include \"{}\"\n\n", header_filepath.file_name().unwrap().to_string_lossy()).as_bytes()) {
+			if let Err(error) = writer.write_all(format!("#include \"{mangled_name}.h\"\n\n").as_bytes()) {
 				println!("Error while writing C module to disk \"{}\": {error}.", filepath.to_string_lossy());
 				return;
 			}
@@ -271,16 +275,22 @@ fn main() {
 			};
 			// Write C module to C header source
 			let mut writer = BufWriter::new(file);
+			if let Err(error) = writer.write_all(format!("#ifndef {mangled_name}\n#define {mangled_name}\n").as_bytes()) {
+				println!("Error while writing C module to disk \"{}\": {error}.", header_filepath.to_string_lossy());
+				return;
+			}
 			if let Err(error) = c_module.write_header_to_file(&mut writer, 0) {
 				println!("Error while writing C module header file to disk \"{}\": {error}.", header_filepath.to_string_lossy());
+				return;
+			}
+			if let Err(error) = writer.write_all(format!("\n#endif").as_bytes()) {
+				println!("Error while writing C module to disk \"{}\": {error}.", header_filepath.to_string_lossy());
 				return;
 			}
 			if let Err(error) = writer.flush() {
 				println!("Error while writing C module header file to disk \"{}\": {error}.", header_filepath.to_string_lossy());
 				return;
 			}
-			// Add header to list of C files to be compiled
-			c_files_to_compile.insert(header_filepath);
 		}
 		// Compile C files into executable
 		let mut command = Command::new("gcc");

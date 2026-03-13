@@ -7,16 +7,9 @@ pub trait Module: Debug + AstNode + Any {
 	/// Execute the module in interpreted mode from the module entrypoint.
 	fn interpreted_execute_entrypoint(&self, main: &mut Main) -> Result<(), ErrorAt>;
 	/// Source to source compiles the module to a C module. Returns `Ok(None)` if this is not supported.
-	fn to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt>;
+	fn to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt>;
 
-	fn const_compile(
-		&mut self, _main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], _module_path: &Path, _was_complication_done: &mut bool,
-		/*_global_items_const_compiled: &mut HashSet<(Box<str>, Box<Path>)>, _global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>,*/
-	) -> Result<(), ErrorAt> {
+	fn const_compile(&mut self, _main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], _module_path: &Path, _was_complication_done: &mut bool) -> Result<(), ErrorAt> {
 		Ok(())
 	}
-
-	/*fn get_global_items(&self, _global_items_to_const_compile_for_this_module: &mut HashSet<Box<str>>) -> Result<(), ErrorAt> {
-		Ok(())
-	}*/
 }

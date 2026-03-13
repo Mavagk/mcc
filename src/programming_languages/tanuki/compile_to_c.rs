@@ -3,14 +3,14 @@ use std::{collections::HashMap, num::NonZeroUsize, path::Path};
 use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}}, traits::module::Module};
 
 impl TanukiModule {
-	pub fn compile_to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)]) -> Result<CModule, ErrorAt> {
+	pub fn compile_to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)]) -> Result<CModule, ErrorAt> {
 		// Create module
 		let mut c_module = CModule::new();
 		// Add imports needed for the language
-		c_module.push_element(CModuleElement::AngleInclude("stdint.h".into()));
-		c_module.push_element(CModuleElement::AngleInclude("stdlib.h".into()));
-		c_module.push_element(CModuleElement::AngleInclude("stddef.h".into()));
-		c_module.push_element(CModuleElement::AngleInclude("stdbool.h".into()));
+		c_module.push_element(CModuleElement::AngleIncludeInHeader("stdint.h".into()));
+		c_module.push_element(CModuleElement::AngleIncludeInHeader("stdlib.h".into()));
+		c_module.push_element(CModuleElement::AngleIncludeInHeader("stddef.h".into()));
+		c_module.push_element(CModuleElement::AngleIncludeInHeader("stdbool.h".into()));
 		// Compile functions
 		for function in self.functions.iter() {
 			c_module.push_element(function.as_ref().unwrap().compile_to_c(main, modules)?);
@@ -65,7 +65,7 @@ impl TanukiModule {
 
 impl TanukiFunction {
 	/// Compiles the Tanuki module to a C module
-	pub fn compile_to_c(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)]) -> Result<CModuleElement, ErrorAt> {
+	pub fn compile_to_c(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)]) -> Result<CModuleElement, ErrorAt> {
 		// Get return type
 		let return_type = match &self.return_type {
 			Some(return_type) => match return_type {
@@ -152,7 +152,7 @@ impl TanukiExpression {
 	/// Compiles an expression that is being used as a r-value into C expressions/statements and inserts the compiled C statements into `insert_into`.
 	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
 	pub fn compile_r_value_to_c(
-		&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize, local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>
+		&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize, local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>
 	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
 		match &self.variant {
 			// Constants
@@ -303,7 +303,7 @@ impl TanukiCompileTimeValue {
 	/// Converts a Tanuki compile time value into a C constant.
 	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
 	pub fn compile_to_c(
-		&self, main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize
+		&self, main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize
 	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
 		let c_expression = match self {
 			TanukiCompileTimeValue::U(_, value) => CExpression::IntConstant(*value as i128),
@@ -346,7 +346,7 @@ impl TanukiNullaryOperator {
 	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
 	pub fn compile_r_value_to_c(
 		&self,
-		_main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], _insert_into: &mut CCompoundStatement, _function_temp_variable_count: &mut usize, _local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
+		_main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], _insert_into: &mut CCompoundStatement, _function_temp_variable_count: &mut usize, _local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
 		start_line: NonZeroUsize, start_column: NonZeroUsize
 	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
 		match self {
@@ -360,7 +360,7 @@ impl TanukiPrefixUnaryOperator {
 	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
 	pub fn compile_r_value_to_c(
 		&self, operand: &TanukiExpression,
-		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize, local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
+		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize, local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
 		start_line: NonZeroUsize, start_column: NonZeroUsize
 	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
 		match self {
@@ -400,7 +400,7 @@ impl TanukiPostfixUnaryOperator {
 	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
 	pub fn compile_r_value_to_c(
 		&self, _operand: &TanukiExpression,
-		_main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], _insert_into: &mut CCompoundStatement, _function_temp_variable_count: &mut usize, _local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
+		_main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], _insert_into: &mut CCompoundStatement, _function_temp_variable_count: &mut usize, _local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
 		start_line: NonZeroUsize, start_column: NonZeroUsize
 	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
 		match self {
@@ -414,7 +414,7 @@ impl TanukiInfixBinaryOperator {
 	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
 	pub fn compile_r_value_to_c(
 		&self, lhs_expression: &TanukiExpression, rhs_expression: &TanukiExpression,
-		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize, local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
+		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize, local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
 		start_line: NonZeroUsize, start_column: NonZeroUsize
 	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
 		match self {
@@ -502,7 +502,7 @@ impl TanukiInfixTernaryOperator {
 	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
 	pub fn compile_r_value_to_c(
 		&self, _lhs_expression: &TanukiExpression, _mhs_expression: &TanukiExpression, _rhs_expression: &TanukiExpression,
-		_main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], _insert_into: &mut CCompoundStatement, _function_temp_variable_count: &mut usize, _local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
+		_main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], _insert_into: &mut CCompoundStatement, _function_temp_variable_count: &mut usize, _local_variables: &mut Vec<HashMap<Box<str>, TanukiType>>,
 		start_line: NonZeroUsize, start_column: NonZeroUsize
 	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
 		match self {

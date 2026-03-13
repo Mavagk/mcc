@@ -6,8 +6,10 @@ use crate::{error::{Error, ErrorAt}, programming_languages::c::{statement::CComp
 pub enum CModuleElement {
 	FunctionDefinition { return_type: CType, name: Box<str>, parameters: Box<[CFunctionParameter]>, body: Box<CCompoundStatement> },
 	FunctionDeclaration { return_type: CType, name: Box<str>, parameters: Box<[CFunctionParameter]> },
-	AngleInclude(Box<str>),
-	DoubleQuotesInclude(Box<str>),
+	AngleIncludeInHeader(Box<str>),
+	DoubleQuotesIncludeInHeader(Box<str>),
+	AngleIncludeInMain(Box<str>),
+	DoubleQuotesIncludeInMain(Box<str>),
 }
 
 impl ModuleElement for CModuleElement {
@@ -19,8 +21,10 @@ impl AstNode for CModuleElement {
 		match self {
 			Self::FunctionDefinition { name, .. } => write!(f, "Function Definition \"{name}\""),
 			Self::FunctionDeclaration { name, .. } => write!(f, "Function Declaration \"{name}\""),
-			Self::AngleInclude(name) => write!(f, "Include <{name}>"),
-			Self::DoubleQuotesInclude(name) => write!(f, "Include \"{name}\""),
+			Self::AngleIncludeInHeader(name) => write!(f, "Include <{name}> in Header"),
+			Self::DoubleQuotesIncludeInHeader(name) => write!(f, "Include \"{name}\" in Header"),
+			Self::AngleIncludeInMain(name) => write!(f, "Include <{name}> in Main"),
+			Self::DoubleQuotesIncludeInMain(name) => write!(f, "Include \"{name}\" in Main"),
 		}
 	}
 
@@ -43,7 +47,7 @@ impl AstNode for CModuleElement {
 				}
 				Ok(())
 			}
-			Self::AngleInclude(_) | Self::DoubleQuotesInclude(_) => Ok(()),
+			Self::AngleIncludeInHeader(_) | Self::DoubleQuotesIncludeInHeader(_) | Self::AngleIncludeInMain(_) | Self::DoubleQuotesIncludeInMain(_) => Ok(()),
 		}
 	}
 
@@ -65,7 +69,17 @@ impl AstNode for CModuleElement {
 				writer.write_all(b") ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				body.write_to_file(writer, indentation_level)
 			}
-			Self::FunctionDeclaration { .. } | Self::AngleInclude(..) | Self::DoubleQuotesInclude(..) => Ok(())
+			Self::AngleIncludeInMain(name) => {
+				writer.write_all(b"#include <").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(b">").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+			Self::DoubleQuotesIncludeInMain(name) => {
+				writer.write_all(b"#include \"").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(b"\"").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+			Self::FunctionDeclaration { .. } | Self::AngleIncludeInHeader(..) | Self::DoubleQuotesIncludeInHeader(..) => Ok(())
 		}
 	}
 
@@ -86,16 +100,17 @@ impl AstNode for CModuleElement {
 				}
 				writer.write_all(b");").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
-			Self::AngleInclude(name) => {
+			Self::AngleIncludeInHeader(name) => {
 				writer.write_all(b"#include <").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				writer.write_all(b">").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
-			Self::DoubleQuotesInclude(name) => {
+			Self::DoubleQuotesIncludeInHeader(name) => {
 				writer.write_all(b"#include \"").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				writer.write_all(b"\"").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
+			Self::AngleIncludeInMain(..) | Self::DoubleQuotesIncludeInMain(..) => Ok(())
 		}
 	}
 }

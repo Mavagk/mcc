@@ -372,17 +372,17 @@ impl Module for BranflakesModule {
 		Ok(())
 	}
 
-	fn to_c_module(&self, main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
+	fn to_c_module(&self, main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
 		if !is_entrypoint {
 			return Err(Error::NotYetImplemented("BF to C not entrypoint".into()).at(None, None, None));
 		}
 		// Create module
 		let mut c_module = CModule::new();
 		// Add includes
-		c_module.push_element(CModuleElement::AngleInclude("stdint.h".into()));
-		c_module.push_element(CModuleElement::AngleInclude("stdlib.h".into()));
-		c_module.push_element(CModuleElement::AngleInclude("stdio.h".into()));
-		c_module.push_element(CModuleElement::AngleInclude("string.h".into()));
+		c_module.push_element(CModuleElement::AngleIncludeInHeader("stdint.h".into()));
+		c_module.push_element(CModuleElement::AngleIncludeInHeader("stdlib.h".into()));
+		c_module.push_element(CModuleElement::AngleIncludeInHeader("stdio.h".into()));
+		c_module.push_element(CModuleElement::AngleIncludeInHeader("string.h".into()));
 		// Add a function the expands the memory buffer that makes it have at least X cells
 		let mut expand_memory_function_body = CCompoundStatement::new();
 		expand_memory_function_body.push_statement(CStatement::If(

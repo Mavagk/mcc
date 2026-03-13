@@ -15,11 +15,11 @@ impl Module for TanukiModule {
 		todo!()
 	}
 
-	fn to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], _is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
+	fn to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], _is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt> {
 		Ok(Some(self.compile_to_c_module(main, modules)?))
 	}
 
-	fn const_compile(&mut self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>)], module_path: &Path, was_complication_done: &mut bool) -> Result<(), ErrorAt> {
+	fn const_compile(&mut self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], module_path: &Path, was_complication_done: &mut bool) -> Result<(), ErrorAt> {
 		self.const_compile_globals(main, modules, module_path, was_complication_done)
 	}
 }
