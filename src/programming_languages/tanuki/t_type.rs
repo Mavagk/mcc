@@ -10,13 +10,13 @@ pub enum TanukiType {
 	CompileTimeBool,
 	CompileTimeChar,
 	CompileTimeString,
+	Type,
+	Any,
 	Void,
 	U(u8),
 	I(u8),
 	F(u8),
 	Bool,
-	Type,
-	Any,
 	FunctionPointer(Box<TanukiType>, Box<[TanukiType]>),
 }
 
@@ -56,6 +56,6 @@ impl AstNode for TanukiType {
 
 impl Debug for TanukiType {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		self.print(0, f)
+		self.print_name(f)
 	}
 }

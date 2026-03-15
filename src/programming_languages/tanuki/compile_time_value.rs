@@ -1,23 +1,25 @@
-use std::{fmt::{self, Formatter}, path::Path, u64};
+use std::{fmt::{self, Debug, Formatter}, path::Path, u64};
 
 use num::{BigInt, Signed};
 
 use crate::{error::Error, programming_languages::tanuki::t_type::TanukiType, traits::ast_node::AstNode};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 /// A value that is known at compile time.
 pub enum TanukiCompileTimeValue {
+	// Values that can only exist an compile time
 	CompileTimeInt(BigInt),
 	CompileTimeFloat(f64),
 	CompileTimeBool(bool),
 	CompileTimeChar(char),
 	CompileTimeString(Box<str>),
+	Type(TanukiType),
 	Void,
+	// Values that can exist at compile time
 	U(u8, u64),
 	I(u8, i64),
 	F(u8, f64),
 	Bool(bool),
-	Type(TanukiType),
 	FunctionPointer(Box<str>, Box<Path>, Box<TanukiType>, Box<[TanukiType]>),
 	LinkedFunctionPointer(Box<str>, Box<TanukiType>, Box<[TanukiType]>),
 }
@@ -56,15 +58,19 @@ impl TanukiCompileTimeValue {
 	pub fn cast_to(self, type_to: &TanukiType, can_be_lossy: bool) -> Result<Self, Error> {
 		let type_from = self.get_type();
 		match (type_from, type_to, can_be_lossy) {
+			// No cast should happen if we are casting a value to it's own type or @any.
 			(type_from, type_to, _) if &type_from == type_to => Ok(self),
 			(_, TanukiType::Any, _) => Ok(self),
+			// Integer casts
 			(TanukiType::CompileTimeInt | TanukiType::U(_) | TanukiType::I(_), TanukiType::CompileTimeInt | TanukiType::U(_) | TanukiType::I(_), _) => {
+				// Convert the value to a big-int
 				let value = match self {
 					TanukiCompileTimeValue::CompileTimeInt(value) => value,
 					TanukiCompileTimeValue::U(_, value) => value.into(),
 					TanukiCompileTimeValue::I(_, value) => value.into(),
 					_ => unreachable!(),
 				};
+				// Convert value to target type
 				Ok(match type_to {
 					TanukiType::CompileTimeInt => TanukiCompileTimeValue::CompileTimeInt(value),
 					TanukiType::U(bit_width) => TanukiCompileTimeValue::U(*bit_width, {
@@ -102,10 +108,7 @@ impl TanukiCompileTimeValue {
 					_ => unreachable!(),
 				})
 			}
-			_ => {
-				println!("{self:?} {type_to:?}");
-				todo!()
-			}
+			_ => return Err(Error::NotYetImplemented(format!("Casting value {self:?} to type {type_to:?}"))),
 		}
 	}
 }
@@ -142,5 +145,11 @@ impl AstNode for TanukiCompileTimeValue {
 				Ok(())
 			},
 		}
+	}
+}
+
+impl Debug for TanukiCompileTimeValue {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		self.print_name(f)
 	}
 }
