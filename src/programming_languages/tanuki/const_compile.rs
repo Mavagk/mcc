@@ -447,7 +447,7 @@ impl TanukiExpression {
 				let name = match (name, global_variable_assigned_to_name) {
 					(Some(name), _) => &**name,
 					(None, Some(name)) => name,
-					(None, None) => todo!(),
+					(None, None) => return Err(Error::UnknownName.at(Some(self.start_line), Some(self.start_column), None))
 				};
 				let mut module = None;
 				let mut module_mangled_name = None;
@@ -475,10 +475,7 @@ impl TanukiExpression {
 					if &*module_global_constant_expression.name == name {
 						if let TanukiExpressionVariant::Constant(module_global_constant) = &module_global_constant_expression.value_expression.variant {
 							if !module_global_constant_expression.export {
-								//*dependencies_need_const_compiling = true;
-								//return Ok(None);
-								//println!("{name} {module_path:?}");
-								todo!()
+								return Err(Error::GlobalConstantNotExported.at(Some(self.start_line), Some(self.start_column), None))
 							}
 							constant = Some(module_global_constant);
 						}
@@ -489,7 +486,7 @@ impl TanukiExpression {
 				}
 				let constant = match constant {
 					Some(constant) => constant,
-					None => todo!(),
+					None => return Err(Error::GlobalConstantNotFound.at(Some(self.start_line), Some(self.start_column), None)),
 				};
 				*was_complication_done = true;
 				this_module.mangled_module_names_to_include_in_c.insert(module_mangled_name.into());
@@ -545,7 +542,7 @@ impl TanukiExpression {
 				// Get name
 				let name = match name {
 					Some(name) => name,
-					None => todo!(),
+					None => return Err(Error::UnknownName.at(Some(self.start_line), Some(self.start_column), None)),
 				};
 				// Push function
 				let mut parameters = Vec::new();
@@ -604,7 +601,7 @@ impl TanukiExpression {
 	) -> Result<(Option<CompileTimeLValue>, TanukiType), ErrorAt> {
 		let Self { variant, .. } = self;
 		Ok(match variant {
-			TanukiExpressionVariant::Constant(_) => todo!(),
+			TanukiExpressionVariant::Constant(_) => return Err(Error::Unimplemented("Using a constant as a l-value".into()).at(Some(self.start_line), Some(self.start_column), None)),
 			TanukiExpressionVariant::Variable(name) => {
 				// Get if there is already a local variable with this name
 				let mut variable = None;

@@ -77,6 +77,9 @@ pub enum Error {
 	ExpectedType,
 	TypeMismatch((String, String)),
 	ArgumentCountMismatch((usize, usize)),
+	UnknownName,
+	GlobalConstantNotExported,
+	GlobalConstantNotFound,
 }
 
 impl Error {
@@ -183,6 +186,9 @@ impl Display for Error {
 			Self::ExpectedType => write!(f, "Expected type"),
 			Self::TypeMismatch((got, expected)) => write!(f, "Type mismatch, got {got}, expected {expected}"),
 			Self::ArgumentCountMismatch((got, expected)) => write!(f, "Argument count mismatch, got {got}, expected {expected}"),
+			Self::UnknownName => write!(f, "Unknown name"),
+			Self::GlobalConstantNotExported => write!(f, "Attempted to import a global constant that has not been exported"),
+			Self::GlobalConstantNotFound => write!(f, "Could not find a constant with this name in the given module"),
 		}
 	}
 }
