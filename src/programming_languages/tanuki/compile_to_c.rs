@@ -236,10 +236,11 @@ impl TanukiExpression {
 				)?;
 				let (return_type, parameter_types) = match function_pointer_type {
 					TanukiType::FunctionPointer(return_type, argument_types) => (return_type, argument_types),
-					_ => todo!(),
+					_ => return Err(Error::TypeMismatch((format!("{function_pointer_type:?}"), format!("{:?}", TanukiType::FunctionPointer(TanukiType::Any.into(), Default::default()))))
+						.at(Some(self.start_line), Some(self.start_column), None)),
 				};
 				if parameter_types.len() != arguments.len() {
-					todo!()
+					return Err(Error::ArgumentCountMismatch((arguments.len(), parameter_types.len())).at(Some(self.start_line), Some(self.start_column), None));
 				}
 				let mut argument_results: Vec<CExpression> = Vec::new();
 				let mut argument_types = Vec::new();
@@ -248,7 +249,7 @@ impl TanukiExpression {
 						main, modules, insert_into, function_temp_variable_count, local_variables
 					)?;
 					if &result.1 != &parameter_types[x] {
-						todo!()
+						return Err(Error::TypeMismatch((format!("{:?}", result.1), format!("{:?}", parameter_types[x]))).at(Some(argument.start_line), Some(argument.start_column), None));
 					}
 					argument_results.push(CLValue::Variable(result.0.unwrap()).into());
 					argument_types.push(result.1);
@@ -274,7 +275,7 @@ impl TanukiExpression {
 			TanukiExpressionVariant::TypeAndValue(type_expression, value_expression) => {
 				let t_type = match &type_expression.variant {
 					TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(t_type)) => t_type,
-					_ => todo!(),
+					_ => return Err(Error::UnableToConstCompile.at(Some(type_expression.start_line), Some(type_expression.start_column), None)),
 				};
 				value_expression.compile_l_value_to_c(main, insert_into, function_temp_variable_count, local_variables, t_type)
 			}
@@ -334,10 +335,7 @@ impl TanukiCompileTimeValue {
 				insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c(main, line, column)?, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
 				return Ok((Some(temp_name.into()), t_type))
 			}
-			_ => {
-				println!("{self:?}");
-				todo!()
-			},
+			_ => return Err(Error::NotYetImplemented(format!("{self:?} value")).at(line, column, None)),
 		};
 		let t_type = self.get_type();
 		let c_type = t_type.compile_to_c(main, line, column)?;

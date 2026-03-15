@@ -76,6 +76,7 @@ pub enum Error {
 	NegativeFactorial,
 	ExpectedType,
 	TypeMismatch((String, String)),
+	ArgumentCountMismatch((usize, usize)),
 }
 
 impl Error {
@@ -181,6 +182,7 @@ impl Display for Error {
 			Self::NegativeFactorial => write!(f, "Factorial of negative"),
 			Self::ExpectedType => write!(f, "Expected type"),
 			Self::TypeMismatch((got, expected)) => write!(f, "Type mismatch, got {got}, expected {expected}"),
+			Self::ArgumentCountMismatch((got, expected)) => write!(f, "Argument count mismatch, got {got}, expected {expected}"),
 		}
 	}
 }
