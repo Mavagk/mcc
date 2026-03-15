@@ -74,6 +74,8 @@ pub enum Error {
 	MultipleEntrypoints,
 	EntrypointOnNonFunction,
 	NegativeFactorial,
+	ExpectedType,
+	TypeMismatch((String, String)),
 }
 
 impl Error {
@@ -177,6 +179,8 @@ impl Display for Error {
 			Self::MultipleEntrypoints => write!(f, "Multiple entrypoints"),
 			Self::EntrypointOnNonFunction => write!(f, "@entrypoint used on non-function"),
 			Self::NegativeFactorial => write!(f, "Factorial of negative"),
+			Self::ExpectedType => write!(f, "Expected type"),
+			Self::TypeMismatch((got, expected)) => write!(f, "Type mismatch, got {got}, expected {expected}"),
 		}
 	}
 }
