@@ -148,6 +148,7 @@ impl TanukiType {
 				}
 				CType::FunctionPointer(return_type.compile_to_c(main, line, column)?.into(), c_parameter_types.into())
 			}
+			Self::Bool => CType::Bool,
 			Self::Pointer(pointee_type) => CType::PointerTo(pointee_type.compile_to_c(main, line, column)?.into()),
 			Self::Any | Self::CompileTimeChar | Self::CompileTimeFloat | Self::CompileTimeInt | Self::CompileTimeString | Self::Type =>
 				return Err(Error::TypeCannotExistAtRunTime.at(line, column, None)),
@@ -350,6 +351,10 @@ impl TanukiCompileTimeValue {
 			TanukiCompileTimeValue::U(_, value) => CExpression::IntConstant(*value as i128),
 			TanukiCompileTimeValue::I(_, value) => CExpression::IntConstant(*value as i128),
 			TanukiCompileTimeValue::Void => return Ok((None, TanukiType::Void)),
+			TanukiCompileTimeValue::Bool(value) => match value {
+				true  => CExpression::TrueConstant,
+				false => CExpression::FalseConstant,
+			}
 			TanukiCompileTimeValue::FunctionPointer(function_name, _module_path, return_type, parameter_types) => {
 				let t_type = TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone());
 				let c_expression = CExpression::TakeReference(CLValue::Variable(function_name.clone().into()).into());

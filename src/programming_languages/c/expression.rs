@@ -10,6 +10,8 @@ pub enum CExpression {
 	FunctionPointerCall(Box<CExpression>, Box<[CExpression]>),
 	IntConstant(i128),
 	StringConstant(Box<str>),
+	TrueConstant,
+	FalseConstant,
 	// Pointer operators
 	TakeReference(Box<CLValue>),
 	// Assignments
@@ -99,11 +101,13 @@ impl Expression for CExpression {
 impl AstNode for CExpression {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::LValueRead(_) => write!(f, "Read L-Value"),
+			Self::LValueRead(_)                    => write!(f, "Read L-Value"),
 			Self::FunctionCall(name, _) => write!(f, "Function Call \"{name}\""),
-			Self::FunctionPointerCall(_, _) => write!(f, "Function Call"),
-			Self::IntConstant(value) => write!(f, "Int Constant {value}"),
+			Self::FunctionPointerCall(_, _)        => write!(f, "Function Call"),
+			Self::IntConstant(value)        => write!(f, "Int Constant {value}"),
 			Self::StringConstant(value) => write!(f, "String Constant \"{value}\""),
+			Self::TrueConstant                     => write!(f, "True"),
+			Self::FalseConstant                    => write!(f, "False"),
 
 			Self::Assignment(_, _) => write!(f, "Assignment"),
 			Self::AssignmentAdd(_, _) => write!(f, "Assignment Add"),
@@ -178,7 +182,7 @@ impl AstNode for CExpression {
 				}
 				Ok(())
 			}
-			Self::IntConstant(_) | Self::StringConstant(_) => Ok(()),
+			Self::IntConstant(_) | Self::StringConstant(_) | Self::TrueConstant | Self::FalseConstant => Ok(()),
 			Self::Sizeof(sub_type) => sub_type.print(level, f),
 			Self::Add(lhs, rhs) | Self::Subtract(lhs, rhs) | Self::Multiply(lhs, rhs) | Self::Divide(lhs, rhs) | Self::Modulo(lhs, rhs) |
 			Self::BitwiseAnd(lhs, rhs) | Self::BitwiseOr(lhs, rhs) | Self::BitwiseXor(lhs, rhs) | Self::BitshiftLeft(lhs, rhs) | Self::BitshiftRight(lhs, rhs) |
@@ -296,7 +300,6 @@ impl AstNode for CExpression {
 			Self::FunctionPointerCall(function_pointer, arguments) => {
 				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				function_pointer.write_to_file(writer, indentation_level)?;
-				//writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				writer.write_all(b")(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				let mut is_first_argument = true;
 				for argument in arguments {
@@ -319,6 +322,8 @@ impl AstNode for CExpression {
 				sub_type.write_to_file(writer, indentation_level)?;
 				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
+			Self::TrueConstant  => writer.write_all(b"true").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None)),
+			Self::FalseConstant => writer.write_all(b"false").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None)),
 
 			Self::PostfixIncrement(l_value) => {
 				writer.write_all(b"(").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
