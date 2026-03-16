@@ -7,7 +7,7 @@ use crate::traits::ast_node::AstNode;
 pub enum TanukiType {
 	CompileTimeInt,
 	CompileTimeFloat,
-	CompileTimeBool,
+	//CompileTimeBool,
 	CompileTimeChar,
 	CompileTimeString,
 	Type,
@@ -17,6 +17,7 @@ pub enum TanukiType {
 	I(u8),
 	F(u8),
 	Bool,
+	Pointer(Box<TanukiType>),
 	FunctionPointer(Box<TanukiType>, Box<[TanukiType]>),
 }
 
@@ -25,7 +26,7 @@ impl AstNode for TanukiType {
 		match self {
 			Self::CompileTimeInt        => write!(f, "Compile Time Integer"),
 			Self::CompileTimeFloat      => write!(f, "Compile Time Float"),
-			Self::CompileTimeBool       => write!(f, "Compile Time Bool"),
+			//Self::CompileTimeBool       => write!(f, "Compile Time Bool"),
 			Self::CompileTimeChar       => write!(f, "Compile Time Char"),
 			Self::CompileTimeString     => write!(f, "Compile Time String"),
 			Self::Void                  => write!(f, "Void"),
@@ -35,13 +36,14 @@ impl AstNode for TanukiType {
 			Self::Bool                  => write!(f, "Bool"),
 			Self::Any                   => write!(f, "Any"),
 			Self::Type                  => write!(f, "Type"),
+			Self::Pointer(_)            => write!(f, "Pointer"),
 			Self::FunctionPointer(_, _) => write!(f, "Function Pointer"),
 		}
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::CompileTimeInt | Self::CompileTimeFloat | Self::CompileTimeBool | Self::CompileTimeChar | Self::CompileTimeString | Self::Void | Self::U(_) | Self::I(_) | Self::F(_) |
+			Self::CompileTimeInt | Self::CompileTimeFloat/* | Self::CompileTimeBool*/ | Self::CompileTimeChar | Self::CompileTimeString | Self::Void | Self::U(_) | Self::I(_) | Self::F(_) |
 			Self::Any | Self::Type | Self::Bool => Ok(()),
 			Self::FunctionPointer(return_type, parameter_types) => {
 				return_type.print(level, f)?;
@@ -50,6 +52,7 @@ impl AstNode for TanukiType {
 				}
 				Ok(())
 			},
+			Self::Pointer(pointee_type) => pointee_type.print(level, f),
 		}
 	}
 }

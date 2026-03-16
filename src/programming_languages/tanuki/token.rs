@@ -820,6 +820,7 @@ pub enum TanukiKeyword {
 	Bool,
 	Int,
 	Info,
+	Transmute,
 }
 
 impl TanukiKeyword {
@@ -842,6 +843,7 @@ impl TanukiKeyword {
 			Self::Bool       => write!(f, "Bool"),
 			Self::Int        => write!(f, "Int"),
 			Self::Info       => write!(f, "Info"),
+			Self::Transmute  => write!(f, "Transmute"),
 		}
 	}
 
@@ -864,6 +866,7 @@ impl TanukiKeyword {
 			"bool"       => Some(Self::Bool),
 			"int"        => Some(Self::Int),
 			"_info"      => Some(Self::Info),
+			"transmute"  => Some(Self::Transmute),
 			_ => None,
 		}
 	}

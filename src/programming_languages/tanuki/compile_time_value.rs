@@ -10,7 +10,7 @@ pub enum TanukiCompileTimeValue {
 	// Values that can only exist an compile time
 	CompileTimeInt(BigInt),
 	CompileTimeFloat(f64),
-	CompileTimeBool(bool),
+	//CompileTimeBool(bool),
 	CompileTimeChar(char),
 	CompileTimeString(Box<str>),
 	Type(TanukiType),
@@ -30,7 +30,7 @@ impl TanukiCompileTimeValue {
 		match self {
 			Self::CompileTimeInt(_)                                                                            => TanukiType::CompileTimeInt,
 			Self::CompileTimeFloat(_)                                                                          => TanukiType::CompileTimeFloat,
-			Self::CompileTimeBool(_)                                                                           => TanukiType::CompileTimeBool,
+			//Self::CompileTimeBool(_)                                                                           => TanukiType::CompileTimeBool,
 			Self::CompileTimeChar(_)                                                                           => TanukiType::CompileTimeChar,
 			Self::CompileTimeString(_)                                                                         => TanukiType::CompileTimeString,
 			Self::Void                                                                                         => TanukiType::Void,
@@ -118,7 +118,7 @@ impl AstNode for TanukiCompileTimeValue {
 		match self {
 			Self::CompileTimeInt(value)                                  => write!(f, "Compile Time Integer {value}"),
 			Self::CompileTimeFloat(value)                                   => write!(f, "Compile Time Float {value}"),
-			Self::CompileTimeBool(value)                                   => write!(f, "Compile Time Bool {value}"),
+			//Self::CompileTimeBool(value)                                   => write!(f, "Compile Time Bool {value}"),
 			Self::CompileTimeChar(value)                                   => write!(f, "Compile Time Char {value:?}"),
 			Self::CompileTimeString(value)                             => write!(f, "Compile Time String {value:?}"),
 			Self::Void                                                            => write!(f, "Void"),
@@ -134,7 +134,7 @@ impl AstNode for TanukiCompileTimeValue {
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::CompileTimeInt(_) | Self::CompileTimeFloat(_) | Self::CompileTimeBool(_) | Self::CompileTimeChar(_) | Self::CompileTimeString(_) |
+			Self::CompileTimeInt(_) | Self::CompileTimeFloat(_)/* | Self::CompileTimeBool(_)*/ | Self::CompileTimeChar(_) | Self::CompileTimeString(_) |
 			Self::Void | Self::U(_, _) | Self::I(_, _) | Self::F(_, _) | Self::Bool(_) => Ok(()),
 			Self::Type(type_t) => type_t.print(level, f),
 			Self::FunctionPointer(_, _, return_type, parameter_types) | Self::LinkedFunctionPointer(_, return_type, parameter_types) => {

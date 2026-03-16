@@ -128,14 +128,14 @@ impl TanukiType {
 		Ok(match self {
 			Self::Void => CType::Void,
 			Self::U(bit_width) => match bit_width {
-				8 => CType::U8,
+				8  => CType::U8,
 				16 => CType::U16,
 				32 => CType::U32,
 				64 => CType::U64,
 				_ => unreachable!(),
 			}
 			Self::I(bit_width) => match bit_width {
-				8 => CType::I8,
+				8  => CType::I8,
 				16 => CType::I16,
 				32 => CType::I32,
 				64 => CType::I64,
@@ -148,6 +148,9 @@ impl TanukiType {
 				}
 				CType::FunctionPointer(return_type.compile_to_c(main, line, column)?.into(), c_parameter_types.into())
 			}
+			Self::Pointer(pointee_type) => CType::PointerTo(pointee_type.compile_to_c(main, line, column)?.into()),
+			Self::Any | Self::CompileTimeChar | Self::CompileTimeFloat | Self::CompileTimeInt | Self::CompileTimeString | Self::Type =>
+				return Err(Error::TypeCannotExistAtRunTime.at(line, column, None)),
 			_ => return Err(Error::Unimplemented(format!("Compiling value {self:?}")).at(line, column, None)),
 		})
 	}
@@ -261,6 +264,36 @@ impl TanukiExpression {
 					CStatement::VariableDeclaration(return_type.compile_to_c(main, Some(self.start_line), Some(self.start_column))?, name.clone().into(), Some(CInitializer::Expression(c_expression).into()))
 				);
 				Ok((Some(name.into()), *return_type))
+			}
+			TanukiExpressionVariant::Transmute { to_transmute, transmute_to_type } => {
+				// Compile value to be transmuted
+				let (to_transmute_result_name, to_transmute_type) = to_transmute.compile_r_value_to_c(
+					main, modules, insert_into, function_temp_variable_count, local_variables
+				)?;
+				// Get type to be transmuted to
+				let transmute_to_type = match &transmute_to_type.variant {
+					TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(type_t)) => type_t,
+					TanukiExpressionVariant::Constant(_) => return Err(Error::ExpectedType.at(Some(transmute_to_type.start_line), Some(transmute_to_type.start_column), None)),
+					_ => return Err(Error::UnableToConstCompile.at(Some(transmute_to_type.start_line), Some(transmute_to_type.start_column), None)),
+				};
+				// Check if the type can be transmuted
+				match (&to_transmute_type, &transmute_to_type) {
+					(TanukiType::Pointer(_), TanukiType::Pointer(_)) => {},
+					(TanukiType::Pointer(_), TanukiType::U(_)) => {},
+					(TanukiType::U(_), TanukiType::Pointer(_)) => {},
+					_ => return Err(Error::Unimplemented(format!("Transmuting from type {to_transmute_type:?} to {transmute_to_type:?}")).at(Some(self.start_line), Some(self.start_column), None)),
+				}
+				// Create transmute code
+				let name = format!("_tnk_temp_transmute_var_{function_temp_variable_count}");
+				*function_temp_variable_count += 1;
+				insert_into.push_statement(
+					CStatement::VariableDeclaration(
+						transmute_to_type.compile_to_c(main, Some(self.start_line), Some(self.start_column))?, name.clone().into(),
+						Some(CInitializer::Expression(CLValue::Variable(to_transmute_result_name.unwrap().into()).into()).into()),
+					)
+				);
+				// Return
+				Ok((Some(name.into()), transmute_to_type.clone()))
 			}
 			_ => return Err(Error::NotYetImplemented(format!("{:?} expression", self.variant)).at(Some(self.start_line), Some(self.start_column), None)),
 		}

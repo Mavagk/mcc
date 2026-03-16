@@ -36,6 +36,7 @@ pub enum TanukiExpressionVariant {
 	InfixTernaryOperator(TanukiInfixTernaryOperator, Box<TanukiExpression>, Box<TanukiExpression>, Box<TanukiExpression>),
 	Assignment(Box<TanukiExpression>, Box<TanukiExpression>),
 	AugmentedBinaryAssignment(TanukiInfixBinaryOperator, Box<TanukiExpression>, Box<TanukiExpression>),
+	Transmute { to_transmute: Box<TanukiExpression>, transmute_to_type: Box<TanukiExpression> },
 }
 
 impl Default for TanukiExpression {
@@ -98,6 +99,7 @@ impl AstNode for TanukiExpression {
 			TanukiExpressionVariant::InfixTernaryOperator(operator, _, _, _)  => write!(f, "Infix Ternary Operator {operator}"),
 			TanukiExpressionVariant::Assignment(..)                                                        => write!(f, "Assignment"),
 			TanukiExpressionVariant::AugmentedBinaryAssignment(operator, _, _) => write!(f, "Augmented Binary Assignment {operator}="),
+			TanukiExpressionVariant::Transmute { .. }                                                      => write!(f, "Transmute"),
 		}
 	}
 
@@ -163,6 +165,10 @@ impl AstNode for TanukiExpression {
 					link_if.print(level, f)?;
 				}
 				Ok(())
+			}
+			TanukiExpressionVariant::Transmute { to_transmute, transmute_to_type } => {
+				to_transmute.print(level, f)?;
+				transmute_to_type.print(level, f)
 			}
 		}
 	}

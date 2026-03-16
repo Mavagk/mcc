@@ -586,6 +586,21 @@ impl TanukiExpression {
 				main.link_to.insert(library_path.clone());
 				Some(TanukiCompileTimeValue::LinkedFunctionPointer(name.clone(), return_type.into(), result_argument_types.into()))
 			},
+			TanukiExpressionVariant::Transmute { to_transmute, transmute_to_type } => {
+				to_transmute.const_compile_r_value(
+					main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
+				)?;
+				if *dependencies_need_const_compiling {
+					return Ok(None);
+				}
+				transmute_to_type.const_compile_r_value(
+					main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Type, dependencies_need_const_compiling, None
+				)?;
+				if *dependencies_need_const_compiling {
+					return Ok(None);
+				}
+				None
+			}
 			_ => None,
 		};
 		// Cast

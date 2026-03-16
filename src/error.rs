@@ -80,6 +80,7 @@ pub enum Error {
 	UnknownName,
 	GlobalConstantNotExported,
 	GlobalConstantNotFound,
+	TypeCannotExistAtRunTime,
 }
 
 impl Error {
@@ -189,6 +190,7 @@ impl Display for Error {
 			Self::UnknownName => write!(f, "Unknown name"),
 			Self::GlobalConstantNotExported => write!(f, "Attempted to import a global constant that has not been exported"),
 			Self::GlobalConstantNotFound => write!(f, "Could not find a constant with this name in the given module"),
+			Self::TypeCannotExistAtRunTime => write!(f, "Type cannot exist at runtime"),
 		}
 	}
 }

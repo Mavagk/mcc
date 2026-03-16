@@ -242,7 +242,8 @@ impl TanukiExpression {
 				})))) && (!matches!(maybe_parsed_tokens[x], 
 					MaybeParsedToken::Unparsed(
 						TanukiToken { variant: TanukiTokenVariant::Keyword(
-							TanukiKeyword::Import | TanukiKeyword::ImportStd | TanukiKeyword::Link | TanukiKeyword::LinkIf | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F | TanukiKeyword::Info
+							TanukiKeyword::Import | TanukiKeyword::ImportStd | TanukiKeyword::Link | TanukiKeyword::LinkIf | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F | TanukiKeyword::Info |
+							TanukiKeyword::Transmute
 						), .. }
 					)) || !matches!(maybe_parsed_tokens[x + 1], MaybeParsedToken::PartiallyParsed(TanukiPartiallyParsedToken {variant: TanukiPartiallyParsedTokenVariant::FunctionArgumentsOrParameters(..), .. }))
 				) {
@@ -251,7 +252,8 @@ impl TanukiExpression {
 				}
 				// Parse builtin functions
 				if matches!(maybe_parsed_tokens[x], MaybeParsedToken::Unparsed(TanukiToken { variant: TanukiTokenVariant::Keyword(
-					TanukiKeyword::Import | TanukiKeyword::ImportStd | TanukiKeyword::Link | TanukiKeyword::LinkIf | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F | TanukiKeyword::Info
+					TanukiKeyword::Import | TanukiKeyword::ImportStd | TanukiKeyword::Link | TanukiKeyword::LinkIf | TanukiKeyword::U | TanukiKeyword::I | TanukiKeyword::F | TanukiKeyword::Info |
+					TanukiKeyword::Transmute
 				), .. })) {
 					let operand = maybe_parsed_tokens[x].clone().unwrap_unparsed();
 					let (keyword, start_line, start_column) = match operand {
@@ -370,6 +372,12 @@ impl TanukiExpression {
 								_ => return Err(Error::Unimplemented("This info constant".into()).at(Some(argument.start_line), Some(argument.start_column), None)),
 							};
 							TanukiExpressionVariant::Constant(argument_value)
+						}
+						TanukiKeyword::Transmute => {
+							if arguments.len() != 2 {
+								return Err(Error::Unimplemented("@transmute with argument count that is not two".into()).at(Some(start_line), Some(start_column), None));
+							}
+							TanukiExpressionVariant::Transmute { to_transmute: arguments[0].clone().into(), transmute_to_type: arguments[1].clone().into() }
 						}
 						TanukiKeyword::U => TanukiExpressionVariant::U(arguments),
 						TanukiKeyword::I => TanukiExpressionVariant::I(arguments),
