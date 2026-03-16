@@ -723,6 +723,7 @@ impl TanukiPrefixUnaryOperator {
 					(Self::BitshiftLeftOne, TanukiCompileTimeValue::CompileTimeInt(operand)) => Some(TanukiCompileTimeValue::CompileTimeInt(operand << 1)),
 					(Self::BitshiftRightOne, TanukiCompileTimeValue::CompileTimeInt(operand)) => Some(TanukiCompileTimeValue::CompileTimeInt(operand >> 1)),
 					(Self::Signum, TanukiCompileTimeValue::CompileTimeInt(operand)) => Some(TanukiCompileTimeValue::CompileTimeInt(operand.signum())),
+					(Self::Dereference, TanukiCompileTimeValue::Type(pointee_type)) => Some(TanukiCompileTimeValue::Type(TanukiType::Pointer(pointee_type.into()))),
 					_ => None,
 				})
 			}

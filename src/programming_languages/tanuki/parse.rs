@@ -95,6 +95,10 @@ impl TanukiExpression {
 					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(TanukiType::Bool)),
 					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
 				}),
+				TanukiTokenVariant::Keyword(TanukiKeyword::Void) => MaybeParsedToken::Parsed(TanukiExpression {
+					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(TanukiType::Void)),
+					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
+				}),
 				TanukiTokenVariant::Keyword(TanukiKeyword::True) => MaybeParsedToken::Parsed(TanukiExpression {
 					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Bool(true)),
 					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column

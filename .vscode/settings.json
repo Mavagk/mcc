@@ -13,10 +13,12 @@
 		"pointee",
 		"putc",
 		"putchar",
+		"PVOID",
 		"stdbool",
 		"stddef",
 		"stdint",
 		"tanuki",
+		"wchar",
 		"Xnor"
 	]
 }

@@ -1,2 +1,14 @@
+// Basic
+@export VOID = @void;
 @export BOOL = @i(32);
 @export DWORD = @u(32);
+
+// Pointer
+@export PVOID = *@void;
+
+// Long pointer (now just the same as a normal pointer)
+@export LPVOID = *@void;
+@export LPDWORD = *DWORD;
+
+// Handle
+@export HANDLE = PVOID;

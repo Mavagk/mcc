@@ -9,7 +9,12 @@ fnY = @import("b.tnk");
 
 Beep = @import_std("win/sound.tnk");
 
+WriteConsoleW = @import_std("win/console.tnk");
+
+U8Ptr = *@u(8);
+
 @entrypoint simpleFn = (; @u(8)) {
+	{*@u(8)} a = @transmute(@u(8) 0, *@u(8));
 	//Beep(fnY(), @u(32) 1000);
 	//simpleFn();
 	//t = @true;

@@ -1,0 +1,17 @@
+IS_WINDOWS = @import("../os/os.tnk");
+
+VOID = @import("types.tnk");
+BOOL = @import("types.tnk");
+DWORD = @import("types.tnk");
+
+LPVOID = @import("types.tnk");
+LPDWORD = @import("types.tnk");
+
+HANDLE = @import("types.tnk");
+
+@export WriteConsoleW = @link_if("kernel32", HANDLE, *VOID, DWORD, LPDWORD, LPVOID, BOOL, IS_WINDOWS);
+@export GetStdHandle = @link_if("kernel32", DWORD, HANDLE, IS_WINDOWS);
+
+STD_INPUT_HANDLE = DWORD {0xFFFFFFFF - 10};//{-%10};
+STD_OUTPUT_HANDLE = DWORD {0xFFFFFFFF - 11};// {-%11};
+STD_ERROR_HANDLE = DWORD {0xFFFFFFFF - 12};// {-%12};
