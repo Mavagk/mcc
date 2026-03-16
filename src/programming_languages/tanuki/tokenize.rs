@@ -129,42 +129,42 @@ pub fn tokenize_token(_main: &mut Main, reader: &mut SourceFileReader) -> Result
 			// For operators, the token consists of operator chars
 			// For comments, the comment starts with two slashes and runs until the next newline
 			'+' | '-' | '*' | '/' | '%' | '!' | '|' | '&' | '^' | '<' | '=' | '>' | ':' | '?' | '.' => {
-					// Get the operator symbol
-					let mut name = String::new();
-					while let Some(chr) = reader.peek_char()? {
-						if !matches!(chr, '+' | '-' | '*' | '/' | '%' | '!' | '|' | '&' | '^' | '<' | '=' | '>' | ':' | '?' | '.') {
-							break;
-						}
-						name.push(chr);
-						reader.read_char()?;
-						// If we read two slashes, skip to the next newline
-						if name == "//" {
-							while matches!(reader.peek_char()?, Some(chr) if chr != '\n') {
-								reader.read_char()?;
-							}
-							continue 'r;
-						}
+				// Get the operator symbol
+				let mut name = String::new();
+				while let Some(chr) = reader.peek_char()? {
+					if !matches!(chr, '+' | '-' | '*' | '/' | '%' | '!' | '|' | '&' | '^' | '<' | '=' | '>' | ':' | '?' | '.') {
+						break;
 					}
-					// Get if this is a colon
-					let is_colon = name == ":";
-					// Get if this is an assignment operator
-					let is_assignment = name.ends_with('=') && !matches!(name.as_str(), "==" | "!=" | "===" | "!==" | "<=" | ">=" | "..=");
-					let name_without_assignment: &str = match is_assignment {
-						true => name.as_str().strip_suffix('=').unwrap_or(name.as_str()),
-						false => name.as_str(),
-					};
-					// Parse
-					let prefix_unary_operator = TanukiPrefixUnaryOperator::from_source(name_without_assignment);
-					let infix_binary_operator = TanukiInfixBinaryOperator::from_source(name_without_assignment);
-					let postfix_unary_operator = TanukiPostfixUnaryOperator::from_source(name_without_assignment);
-					let infix_ternary_operator = TanukiInfixTernaryOperator::from_source(name_without_assignment);
-					let nullary_operator = TanukiNullaryOperator::from_source(name_without_assignment);
-					if prefix_unary_operator.is_none() && infix_binary_operator.is_none() && postfix_unary_operator.is_none() && infix_ternary_operator.is_none() && nullary_operator.is_none() && !is_colon {
-						return Err(Error::InvalidOperatorSymbol(name).at(Some(start_line), Some(start_column), None));
+					name.push(chr);
+					reader.read_char()?;
+					// If we read two slashes, skip to the next newline
+					if name == "//" {
+						while matches!(reader.peek_char()?, Some(chr) if chr != '\n') {
+							reader.read_char()?;
+						}
+						continue 'r;
 					}
-					TanukiTokenVariant::Operator { prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator, nullary_operator, is_assignment, is_colon, symbol: name.into_boxed_str() }
 				}
-			// TODO: Comments
+				// Get if this is a colon
+				let is_colon = name == ":";
+				// Get if this is an assignment operator
+				let is_assignment = name.ends_with('=') && !matches!(name.as_str(), "==" | "!=" | "===" | "!==" | "<=" | ">=" | "..=");
+				let name_without_assignment: &str = match is_assignment {
+					true => name.as_str().strip_suffix('=').unwrap_or(name.as_str()),
+					false => name.as_str(),
+				};
+				// Parse
+				let prefix_unary_operator = TanukiPrefixUnaryOperator::from_source(name_without_assignment);
+				let infix_binary_operator = TanukiInfixBinaryOperator::from_source(name_without_assignment);
+				let postfix_unary_operator = TanukiPostfixUnaryOperator::from_source(name_without_assignment);
+				let infix_ternary_operator = TanukiInfixTernaryOperator::from_source(name_without_assignment);
+				let nullary_operator = TanukiNullaryOperator::from_source(name_without_assignment);
+				if prefix_unary_operator.is_none() && infix_binary_operator.is_none() && postfix_unary_operator.is_none() && infix_ternary_operator.is_none() && nullary_operator.is_none() && !is_colon {
+					return Err(Error::InvalidOperatorSymbol(name).at(Some(start_line), Some(start_column), None));
+				}
+				TanukiTokenVariant::Operator { prefix_unary_operator, infix_binary_operator, postfix_unary_operator, infix_ternary_operator, nullary_operator, is_assignment, is_colon, symbol: name.into_boxed_str() }
+			}
+			// TODO: Block comments
 			other => return Err(Error::InvalidCharStartingToken(other).at(Some(start_line), Some(start_column), None)),
 		};
 		// Assemble into token

@@ -5,7 +5,7 @@ use crate::{programming_languages::tanuki::expression::TanukiExpression, traits:
 /// A Tanuki function.
 pub struct TanukiFunction {
 	pub name: Box<str>,
-	pub parameters: Box<[TanukiFunctionParameter]>,
+	pub parameters: Box<[Option<TanukiFunctionParameter>]>,
 	pub return_type: Option<TanukiExpression>,
 	pub body: Option<TanukiExpression>,
 	pub start_line: NonZeroUsize,
@@ -21,7 +21,7 @@ impl AstNode for TanukiFunction {
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
 		for parameter in self.parameters.iter() {
-			parameter.print(level, f)?;
+			parameter.as_ref().unwrap().print(level, f)?;
 		}
 		if let Some(return_type) = &self.return_type {
 			return_type.print(level, f)?;

@@ -83,6 +83,7 @@ impl TanukiFunction {
 		local_variables.push(HashMap::new());
 		let mut c_parameters = Vec::new();
 		for parameter in self.parameters.iter() {
+			let parameter = parameter.as_ref().unwrap();
 			let t_type = match &parameter.t_type {
 				Some(TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(t_type)), .. }) => t_type,
 				Some(_) => unreachable!(),
@@ -193,8 +194,7 @@ impl TanukiExpression {
 						break 'a Ok((Some(name.clone()), local_variable_type.clone()));
 					}
 				}
-				// TODO: If a global constant has not been const-compiled
-				unreachable!();
+				return Err(Error::UnableToConstCompile.at(Some(self.start_line), Some(self.start_column), None));
 			}
 			// Blocks
 			TanukiExpressionVariant::Block { sub_expressions, has_return_value } => {
@@ -318,8 +318,7 @@ impl TanukiCompileTimeValue {
 			TanukiCompileTimeValue::I(_, value) => CExpression::IntConstant(*value as i128),
 			TanukiCompileTimeValue::Void => return Ok((None, TanukiType::Void)),
 			TanukiCompileTimeValue::FunctionPointer(function_name, _module_path, return_type, parameter_types) => {
-				// TODO: Functions at top
-				let t_type = TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone());//TanukiType::FunctionPointer(Box::new(return_type.clone()), parameter_types.into());
+				let t_type = TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone());
 				let c_expression = CExpression::TakeReference(CLValue::Variable(function_name.clone().into()).into());
 				let temp_name = format!("_tnk_temp_func_var_{function_temp_variable_count}");
 				*function_temp_variable_count += 1;
@@ -327,8 +326,7 @@ impl TanukiCompileTimeValue {
 				return Ok((Some(temp_name.into()), t_type))
 			}
 			TanukiCompileTimeValue::LinkedFunctionPointer(function_name, return_type, parameter_types) => {
-				// TODO: Functions at top
-				let t_type = TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone());//TanukiType::FunctionPointer(Box::new(return_type.clone()), parameter_types.into());
+				let t_type = TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone());
 				let c_expression = CExpression::TakeReference(CLValue::Variable(function_name.clone().into()).into());
 				let temp_name = format!("_tnk_temp_link_func_var_{function_temp_variable_count}");
 				*function_temp_variable_count += 1;
