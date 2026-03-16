@@ -11,6 +11,7 @@ Beep = @import_std("win/sound.tnk");
 
 @entrypoint simpleFn = (; @u(8)) {
 	Beep(fnY(), @u(32) 1000);
+	//simpleFn();
 	//t = @true;
 	A
 	//@u(8) a = fnY();
