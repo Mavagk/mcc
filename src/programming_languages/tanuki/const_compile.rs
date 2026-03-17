@@ -57,8 +57,21 @@ impl TanukiGlobalConstant {
 		&mut self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, module_path: &Path,
 		was_complication_done: &mut bool, dependencies_need_const_compiling: &mut bool,
 	) -> Result<(), ErrorAt> {
+		if let Some(t_type) = &mut self.t_type {
+			t_type.const_compile_r_value(
+				main, modules, this_module, module_path, None, was_complication_done, &mut Vec::new(), &TanukiType::Type, dependencies_need_const_compiling, Some(&self.name)
+			)?;
+		}
+		if *dependencies_need_const_compiling {
+			return Ok(());
+		}
+		let return_type = match &self.t_type {
+			None => &TanukiType::Any,
+			Some(TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(return_type)), .. }) => return_type,
+			_ => unreachable!(),
+		};
 		self.value_expression.const_compile_r_value(
-			main, modules, this_module, module_path, None, was_complication_done, &mut Vec::new(), &TanukiType::Any, dependencies_need_const_compiling, Some(&self.name)
+			main, modules, this_module, module_path, None, was_complication_done, &mut Vec::new(), return_type, dependencies_need_const_compiling, Some(&self.name)
 		)?;
 		Ok(())
 	}
@@ -79,7 +92,7 @@ impl TanukiFunction {
 			if let Some(mut t_type_parameter) = take(&mut self.parameters[x]) {
 				let t_type = t_type_parameter.t_type.as_mut().unwrap().const_compile_r_value(
 					main, modules, this_module, module_path, Some(self), was_complication_done, &mut local_variables, &TanukiType::Type, dependencies_need_const_compiling, None
-				)?.value;
+				)?.return_value;
 				self.parameters[x] = Some(t_type_parameter);
 				if *dependencies_need_const_compiling {
 					return Ok(());
@@ -101,7 +114,7 @@ impl TanukiFunction {
 		if let Some(mut return_type_expression) = take(&mut self.return_type) {
 			return_type = return_type_expression.const_compile_r_value(
 				main, modules, this_module, module_path, Some(self), was_complication_done, &mut local_variables, &TanukiType::Type, dependencies_need_const_compiling, None
-			)?.value;
+			)?.return_value;
 			self.return_type = Some(return_type_expression);
 		};
 		if *dependencies_need_const_compiling {
@@ -272,7 +285,7 @@ impl TanukiExpression {
 				if *dependencies_need_const_compiling {
 					return Ok(RValueConstComplicationResult::default());
 				}
-				let argument = match argument.value {
+				let argument = match argument.return_value {
 					Some(TanukiCompileTimeValue::CompileTimeInt(argument)) => argument,
 					_ => return Ok(RValueConstComplicationResult::default()),
 				};
@@ -315,7 +328,7 @@ impl TanukiExpression {
 			TanukiExpressionVariant::TypeAndValue(type_expression, castee_expression) => {
 				let type_expression_parsed = match type_expression.const_compile_r_value(
 					main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Type, dependencies_need_const_compiling, None
-				)?.value {
+				)?.return_value {
 					Some(TanukiCompileTimeValue::Type(type_expression_parsed)) => type_expression_parsed,
 					_ => return Ok(RValueConstComplicationResult::default()),
 				};
@@ -324,7 +337,7 @@ impl TanukiExpression {
 				}
 				let castee_expression_parsed = castee_expression.const_compile_r_value(
 					main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
-				)?.value;
+				)?.return_value;
 				if *dependencies_need_const_compiling {
 					return Ok(RValueConstComplicationResult::default());
 				}
@@ -342,7 +355,7 @@ impl TanukiExpression {
 			TanukiExpressionVariant::NullaryOperator(operator) => {
 				let result = operator.const_compile_r_value(
 					main, modules, this_module, this_module_path, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
-				)?.value;
+				)?.return_value;
 				if result.is_some() {
 					*was_complication_done = true;
 				}
@@ -351,7 +364,7 @@ impl TanukiExpression {
 			TanukiExpressionVariant::PrefixUnaryOperator(operator, operand) => {
 				let result = operator.const_compile_r_value(
 					operand, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
-				)?.value;
+				)?.return_value;
 				if result.is_some() {
 					*was_complication_done = true;
 				}
@@ -360,7 +373,7 @@ impl TanukiExpression {
 			TanukiExpressionVariant::PostfixUnaryOperator(operator, operand) => {
 				let result = operator.const_compile_r_value(
 					operand, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
-				)?.value;
+				)?.return_value;
 				if result.is_some() {
 					*was_complication_done = true;
 				}
@@ -369,7 +382,7 @@ impl TanukiExpression {
 			TanukiExpressionVariant::InfixBinaryOperator(operator, lhs_expression, rhs_expression) => {
 				let result = operator.const_compile_r_value(
 					lhs_expression, rhs_expression, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
-				)?.value;
+				)?.return_value;
 				if result.is_some() {
 					*was_complication_done = true;
 				}
@@ -378,7 +391,7 @@ impl TanukiExpression {
 			TanukiExpressionVariant::InfixTernaryOperator(operator, lhs_expression, mhs_expression, rhs_expression) => {
 				let result = operator.const_compile_r_value(
 					lhs_expression, mhs_expression, rhs_expression, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
-				)?.value;
+				)?.return_value;
 				if result.is_some() {
 					*was_complication_done = true;
 				}
@@ -414,12 +427,12 @@ impl TanukiExpression {
 						if *dependencies_need_const_compiling {
 							return Ok(RValueConstComplicationResult::default());
 						}
-						if sub_expression_result.value.is_none() {
+						if sub_expression_result.return_value.is_none() {
 							return Ok(RValueConstComplicationResult::default());
 						}
 						if sub_expressions_len == 1 {
 							*was_complication_done = true;
-							break 'a sub_expression_result.value
+							break 'a sub_expression_result.return_value
 						}
 					}
 					else {
@@ -519,7 +532,7 @@ impl TanukiExpression {
 					if *dependencies_need_const_compiling {
 						return Ok(RValueConstComplicationResult::default());
 					}
-					match link_if_value.value {
+					match link_if_value.return_value {
 						Some(TanukiCompileTimeValue::Bool(true)) => {
 							*link_if = None;
 							*was_complication_done = true;
@@ -616,7 +629,7 @@ impl TanukiExpression {
 			self.variant = TanukiExpressionVariant::Constant(const_compiled_value.clone());
 		}
 		// Return
-		Ok(RValueConstComplicationResult { value: const_compiled_value, is_pure: false })
+		Ok(RValueConstComplicationResult { return_value: const_compiled_value, is_pure: false, ..Default::default() })
 	}
 
 	/// Const-compiles a Tanuki expression as an l-value. Will set `was_complication_done` to `true` if any compilation was done.
@@ -654,7 +667,7 @@ impl TanukiExpression {
 			TanukiExpressionVariant::TypeAndValue(type_expression, value_expression) => {
 				let type_t = match type_expression.const_compile_r_value(
 					main, modules, this_module, module_path, this_function, was_complication_done, local_variables, &TanukiType::Type, dependencies_need_const_compiling, None
-				)?.value {
+				)?.return_value {
 					Some(TanukiCompileTimeValue::Type(type_t)) => type_t,
 					Some(_) => return Ok((None, TanukiType::Any)),
 					None => TanukiType::Any,
@@ -712,7 +725,7 @@ impl TanukiPrefixUnaryOperator {
 			Self::Dereference | Self::NthToLast | Self::RangeToExclusive | Self::RangeToInclusive => {
 				let operand = match operand_expression.const_compile_r_value(
 					main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
-				)?.value {
+				)?.return_value {
 					Some(operand_expression) => operand_expression,
 					_ => return Ok(RValueConstComplicationResult::default()),
 				};
@@ -727,7 +740,7 @@ impl TanukiPrefixUnaryOperator {
 					(Self::Dereference, TanukiCompileTimeValue::Type(pointee_type)) => Some(TanukiCompileTimeValue::Type(TanukiType::Pointer(pointee_type.into()))),
 					_ => None,
 				})?;
-				Ok(RValueConstComplicationResult { value, is_pure: false })
+				Ok(RValueConstComplicationResult { return_value: value, is_pure: false, ..Default::default() })
 			}
 			Self::AddressOf | Self::Increment | Self::SaturatingIncrement | Self::WrappingIncrement | Self::Decrement | Self::SaturatingDecrement | Self::WrappingDecrement => {
 				let (l_value, _t_type) = match operand_expression.const_compile_l_value(
@@ -759,7 +772,7 @@ impl TanukiPostfixUnaryOperator {
 			Self::TryPropagate | Self::Unwrap => {
 				let operand = match operand_expression.const_compile_r_value(
 					main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
-				)?.value {
+				)?.return_value {
 					Some(operand) => operand,
 					_ => return Ok(RValueConstComplicationResult::default()),
 				};
@@ -795,7 +808,7 @@ impl TanukiPostfixUnaryOperator {
 				})
 			}
 		}?;
-		Ok(RValueConstComplicationResult { value, is_pure: false })
+		Ok(RValueConstComplicationResult { return_value: value, is_pure: false, ..Default::default() })
 	}
 }
 
@@ -823,10 +836,10 @@ impl TanukiInfixBinaryOperator {
 				let (lhs_operand, rhs_operand) = match (
 					lhs_expression.const_compile_r_value(
 						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
-					)?.value,
+					)?.return_value,
 					rhs_expression.const_compile_r_value(
 						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
-					)?.value
+					)?.return_value
 				) {
 					(Some(lhs_operand), Some(rhs_operand)) => (lhs_operand, rhs_operand),
 					_ => return Ok(RValueConstComplicationResult::default()),
@@ -905,7 +918,7 @@ impl TanukiInfixBinaryOperator {
 			Self::MemberAccess | Self::As | Self::SaturatingAs | Self::WrappingAs | Self::TryAs | Self::Pipe => Ok(None),
 			Self::None => unreachable!(),
 		}?;
-		Ok(RValueConstComplicationResult { value, is_pure: false })
+		Ok(RValueConstComplicationResult { return_value: value, is_pure: false, ..Default::default() })
 	}
 }
 
@@ -924,13 +937,13 @@ impl TanukiInfixTernaryOperator {
 				let (lhs_operand, mhs_operand, rhs_operand) = match (
 					lhs_expression.const_compile_r_value(
 						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
-					)?.value,
+					)?.return_value,
 					mhs_expression.const_compile_r_value(
 						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
-					)?.value,
+					)?.return_value,
 					rhs_expression.const_compile_r_value(
 						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
-					)?.value
+					)?.return_value
 				) {
 					(Some(lhs_operand), Some(mhs_operand), Some(rhs_operand)) => (lhs_operand, mhs_operand, rhs_operand),
 					_ => return Ok(RValueConstComplicationResult::default()),
@@ -946,7 +959,9 @@ impl TanukiInfixTernaryOperator {
 #[derive(Debug, Default)]
 pub struct RValueConstComplicationResult {
 	/// Contains a value if this expression always gives the same value.
-	pub value: Option<TanukiCompileTimeValue>,
+	pub return_value: Option<TanukiCompileTimeValue>,
+	/// Contains a type if this expression always gives the same value type.
+	pub return_type: Option<TanukiType>,
 	/// The expression can be removed and has no side-effects if this is true.
 	pub is_pure: bool,
 }
