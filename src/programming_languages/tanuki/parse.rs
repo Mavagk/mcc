@@ -2,7 +2,7 @@ use std::{collections::HashSet, num::NonZeroUsize, path::PathBuf};
 
 use num::ToPrimitive;
 
-use crate::{Main, Os, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiKeyword, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader};
+use crate::{Main, Os, error::{Error, ErrorAt}, maybe_parsed_token::MaybeParsedToken, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiKeyword, TanukiPrefixUnaryOperator, TanukiToken, TanukiTokenVariant}}, token_reader::TokenReader};
 
 #[derive(Debug, Clone)]
 pub struct TanukiPartiallyParsedToken {
@@ -112,36 +112,106 @@ impl TanukiExpression {
 					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
 				}),
 				// If there is a block
-				TanukiTokenVariant::LeftCurlyParenthesis => 'a: {
+				TanukiTokenVariant::LeftCurlyParenthesis => {
 					// Parse each sub-expression
 					let mut sub_expressions = Vec::new();
+					let mut return_expressions = Vec::new();
+					let mut is_parsing_return_expressions = false;
 					loop {
 						// Parse expression
-						let expression_is_empty;
-						if let Some(sub_expression) = Self::parse(main, token_reader)? {
-							sub_expressions.push(sub_expression);
-							expression_is_empty = false;
-						}
-						else {
-							expression_is_empty = true;
-						}
-						// Next token should be a } or ; token
+						let sub_expression = Self::parse(main, token_reader)?;
+						// Next token should be a separator
+						let mut end_pos = None;
 						match token_reader.next() {
 							// Right curly bracket ends the block expression
-							Some(TanukiToken { variant: TanukiTokenVariant::RightCurlyParenthesis, end_line, end_column, .. }) => break 'a MaybeParsedToken::Parsed(TanukiExpression {
-								variant: TanukiExpressionVariant::Block { sub_expressions: sub_expressions.into(), has_return_value: !expression_is_empty },
-								start_line: token_start_line, start_column: token_start_column, end_line: *end_line, end_column: *end_column,
-							}),
+							Some(TanukiToken { variant: TanukiTokenVariant::RightCurlyParenthesis, end_line, end_column, .. }) => {
+								is_parsing_return_expressions = true;
+								end_pos = Some((end_line, end_column));
+							},
 							// The token stream should not just stop
 							None => return Err(Error::ExpectedCurlyClosingParenthesis.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None)),
-							// Move on to the next sub-expression if we read a semicolon
-							Some(TanukiToken { variant: TanukiTokenVariant::Semicolon, .. }) => {},
+							// Comma separates return expression
+							Some(TanukiToken { variant: TanukiTokenVariant::Comma, .. }) => {
+								is_parsing_return_expressions = true;
+							},
+							// Semicolon separates non-return expression
+							Some(TanukiToken { variant: TanukiTokenVariant::Semicolon, .. }) => {
+								if is_parsing_return_expressions {
+									return Err(Error::ExpectedComma.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None));
+								}
+							},
 							// Else an error
-							Some(TanukiToken { start_column, end_column, .. })
+							Some(TanukiToken { start_column, end_column, .. }) if !is_parsing_return_expressions
 								=> return Err(Error::ExpectedSemicolon.at(Some(*start_column), Some(*end_column), None)),
+							Some(TanukiToken { start_column, end_column, .. })
+								=> return Err(Error::ExpectedComma.at(Some(*start_column), Some(*end_column), None)),
+						}
+						// Push sub-expression
+						if is_parsing_return_expressions {
+							let sub_expression = match sub_expression {
+								Some(sub_expression) => sub_expression,
+								None => return Err(Error::ExpectedExpression.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None)),
+							};
+							match sub_expression {
+								TanukiExpression {
+									variant: TanukiExpressionVariant::Assignment(lhs_expression, rhs_expression), ..
+								} if matches!(lhs_expression.variant, TanukiExpressionVariant::PrefixUnaryOperator(TanukiPrefixUnaryOperator::MemberAccess, _)) => {
+									let name_expression = match lhs_expression.variant {
+										TanukiExpressionVariant::PrefixUnaryOperator(_, name_expression) => name_expression,
+										_ => unreachable!(),
+									};
+									let name = match name_expression.variant {
+										TanukiExpressionVariant::Variable(name) => name,
+										_ => return Err(Error::ExpectedVariable.at(Some(name_expression.start_line), Some(name_expression.start_column), None)),
+									};
+									return_expressions.push((Some(name), *rhs_expression));
+								}
+								_ => return_expressions.push((None, sub_expression)),
+							}
+						}
+						else if let Some(sub_expression) = sub_expression {
+							sub_expressions.push(sub_expression);
+						}
+						// Return
+						if let Some((end_line, end_column)) = end_pos {
+							break MaybeParsedToken::Parsed(TanukiExpression {
+								variant: TanukiExpressionVariant::Block { sub_expressions: sub_expressions.into(), return_expressions: return_expressions.into() },
+								start_line: token_start_line, start_column: token_start_column, end_line: *end_line, end_column: *end_column,
+							})
 						}
 					}
 				},
+				//// If there is a block
+				//TanukiTokenVariant::LeftCurlyParenthesis => 'a: {
+				//	// Parse each sub-expression
+				//	let mut sub_expressions = Vec::new();
+				//	loop {
+				//		// Parse expression
+				//		let expression_is_empty;
+				//		if let Some(sub_expression) = Self::parse(main, token_reader)? {
+				//			sub_expressions.push(sub_expression);
+				//			expression_is_empty = false;
+				//		}
+				//		else {
+				//			expression_is_empty = true;
+				//		}
+				//		// Next token should be a } or ; token
+				//		match token_reader.next() {
+				//			// Right curly bracket ends the block expression
+				//			Some(TanukiToken { variant: TanukiTokenVariant::RightCurlyParenthesis, end_line, end_column, .. }) => break 'a MaybeParsedToken::Parsed(TanukiExpression {
+				//				variant: TanukiExpressionVariant::Block { sub_expressions: sub_expressions.into(), has_return_value: !expression_is_empty },
+				//				start_line: token_start_line, start_column: token_start_column, end_line: *end_line, end_column: *end_column,
+				//			}),
+				//			// The token stream should not just stop
+				//			None => return Err(Error::ExpectedCurlyClosingParenthesis.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None)),
+				//			// Move on to the next sub-expression if we read a semicolon
+				//			Some(TanukiToken { variant: TanukiTokenVariant::Semicolon, .. }) => {},
+				//			// Else an error
+				//			Some(TanukiToken { start_column, end_column, .. })
+				//				=> return Err(Error::ExpectedSemicolon.at(Some(*start_column), Some(*end_column), None)),
+				//		}
+				//	}
+				//},
 				// Function arguments or parameters
 				TanukiTokenVariant::LeftParenthesis => 'a: {
 					// Parse each sub-expression

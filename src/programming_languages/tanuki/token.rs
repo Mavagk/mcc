@@ -148,6 +148,7 @@ pub enum TanukiPrefixUnaryOperator {
 	/// Reads an l-value and converts it to an r-value. This operator is a no-op when used on r-values.
 	Read,             // +
 	Not,              // !
+	MemberAccess,     // .
 	/// Returns a random number in the 0..x range.
 	//Roll,             // ?
 	/// Returns 1. / x, floats only.
@@ -213,6 +214,7 @@ impl TanukiPrefixUnaryOperator {
 		match &self {
 			Self::Read             => write!(f, "Read +"),
 			Self::Not              => write!(f, "Not !"),
+			Self::MemberAccess     => write!(f, "Member Access ."),
 			//Self::Roll             => write!(f, "Roll ?"),
 			Self::Reciprocal       => write!(f, "Reciprocal /"),
 			Self::BitshiftRightOne => write!(f, "Bitshift Right One >>"),
@@ -254,6 +256,7 @@ impl TanukiPrefixUnaryOperator {
 		Some(match source {
 			"+"  => Self::Read,
 			"!"  => Self::Not,
+			"."  => Self::MemberAccess,
 			//"?"  => Self::Roll,
 			"/"  => Self::Reciprocal,
 			">>" => Self::BitshiftRightOne,

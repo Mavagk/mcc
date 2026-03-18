@@ -201,30 +201,39 @@ impl TanukiExpression {
 				return Err(Error::UnableToConstCompile.at(Some(self.start_line), Some(self.start_column), None));
 			}
 			// Blocks
-			TanukiExpressionVariant::Block { sub_expressions, has_return_value } => {
-				let sub_expressions_len = sub_expressions.len();
+			TanukiExpressionVariant::Block { sub_expressions, return_expressions } => {
+				//let sub_expressions_len = sub_expressions.len();
 				let mut return_variable_name = None;
 				let mut return_type = TanukiType::Void;
 				// Push a local variable scope level
 				local_variables.push(HashMap::new());
 				// Create c compound statement
 				let mut c_compound_statement = CCompoundStatement::new();
-				// Compile each variable
-				for (x, sub_expression) in sub_expressions.iter().enumerate() {
-					let sub_expression_result = sub_expression.compile_r_value_to_c(main, modules, &mut c_compound_statement, function_temp_variable_count, local_variables)?;
+				// Compile each sub-expression
+				for sub_expression in sub_expressions.iter() {
+					sub_expression.compile_r_value_to_c(main, modules, &mut c_compound_statement, function_temp_variable_count, local_variables)?;
+				}
+				let return_expressions_len = return_expressions.len();
+				for (_x, (return_expression_name, return_expression)) in return_expressions.iter().enumerate() {
+					let return_expression_result = return_expression.compile_r_value_to_c(main, modules, &mut c_compound_statement, function_temp_variable_count, local_variables)?;
 					// If this is the block's sub-expression that yields it's result value and the value yielded is not void
-					if let Some(sub_expression_return_variable_name) = sub_expression_result.0 && x == sub_expressions_len - 1 && *has_return_value {
+					if let Some(return_expression_result_variable_name) = return_expression_result.0 && return_expressions_len == 1 && return_expression_name.is_none() {
 						// Create the temp variable to assign the block result to
-						return_type = sub_expression_result.1;
+						return_type = return_expression_result.1;
 						let name = format!("_tnk_temp_block_var_{function_temp_variable_count}");
 						*function_temp_variable_count += 1;
 						return_variable_name = Some(name.clone().into());
 						// Assign the block result to the temp variable
-						insert_into.push_statement(CStatement::VariableDeclaration(return_type.compile_to_c(main, Some(sub_expression.start_line), Some(sub_expression.start_column))?, name.clone().into(), None));
+						insert_into.push_statement(
+							CStatement::VariableDeclaration(return_type.compile_to_c(main, Some(return_expression.start_line), Some(return_expression.start_column))?, name.clone().into(), None)
+						);
 						c_compound_statement.push_statement(CExpression::Assignment(
 							CLValue::Variable(name.clone().into()).into(),
-							CLValue::Variable(sub_expression_return_variable_name.into()).into(),
+							CLValue::Variable(return_expression_result_variable_name).into(),
 						).into());
+					}
+					else {
+						return Err(Error::NotYetImplemented("Blocks with struct return result".into()).at(Some(return_expression.start_line), Some(return_expression.start_column), None));
 					}
 				}
 				// Push compound statement
@@ -234,6 +243,39 @@ impl TanukiExpression {
 				// Return
 				Ok((return_variable_name, return_type))
 			}
+			//TanukiExpressionVariant::Block { sub_expressions, has_return_value } => {
+			//	let sub_expressions_len = sub_expressions.len();
+			//	let mut return_variable_name = None;
+			//	let mut return_type = TanukiType::Void;
+			//	// Push a local variable scope level
+			//	local_variables.push(HashMap::new());
+			//	// Create c compound statement
+			//	let mut c_compound_statement = CCompoundStatement::new();
+			//	// Compile each variable
+			//	for (x, sub_expression) in sub_expressions.iter().enumerate() {
+			//		let sub_expression_result = sub_expression.compile_r_value_to_c(main, modules, &mut c_compound_statement, function_temp_variable_count, local_variables)?;
+			//		// If this is the block's sub-expression that yields it's result value and the value yielded is not void
+			//		if let Some(sub_expression_return_variable_name) = sub_expression_result.0 && x == sub_expressions_len - 1 && *has_return_value {
+			//			// Create the temp variable to assign the block result to
+			//			return_type = sub_expression_result.1;
+			//			let name = format!("_tnk_temp_block_var_{function_temp_variable_count}");
+			//			*function_temp_variable_count += 1;
+			//			return_variable_name = Some(name.clone().into());
+			//			// Assign the block result to the temp variable
+			//			insert_into.push_statement(CStatement::VariableDeclaration(return_type.compile_to_c(main, Some(sub_expression.start_line), Some(sub_expression.start_column))?, name.clone().into(), None));
+			//			c_compound_statement.push_statement(CExpression::Assignment(
+			//				CLValue::Variable(name.clone().into()).into(),
+			//				CLValue::Variable(sub_expression_return_variable_name.into()).into(),
+			//			).into());
+			//		}
+			//	}
+			//	// Push compound statement
+			//	insert_into.push_statement(CStatement::CompoundStatement(c_compound_statement));
+			//	// Pop the local variable scope level
+			//	local_variables.pop();
+			//	// Return
+			//	Ok((return_variable_name, return_type))
+			//}
 			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
 				let (function_pointer_result_variable, function_pointer_type) = function_pointer.compile_r_value_to_c(
 					main, modules, insert_into, function_temp_variable_count, local_variables

@@ -15,7 +15,8 @@ pub struct TanukiExpression {
 #[derive(Debug, Clone)]
 pub enum TanukiExpressionVariant {
 	Constant(TanukiCompileTimeValue),
-	Block { sub_expressions: Box<[TanukiExpression]>, has_return_value: bool },
+	//Block { sub_expressions: Box<[TanukiExpression]>, has_return_value: bool },
+	Block { sub_expressions: Box<[TanukiExpression]>, return_expressions: Box<[(Option<Box<str>>, TanukiExpression)]> },
 	Variable(Box<str>),
 	FunctionCall { function_pointer: Box<TanukiExpression>, arguments: Box<[TanukiExpression]> },
 	FunctionDefinition { parameters: Box<[TanukiExpression]>, return_type: Option<Box<TanukiExpression>>, body_expression: Box<TanukiExpression> },
@@ -54,12 +55,12 @@ impl AstNode for TanukiExpression {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match &self.variant {
 			TanukiExpressionVariant::Constant(..) => write!(f, "Constant"),
-			TanukiExpressionVariant::Block { has_return_value, .. } => {
-				write!(f, "Block")?;
-				if *has_return_value {
-					write!(f, ", has return value")?;
-				}
-				Ok(())
+			TanukiExpressionVariant::Block { .. } => {
+				write!(f, "Block")
+				//if *has_return_value {
+				//	write!(f, ", has return value")?;
+				//}
+				//Ok(())
 			},
 			TanukiExpressionVariant::FunctionCall { .. }                            => write!(f, "Function Call"),
 			TanukiExpressionVariant::FunctionDefinition { return_type, .. } => {
@@ -107,9 +108,13 @@ impl AstNode for TanukiExpression {
 		match &self.variant {
 			TanukiExpressionVariant::Constant(value) => value.print(level, f),
 			TanukiExpressionVariant::Variable(..) => Ok(()),
-			TanukiExpressionVariant::Block { sub_expressions, ..} => {
+			TanukiExpressionVariant::Block { sub_expressions, return_expressions} => {
 				for sub_expression in sub_expressions {
 					sub_expression.print(level, f)?;
+				}
+				writeln!(f)?;
+				for (_name, return_expression) in return_expressions {
+					return_expression.print(level, f)?;
 				}
 				Ok(())
 			}

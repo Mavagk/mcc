@@ -447,41 +447,70 @@ impl TanukiExpression {
 				value_result
 			}
 			// For blocks, const-compile each sub-expression
-			TanukiExpressionVariant::Block { sub_expressions, has_return_value } => 'a: {
-				let sub_expressions_len = sub_expressions.len();
-				//let mut _block_result = None;
+			TanukiExpressionVariant::Block { sub_expressions, return_expressions } => 'a: {
 				local_variables.push(HashMap::new());
-				for (x, sub_expression) in sub_expressions.iter_mut().enumerate() {
-					if x == sub_expressions_len - 1 && *has_return_value {
-						let mut sub_expression_result = sub_expression.const_compile_r_value(
-							main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling, None
-						)?;
-						if *dependencies_need_const_compiling {
-							return Ok(RValueConstComplicationResult::default());
-						}
-						//if sub_expression_result.result_value.is_none() {
-						//	return Ok(RValueConstComplicationResult::default());
-						//}
-						if sub_expressions_len != 1 {
-							//*was_complication_done = true;
-							//break 'a sub_expression_result
-							sub_expression_result.is_pure = false;
-						}
-						break 'a sub_expression_result
+				for sub_expression in sub_expressions.iter_mut() {
+					sub_expression.const_compile_r_value(
+						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
+					)?;
+					if *dependencies_need_const_compiling {
+						return Ok(RValueConstComplicationResult::default());
 					}
-					else {
-						sub_expression.const_compile_r_value(
-							main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
-						)?;
-						if *dependencies_need_const_compiling {
-							return Ok(RValueConstComplicationResult::default());
+				}
+				let return_expressions_len = return_expressions.len();
+				for (return_expression_name, return_expression) in return_expressions.iter_mut() {
+					let result_type = match return_expressions_len == 1 && return_expression_name.is_none() {
+						true => result_type,
+						false => &TanukiType::Any,
+					};
+					let mut return_expression_result = return_expression.const_compile_r_value(
+						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling, None
+					)?;
+					if *dependencies_need_const_compiling {
+						return Ok(RValueConstComplicationResult::default());
+					}
+					if return_expressions_len == 1 && return_expression_name.is_none() {
+						if sub_expressions.len() > 0 {
+							return_expression_result.is_pure = false;
 						}
+						break 'a return_expression_result;
 					}
 				}
 				local_variables.pop();
-				//_block_result
-				RValueConstComplicationResult { result_value: Some(TanukiCompileTimeValue::Void), result_type: None, is_pure: false }
+				match return_expressions.is_empty() {
+					true => RValueConstComplicationResult { result_value: Some(TanukiCompileTimeValue::Void), result_type: None, is_pure: false },
+					false => RValueConstComplicationResult::default(),
+				}
 			}
+			//// For blocks, const-compile each sub-expression
+			//TanukiExpressionVariant::Block { sub_expressions, has_return_value } => 'a: {
+			//	let sub_expressions_len = sub_expressions.len();
+			//	local_variables.push(HashMap::new());
+			//	for (x, sub_expression) in sub_expressions.iter_mut().enumerate() {
+			//		if x == sub_expressions_len - 1 && *has_return_value {
+			//			let mut sub_expression_result = sub_expression.const_compile_r_value(
+			//				main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling, None
+			//			)?;
+			//			if *dependencies_need_const_compiling {
+			//				return Ok(RValueConstComplicationResult::default());
+			//			}
+			//			if sub_expressions_len != 1 {
+			//				sub_expression_result.is_pure = false;
+			//			}
+			//			break 'a sub_expression_result
+			//		}
+			//		else {
+			//			sub_expression.const_compile_r_value(
+			//				main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
+			//			)?;
+			//			if *dependencies_need_const_compiling {
+			//				return Ok(RValueConstComplicationResult::default());
+			//			}
+			//		}
+			//	}
+			//	local_variables.pop();
+			//	RValueConstComplicationResult { result_value: Some(TanukiCompileTimeValue::Void), result_type: None, is_pure: false }
+			//}
 			// For function calls, const-compile the function pointer and the arguments
 			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
 				function_pointer.const_compile_r_value(
@@ -816,6 +845,7 @@ impl TanukiPrefixUnaryOperator {
 					_ => RValueConstComplicationResult::default(),
 				})
 			}
+			Self::MemberAccess => Ok(RValueConstComplicationResult::default()),
 		}
 	}
 }
