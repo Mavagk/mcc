@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug, Formatter};
 
-use crate::traits::ast_node::AstNode;
+use crate::{error::Error, traits::ast_node::AstNode};
 
 #[derive(Clone, PartialEq, Eq)]
 /// A type of a Tanuki value.
@@ -21,12 +21,24 @@ pub enum TanukiType {
 	FunctionPointer(Box<TanukiType>, Box<[TanukiType]>),
 }
 
+impl TanukiType {
+	/// Gives the type of a value of this type after it has been cast to another type.
+	pub fn cast_to(&self, type_to: &TanukiType) -> Result<Self, Error> {
+		Ok(match (self, type_to) {
+			(type_t, TanukiType::Any) => type_t.clone(),
+			(TanukiType::CompileTimeInt | TanukiType::U(_) | TanukiType::I(_), TanukiType::CompileTimeInt | TanukiType::U(_) | TanukiType::I(_)) => type_to.clone(),
+			(TanukiType::Any, type_t) => type_t.clone(),
+			(cast_from, cast_to) if cast_from == cast_to => cast_from.clone(),
+			_ => return Err(Error::NotYetImplemented(format!("Casting value {self:?} to type {type_to:?}"))),
+		})
+	}
+}
+
 impl AstNode for TanukiType {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::CompileTimeInt        => write!(f, "Compile Time Integer"),
 			Self::CompileTimeFloat      => write!(f, "Compile Time Float"),
-			//Self::CompileTimeBool       => write!(f, "Compile Time Bool"),
 			Self::CompileTimeChar       => write!(f, "Compile Time Char"),
 			Self::CompileTimeString     => write!(f, "Compile Time String"),
 			Self::Void                  => write!(f, "Void"),
