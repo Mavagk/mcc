@@ -114,7 +114,7 @@ impl TanukiCompileTimeValue {
 					_ => unreachable!(),
 				})
 			}
-			//
+			// Cast a struct of types to a type of struct
 			(TanukiType::Struct { .. }, TanukiType::Type, _) => Ok({
 				let (ordered_members, named_members) = match &self {
 					TanukiCompileTimeValue::Struct { ordered_members, named_members } => (ordered_members, named_members),
@@ -122,11 +122,17 @@ impl TanukiCompileTimeValue {
 				};
 				let mut new_ordered_members = Vec::new();
 				for ordered_member in ordered_members.iter() {
-					new_ordered_members.push(ordered_member.cast_to(&TanukiType::Type, can_be_lossy)?);
+					new_ordered_members.push(match ordered_member.clone().cast_to(&TanukiType::Type, can_be_lossy)? {
+						TanukiCompileTimeValue::Type(type_t) => type_t,
+						_ => unreachable!(),
+					});
 				}
 				let mut new_named_members = HashMap::new();
 				for named_member in named_members.iter() {
-					new_named_members.insert(named_member.0.clone(), named_member.1.cast_to(&TanukiType::Type, can_be_lossy)?);
+					new_named_members.insert(named_member.0.clone(), match named_member.1.clone().cast_to(&TanukiType::Type, can_be_lossy)? {
+						TanukiCompileTimeValue::Type(type_t) => type_t,
+						_ => unreachable!(),
+					});
 				}
 				TanukiCompileTimeValue::Type(TanukiType::Struct {
 					ordered_members: new_ordered_members.into(), named_members: new_named_members
