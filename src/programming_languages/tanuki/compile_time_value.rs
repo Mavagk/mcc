@@ -1,4 +1,4 @@
-use std::{fmt::{self, Debug, Formatter}, path::Path, u64};
+use std::{collections::HashMap, fmt::{self, Debug, Formatter}, path::Path, u64};
 
 use num::{BigInt, Signed};
 
@@ -22,6 +22,7 @@ pub enum TanukiCompileTimeValue {
 	Bool(bool),
 	FunctionPointer(Box<str>, Box<Path>, Box<TanukiType>, Box<[TanukiType]>),
 	LinkedFunctionPointer(Box<str>, Box<TanukiType>, Box<[TanukiType]>),
+	Struct { ordered_members: Box<[TanukiCompileTimeValue]>, named_members: HashMap<Box<str>, TanukiCompileTimeValue> },
 }
 
 impl TanukiCompileTimeValue {
@@ -30,7 +31,6 @@ impl TanukiCompileTimeValue {
 		match self {
 			Self::CompileTimeInt(_)                                                                            => TanukiType::CompileTimeInt,
 			Self::CompileTimeFloat(_)                                                                          => TanukiType::CompileTimeFloat,
-			//Self::CompileTimeBool(_)                                                                           => TanukiType::CompileTimeBool,
 			Self::CompileTimeChar(_)                                                                           => TanukiType::CompileTimeChar,
 			Self::CompileTimeString(_)                                                                         => TanukiType::CompileTimeString,
 			Self::Void                                                                                         => TanukiType::Void,
@@ -41,6 +41,10 @@ impl TanukiCompileTimeValue {
 			Self::Type(_)                                                                                      => TanukiType::Type,
 			Self::FunctionPointer(_, _, return_type, parameter_types)    => TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone()),
 			Self::LinkedFunctionPointer(_, return_type, parameter_types) => TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone()),
+			Self::Struct { ordered_members, named_members }        => TanukiType::Struct {
+				ordered_members: ordered_members.iter().map(|value| value.get_type()).collect(),
+				named_members: named_members.iter().map(|(name, value)| (name.clone(), value.get_type())).collect(),
+			}
 		}
 	}
 
@@ -61,6 +65,8 @@ impl TanukiCompileTimeValue {
 			// No cast should happen if we are casting a value to it's own type or @any.
 			(type_from, type_to, _) if &type_from == type_to => Ok(self),
 			(_, TanukiType::Any, _) => Ok(self),
+			// A void value can be cast to a void type.
+			(TanukiType::Void, TanukiType::Type, _) => Ok(TanukiCompileTimeValue::Type(TanukiType::Void)),
 			// Integer casts
 			(TanukiType::CompileTimeInt | TanukiType::U(_) | TanukiType::I(_), TanukiType::CompileTimeInt | TanukiType::U(_) | TanukiType::I(_), _) => {
 				// Convert the value to a big-int
@@ -108,6 +114,24 @@ impl TanukiCompileTimeValue {
 					_ => unreachable!(),
 				})
 			}
+			//
+			(TanukiType::Struct { .. }, TanukiType::Type, _) => Ok({
+				let (ordered_members, named_members) = match &self {
+					TanukiCompileTimeValue::Struct { ordered_members, named_members } => (ordered_members, named_members),
+					_ => unreachable!(),
+				};
+				let mut new_ordered_members = Vec::new();
+				for ordered_member in ordered_members.iter() {
+					new_ordered_members.push(ordered_member.cast_to(&TanukiType::Type, can_be_lossy)?);
+				}
+				let mut new_named_members = HashMap::new();
+				for named_member in named_members.iter() {
+					new_named_members.insert(named_member.0.clone(), named_member.1.cast_to(&TanukiType::Type, can_be_lossy)?);
+				}
+				TanukiCompileTimeValue::Type(TanukiType::Struct {
+					ordered_members: new_ordered_members.into(), named_members: new_named_members
+				})
+			}),
 			_ => return Err(Error::NotYetImplemented(format!("Casting value {self:?} to type {type_to:?}"))),
 		}
 	}
@@ -118,7 +142,6 @@ impl AstNode for TanukiCompileTimeValue {
 		match self {
 			Self::CompileTimeInt(value)                                  => write!(f, "Compile Time Integer {value}"),
 			Self::CompileTimeFloat(value)                                   => write!(f, "Compile Time Float {value}"),
-			//Self::CompileTimeBool(value)                                   => write!(f, "Compile Time Bool {value}"),
 			Self::CompileTimeChar(value)                                   => write!(f, "Compile Time Char {value:?}"),
 			Self::CompileTimeString(value)                             => write!(f, "Compile Time String {value:?}"),
 			Self::Void                                                            => write!(f, "Void"),
@@ -129,6 +152,7 @@ impl AstNode for TanukiCompileTimeValue {
 			Self::Type(_)                                                         => write!(f, "Type"),
 			Self::FunctionPointer(name, module_path, _, _) => write!(f, "Function Pointer {name} of {module_path:?}"),
 			Self::LinkedFunctionPointer(name, _, _)                    => write!(f, "Linked Function Pointer {name}"),
+			Self::Struct { .. }                                                   => write!(f, "Struct"),
 		}
 	}
 
@@ -144,6 +168,15 @@ impl AstNode for TanukiCompileTimeValue {
 				}
 				Ok(())
 			},
+			Self::Struct { ordered_members, named_members } => {
+				for ordered_member in ordered_members.iter() {
+					ordered_member.print(level, f)?;
+				}
+				for (_named_member_name, named_member) in named_members.iter() {
+					named_member.print(level, f)?;
+				}
+				Ok(())
+			}
 		}
 	}
 }
