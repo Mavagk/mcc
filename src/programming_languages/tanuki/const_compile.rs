@@ -357,73 +357,29 @@ impl TanukiExpression {
 					*result_type = result_type.cast_to(&type_expression_parsed_type).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?;
 				}
 				result
-				//match castee_expression_parsed.result_value {
-				//	Some(castee_expression_parsed) => {
-				//		*was_complication_done = true;
-				//		Some(
-				//			castee_expression_parsed.cast_to(&type_expression_parsed, false).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?
-				//		)
-				//	},
-				//	None => None,
-				//}
 			}
 			// Operators
 			TanukiExpressionVariant::NullaryOperator(operator) => {
-				//let result = operator.const_compile_r_value(
-				//	main, modules, this_module, this_module_path, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
-				//)?.result_value;
-				//if result.is_some() {
-				//	*was_complication_done = true;
-				//}
-				//result
 				operator.const_compile_r_value(
 					main, modules, this_module, this_module_path, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
 				)?
 			}
 			TanukiExpressionVariant::PrefixUnaryOperator(operator, operand) => {
-				//let result = operator.const_compile_r_value(
-				//	operand, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
-				//)?.result_value;
-				//if result.is_some() {
-				//	*was_complication_done = true;
-				//}
-				//result
 				operator.const_compile_r_value(
 					operand, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
 				)?
 			}
 			TanukiExpressionVariant::PostfixUnaryOperator(operator, operand) => {
-				//let result = operator.const_compile_r_value(
-				//	operand, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
-				//)?.result_value;
-				//if result.is_some() {
-				//	*was_complication_done = true;
-				//}
-				//result
 				operator.const_compile_r_value(
 					operand, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
 				)?
 			}
 			TanukiExpressionVariant::InfixBinaryOperator(operator, lhs_expression, rhs_expression) => {
-				//let result = operator.const_compile_r_value(
-				//	lhs_expression, rhs_expression, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
-				//)?.result_value;
-				//if result.is_some() {
-				//	*was_complication_done = true;
-				//}
-				//result
 				operator.const_compile_r_value(
 					lhs_expression, rhs_expression, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
 				)?
 			}
 			TanukiExpressionVariant::InfixTernaryOperator(operator, lhs_expression, mhs_expression, rhs_expression) => {
-				//let result = operator.const_compile_r_value(
-				//	lhs_expression, mhs_expression, rhs_expression, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
-				//)?.result_value;
-				//if result.is_some() {
-				//	*was_complication_done = true;
-				//}
-				//result
 				operator.const_compile_r_value(
 					lhs_expression, mhs_expression, rhs_expression, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
 				)?
@@ -449,15 +405,29 @@ impl TanukiExpression {
 			// For blocks, const-compile each sub-expression
 			TanukiExpressionVariant::Block { sub_expressions, return_expressions } => 'a: {
 				local_variables.push(HashMap::new());
-				for sub_expression in sub_expressions.iter_mut() {
-					sub_expression.const_compile_r_value(
+				let mut is_pure = true;
+				let mut x = 0;
+				while x < sub_expressions.len() {
+					let sub_expression = &mut sub_expressions[x];
+					let sub_expression_result = sub_expression.const_compile_r_value(
 						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
 					)?;
 					if *dependencies_need_const_compiling {
 						return Ok(RValueConstComplicationResult::default());
 					}
+					if sub_expression_result.is_pure {
+						sub_expressions.remove(x);
+					}
+					is_pure &= sub_expression_result.is_pure;
+					x += 1;
 				}
 				let return_expressions_len = return_expressions.len();
+				let mut ordered_members = Vec::new();
+				let mut named_members = HashMap::new();
+				let mut ordered_member_types = Vec::new();
+				let mut named_member_types = HashMap::new();
+				let mut are_all_values_known = true;
+				let mut are_all_types_known = true;
 				for (return_expression_name, return_expression) in return_expressions.iter_mut() {
 					let result_type = match return_expressions_len == 1 && return_expression_name.is_none() {
 						true => result_type,
@@ -475,11 +445,50 @@ impl TanukiExpression {
 						}
 						break 'a return_expression_result;
 					}
+					is_pure &= return_expression_result.is_pure;
+					// Types
+					if return_expression_result.result_type.is_none() {
+						are_all_types_known = false;
+					}
+					if !are_all_types_known {
+						continue;
+					}
+					match return_expression_name.clone() {
+						None => ordered_member_types.push(return_expression_result.result_type.unwrap()),
+						Some(return_expression_name) => {
+							named_member_types.insert(return_expression_name, return_expression_result.result_type.unwrap());
+						}
+					}
+					// Values
+					if return_expression_result.result_value.is_none() {
+						are_all_values_known = false;
+					}
+					if !are_all_values_known {
+						continue;
+					}
+					match return_expression_name {
+						None => ordered_members.push(return_expression_result.result_value.unwrap()),
+						Some(return_expression_name) => {
+							named_members.insert(return_expression_name.clone(), return_expression_result.result_value.unwrap());
+						}
+					}
 				}
 				local_variables.pop();
-				match return_expressions.is_empty() {
-					true => RValueConstComplicationResult { result_value: Some(TanukiCompileTimeValue::Void), result_type: None, is_pure: false },
-					false => RValueConstComplicationResult::default(),
+				// Return void if there are no return expressions
+				if return_expressions.is_empty() {
+					break 'a RValueConstComplicationResult { result_value: Some(TanukiCompileTimeValue::Void), result_type: None, is_pure: false }
+				}
+				// Else create the return struct
+				RValueConstComplicationResult {
+					result_value: match are_all_values_known {
+						false => None,
+						true => Some(TanukiCompileTimeValue::Struct { ordered_members: ordered_members.into(), named_members: named_members })
+					},
+					result_type: match are_all_types_known {
+						false => None,
+						true => Some(TanukiType::Struct { ordered_members: ordered_member_types.into(), named_members: named_member_types })
+					},
+					is_pure
 				}
 			}
 			// For function calls, const-compile the function pointer and the arguments

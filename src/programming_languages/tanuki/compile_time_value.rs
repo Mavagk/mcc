@@ -62,8 +62,6 @@ impl TanukiCompileTimeValue {
 	pub fn cast_to(self, type_to: &TanukiType, can_be_lossy: bool) -> Result<Self, Error> {
 		let type_from = self.get_type();
 		match (type_from, type_to, can_be_lossy) {
-			// No cast should happen if we are casting a value to it's own type or @any.
-			(type_from, type_to, _) if &type_from == type_to => Ok(self),
 			(_, TanukiType::Any, _) => Ok(self),
 			// A void value can be cast to a void type.
 			(TanukiType::Void, TanukiType::Type, _) => Ok(TanukiCompileTimeValue::Type(TanukiType::Void)),
@@ -138,6 +136,8 @@ impl TanukiCompileTimeValue {
 					ordered_members: new_ordered_members.into(), named_members: new_named_members
 				})
 			}),
+			// No cast should happen if we are casting a value to it's own type or @any.
+			(type_from, type_to, _) if &type_from == type_to => Ok(self),
 			_ => return Err(Error::NotYetImplemented(format!("Casting value {self:?} to type {type_to:?}"))),
 		}
 	}

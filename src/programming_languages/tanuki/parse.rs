@@ -111,6 +111,10 @@ impl TanukiExpression {
 					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(TanukiType::CompileTimeInt)),
 					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
 				}),
+				TanukiTokenVariant::Keyword(TanukiKeyword::Type) => MaybeParsedToken::Parsed(TanukiExpression {
+					variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(TanukiType::Type)),
+					start_line: token_start_line, start_column: token_start_column, end_line: token_end_line, end_column: token_end_column
+				}),
 				// If there is a block
 				TanukiTokenVariant::LeftCurlyParenthesis => {
 					// Parse each sub-expression
@@ -181,37 +185,6 @@ impl TanukiExpression {
 						}
 					}
 				},
-				//// If there is a block
-				//TanukiTokenVariant::LeftCurlyParenthesis => 'a: {
-				//	// Parse each sub-expression
-				//	let mut sub_expressions = Vec::new();
-				//	loop {
-				//		// Parse expression
-				//		let expression_is_empty;
-				//		if let Some(sub_expression) = Self::parse(main, token_reader)? {
-				//			sub_expressions.push(sub_expression);
-				//			expression_is_empty = false;
-				//		}
-				//		else {
-				//			expression_is_empty = true;
-				//		}
-				//		// Next token should be a } or ; token
-				//		match token_reader.next() {
-				//			// Right curly bracket ends the block expression
-				//			Some(TanukiToken { variant: TanukiTokenVariant::RightCurlyParenthesis, end_line, end_column, .. }) => break 'a MaybeParsedToken::Parsed(TanukiExpression {
-				//				variant: TanukiExpressionVariant::Block { sub_expressions: sub_expressions.into(), has_return_value: !expression_is_empty },
-				//				start_line: token_start_line, start_column: token_start_column, end_line: *end_line, end_column: *end_column,
-				//			}),
-				//			// The token stream should not just stop
-				//			None => return Err(Error::ExpectedCurlyClosingParenthesis.at(Some(token_reader.last_token_end_line()), Some(token_reader.last_token_end_column()), None)),
-				//			// Move on to the next sub-expression if we read a semicolon
-				//			Some(TanukiToken { variant: TanukiTokenVariant::Semicolon, .. }) => {},
-				//			// Else an error
-				//			Some(TanukiToken { start_column, end_column, .. })
-				//				=> return Err(Error::ExpectedSemicolon.at(Some(*start_column), Some(*end_column), None)),
-				//		}
-				//	}
-				//},
 				// Function arguments or parameters
 				TanukiTokenVariant::LeftParenthesis => 'a: {
 					// Parse each sub-expression

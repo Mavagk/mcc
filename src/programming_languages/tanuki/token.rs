@@ -825,6 +825,7 @@ pub enum TanukiKeyword {
 	Int,
 	Info,
 	Transmute,
+	Type,
 }
 
 impl TanukiKeyword {
@@ -849,6 +850,7 @@ impl TanukiKeyword {
 			Self::Int        => write!(f, "Int"),
 			Self::Info       => write!(f, "Info"),
 			Self::Transmute  => write!(f, "Transmute"),
+			Self::Type       => write!(f, "Type"),
 		}
 	}
 
@@ -873,6 +875,7 @@ impl TanukiKeyword {
 			"int"        => Some(Self::Int),
 			"_info"      => Some(Self::Info),
 			"transmute"  => Some(Self::Transmute),
+			"type"       => Some(Self::Type),
 			_ => None,
 		}
 	}

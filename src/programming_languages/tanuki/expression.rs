@@ -16,7 +16,7 @@ pub struct TanukiExpression {
 pub enum TanukiExpressionVariant {
 	Constant(TanukiCompileTimeValue),
 	//Block { sub_expressions: Box<[TanukiExpression]>, has_return_value: bool },
-	Block { sub_expressions: Box<[TanukiExpression]>, return_expressions: Box<[(Option<Box<str>>, TanukiExpression)]> },
+	Block { sub_expressions: Vec<TanukiExpression>, return_expressions: Box<[(Option<Box<str>>, TanukiExpression)]> },
 	Variable(Box<str>),
 	FunctionCall { function_pointer: Box<TanukiExpression>, arguments: Box<[TanukiExpression]> },
 	FunctionDefinition { parameters: Box<[TanukiExpression]>, return_type: Option<Box<TanukiExpression>>, body_expression: Box<TanukiExpression> },

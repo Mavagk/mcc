@@ -25,6 +25,10 @@ impl TanukiType {
 	/// Gives the type of a value of this type after it has been cast to another type.
 	pub fn cast_to(&self, type_to: &TanukiType) -> Result<Self, Error> {
 		Ok(match (self, type_to) {
+			// Cast a struct of types to a type of struct
+			(TanukiType::Struct { ordered_members, named_members }, TanukiType::Type) => TanukiType::Struct {
+				ordered_members: ordered_members.clone(), named_members: named_members.clone()
+			},
 			(type_t, TanukiType::Any) => type_t.clone(),
 			(TanukiType::CompileTimeInt | TanukiType::U(_) | TanukiType::I(_), TanukiType::CompileTimeInt | TanukiType::U(_) | TanukiType::I(_)) => type_to.clone(),
 			(TanukiType::Any, type_t) => type_t.clone(),
