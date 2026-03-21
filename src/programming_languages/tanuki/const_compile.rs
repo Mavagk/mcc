@@ -1,8 +1,8 @@
-use std::{any::Any, collections::HashMap, hash::{DefaultHasher, Hash, Hasher}, mem::take, path::Path};
+use std::{any::Any, collections::HashMap, hash::{DefaultHasher, Hash, Hasher}, iter::once, mem::take, path::Path};
 
 use num::{BigInt, FromPrimitive, One, Signed, ToPrimitive, Zero};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionParameter}, global_constant::TanukiGlobalConstant, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}, traits::module::Module};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compile_time_value::{FunctionPointer, TanukiCompileTimeValue}, expression::{TanukiExpression, TanukiExpressionVariant}, function::{TanukiFunction, TanukiFunctionParameter}, global_constant::TanukiGlobalConstant, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}, traits::module::Module};
 
 impl TanukiModule {
 	/// Const-compiles a Tanuki module. Will set `was_complication_done` to `true` if any compilation was done. This function must be repeatedly called until `was_complication_done` is not set to `true`.
@@ -193,9 +193,10 @@ impl TanukiExpression {
 							};
 						}
 						*was_complication_done = true;
-						//break 'a Some(TanukiCompileTimeValue::FunctionPointer(target_function_name.clone(), target_module_path.clone(), return_type.clone().into(), parameter_types.into()));
 						break 'a RValueConstComplicationResult {
-							result_value: Some(TanukiCompileTimeValue::FunctionPointer(target_function_name.clone(), target_module_path.clone(), return_type.clone().into(), parameter_types.into())),
+							result_value: Some(TanukiCompileTimeValue::FunctionPointer(FunctionPointer {
+								name: target_function_name.clone(), module_path: target_module_path.clone(), return_type: return_type.clone().into(), parameter_types: parameter_types.into()
+							})),
 							result_type: None, is_pure: true
 						};
 					}
@@ -926,6 +927,7 @@ impl TanukiInfixBinaryOperator {
 					_ => return Ok(RValueConstComplicationResult::default()),
 				};
 				let result = match (self, lhs_operand_value, rhs_operand_value) {
+					// Arithmetic with big integers
 					(Self::Addition, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
 						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand + rhs_operand)),
 					(Self::Subtraction, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
@@ -951,6 +953,7 @@ impl TanukiInfixBinaryOperator {
 						};
 						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand.pow(exponent)))
 					}
+					// Bitwise with big integers
 					(Self::NonShortCircuitAnd | Self::ShortCircuitAnd, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
 						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand & rhs_operand)),
 					(Self::NonShortCircuitOr | Self::ShortCircuitOr, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
@@ -977,6 +980,7 @@ impl TanukiInfixBinaryOperator {
 						};
 						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand >> rhs_operand))
 					}
+					// Comparison with big integers
 					(Self::ThreeWayCompare, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
 						Some(TanukiCompileTimeValue::CompileTimeInt({
 							if lhs_operand == rhs_operand {
@@ -989,10 +993,43 @@ impl TanukiInfixBinaryOperator {
 								BigInt::from_i8(-1).unwrap()
 							}
 						})),
+					// Min/max with big integers
 					(Self::Minimum, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
 						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand.min(rhs_operand))),
 					(Self::Maximum, TanukiCompileTimeValue::CompileTimeInt(lhs_operand), TanukiCompileTimeValue::CompileTimeInt(rhs_operand)) =>
 						Some(TanukiCompileTimeValue::CompileTimeInt(lhs_operand.max(rhs_operand))),
+					// Enum types/functions
+					(Self::NonShortCircuitOr, TanukiCompileTimeValue::Type(lhs_type), TanukiCompileTimeValue::Type(rhs_type)) =>
+						Some(TanukiCompileTimeValue::Type({
+							let mut types = Vec::new();
+							if let TanukiType::TypeEnum(lhs_types) = lhs_type {
+								types.extend(lhs_types.into_iter());
+							}
+							else {
+								types.push(lhs_type);
+							}
+							if let TanukiType::TypeEnum(rhs_types) = rhs_type {
+								for rhs_type in rhs_types {
+									if !types.contains(&rhs_type) {
+										types.push(rhs_type);
+									}
+								}
+							}
+							else {
+								if !types.contains(&rhs_type) {
+									types.push(rhs_type);
+								}
+							}
+							TanukiType::TypeEnum(types.into())
+						})),
+					(Self::NonShortCircuitOr, TanukiCompileTimeValue::FunctionPointer(lhs_pointer), TanukiCompileTimeValue::FunctionPointer(rhs_pointer)) =>
+						Some(TanukiCompileTimeValue::FunctionPointerEnum([lhs_pointer, rhs_pointer].iter().cloned().collect())),
+					(Self::NonShortCircuitOr, TanukiCompileTimeValue::FunctionPointerEnum(lhs_pointers), TanukiCompileTimeValue::FunctionPointer(rhs_pointer)) =>
+						Some(TanukiCompileTimeValue::FunctionPointerEnum(lhs_pointers.iter().cloned().chain(once(rhs_pointer)).collect())),
+					(Self::NonShortCircuitOr, TanukiCompileTimeValue::FunctionPointer(lhs_pointer), TanukiCompileTimeValue::FunctionPointerEnum(rhs_pointers)) =>
+						Some(TanukiCompileTimeValue::FunctionPointerEnum(once(lhs_pointer).chain(rhs_pointers.iter().cloned()).collect())),
+					(Self::NonShortCircuitOr, TanukiCompileTimeValue::FunctionPointerEnum(lhs_pointers), TanukiCompileTimeValue::FunctionPointerEnum(rhs_pointers)) =>
+						Some(TanukiCompileTimeValue::FunctionPointerEnum(lhs_pointers.iter().cloned().chain(rhs_pointers.iter().cloned()).collect())),
 					_ => None
 				};
 				RValueConstComplicationResult { result_value: result, is_pure: lhs_operand.is_pure && rhs_operand.is_pure, ..Default::default() }

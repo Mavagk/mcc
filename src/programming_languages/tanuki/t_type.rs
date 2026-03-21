@@ -17,8 +17,8 @@ pub enum TanukiType {
 	F(u8),
 	Bool,
 	Pointer(Box<TanukiType>),
-	FunctionPointer(Box<TanukiType>, Box<[TanukiType]>),
-	FunctionPointerEnum(Box<[(Box<TanukiType>, Box<[TanukiType]>)]>),
+	FunctionPointer(FunctionPointerType),
+	FunctionPointerEnum(Box<[FunctionPointerType]>),
 	Struct { ordered_members: Box<[TanukiType]>, named_members: HashMap<Box<str>, TanukiType> },
 	TypeEnum(Box<[TanukiType]>),
 }
@@ -55,7 +55,7 @@ impl AstNode for TanukiType {
 			Self::Any                    => write!(f, "Any"),
 			Self::Type                   => write!(f, "Type"),
 			Self::Pointer(_)             => write!(f, "Pointer"),
-			Self::FunctionPointer(_, _)  => write!(f, "Function Pointer"),
+			Self::FunctionPointer(_)     => write!(f, "Function Pointer"),
 			Self::FunctionPointerEnum(_) => write!(f, "Function Pointer Enum"),
 			Self::Struct { .. }          => write!(f, "Struct"),
 			Self::TypeEnum(_)            => write!(f, "Type Enum"),
@@ -66,19 +66,10 @@ impl AstNode for TanukiType {
 		match self {
 			Self::CompileTimeInt | Self::CompileTimeFloat | Self::CompileTimeChar | Self::CompileTimeString | Self::Void | Self::U(_) | Self::I(_) | Self::F(_) |
 			Self::Any | Self::Type | Self::Bool => Ok(()),
-			Self::FunctionPointer(return_type, parameter_types) => {
-				for parameter_type in parameter_types.iter() {
-					parameter_type.print(level, f)?;
-				}
-				return_type.print(level, f)
-			},
-			Self::FunctionPointerEnum(types) => {
-				for (return_type, parameter_types) in types.iter() {
-					for parameter_type in parameter_types.iter() {
-						parameter_type.print(level, f)?;
-					}
-					return_type.print(level, f)?;
-					writeln!(f)?;
+			Self::FunctionPointer(function_pointer_type) => function_pointer_type.print(level, f),
+			Self::FunctionPointerEnum(function_pointer_types) => {
+				for function_pointer_type in function_pointer_types.iter() {
+					function_pointer_type.print(level, f)?;
 				}
 				Ok(())
 			},
@@ -105,5 +96,24 @@ impl AstNode for TanukiType {
 impl Debug for TanukiType {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		self.print_name(f)
+	}
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub struct FunctionPointerType {
+	pub return_type: Box<TanukiType>,
+	pub parameter_types: Box<[TanukiType]>,
+}
+
+impl AstNode for FunctionPointerType {
+	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		write!(f, "Function Pointer")
+	}
+
+	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
+		for parameter_type in self.parameter_types.iter() {
+			parameter_type.print(level, f)?;
+		}
+		self.return_type.print(level, f)
 	}
 }

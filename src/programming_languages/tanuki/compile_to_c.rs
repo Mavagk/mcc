@@ -1,6 +1,6 @@
 use std::{collections::HashMap, num::NonZeroUsize, path::Path};
 
-use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::TanukiCompileTimeValue, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::TanukiType, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}}, traits::module::Module};
+use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::{FunctionPointer, TanukiCompileTimeValue}, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::{FunctionPointerType, TanukiType}, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}}, traits::module::Module};
 
 impl TanukiModule {
 	pub fn compile_to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)]) -> Result<CModule, ErrorAt> {
@@ -25,7 +25,7 @@ impl TanukiModule {
 				let global_constant = global_constant.as_ref().unwrap();
 				if &global_constant.name == entrypoint_name {
 					let (name, _module_path, return_type, parameter_types) = match &global_constant.value_expression.variant {
-						TanukiExpressionVariant::Constant(TanukiCompileTimeValue::FunctionPointer(name, module_path, return_type, parameter_types)) =>
+						TanukiExpressionVariant::Constant(TanukiCompileTimeValue::FunctionPointer(FunctionPointer { name, module_path, return_type, parameter_types })) =>
 							(name, module_path, &**return_type, parameter_types),
 						_ => return Err(Error::EntrypointOnNonFunction.at(Some(global_constant.start_line), Some(global_constant.start_column), None)),
 					};
@@ -141,7 +141,7 @@ impl TanukiType {
 				64 => CType::I64,
 				_ => unreachable!(),
 			}
-			Self::FunctionPointer(return_type, parameter_types) => {
+			Self::FunctionPointer(FunctionPointerType { return_type, parameter_types }) => {
 				let mut c_parameter_types = Vec::new();
 				for parameter_type in parameter_types.iter() {
 					c_parameter_types.push(parameter_type.compile_to_c(main, line, column)?);
@@ -243,47 +243,15 @@ impl TanukiExpression {
 				// Return
 				Ok((return_variable_name, return_type))
 			}
-			//TanukiExpressionVariant::Block { sub_expressions, has_return_value } => {
-			//	let sub_expressions_len = sub_expressions.len();
-			//	let mut return_variable_name = None;
-			//	let mut return_type = TanukiType::Void;
-			//	// Push a local variable scope level
-			//	local_variables.push(HashMap::new());
-			//	// Create c compound statement
-			//	let mut c_compound_statement = CCompoundStatement::new();
-			//	// Compile each variable
-			//	for (x, sub_expression) in sub_expressions.iter().enumerate() {
-			//		let sub_expression_result = sub_expression.compile_r_value_to_c(main, modules, &mut c_compound_statement, function_temp_variable_count, local_variables)?;
-			//		// If this is the block's sub-expression that yields it's result value and the value yielded is not void
-			//		if let Some(sub_expression_return_variable_name) = sub_expression_result.0 && x == sub_expressions_len - 1 && *has_return_value {
-			//			// Create the temp variable to assign the block result to
-			//			return_type = sub_expression_result.1;
-			//			let name = format!("_tnk_temp_block_var_{function_temp_variable_count}");
-			//			*function_temp_variable_count += 1;
-			//			return_variable_name = Some(name.clone().into());
-			//			// Assign the block result to the temp variable
-			//			insert_into.push_statement(CStatement::VariableDeclaration(return_type.compile_to_c(main, Some(sub_expression.start_line), Some(sub_expression.start_column))?, name.clone().into(), None));
-			//			c_compound_statement.push_statement(CExpression::Assignment(
-			//				CLValue::Variable(name.clone().into()).into(),
-			//				CLValue::Variable(sub_expression_return_variable_name.into()).into(),
-			//			).into());
-			//		}
-			//	}
-			//	// Push compound statement
-			//	insert_into.push_statement(CStatement::CompoundStatement(c_compound_statement));
-			//	// Pop the local variable scope level
-			//	local_variables.pop();
-			//	// Return
-			//	Ok((return_variable_name, return_type))
-			//}
 			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
 				let (function_pointer_result_variable, function_pointer_type) = function_pointer.compile_r_value_to_c(
 					main, modules, insert_into, function_temp_variable_count, local_variables
 				)?;
 				let (return_type, parameter_types) = match function_pointer_type {
-					TanukiType::FunctionPointer(return_type, argument_types) => (return_type, argument_types),
-					_ => return Err(Error::TypeMismatch((format!("{function_pointer_type:?}"), format!("{:?}", TanukiType::FunctionPointer(TanukiType::Any.into(), Default::default()))))
-						.at(Some(self.start_line), Some(self.start_column), None)),
+					TanukiType::FunctionPointer(FunctionPointerType { return_type, parameter_types }) => (return_type, parameter_types),
+					_ => return Err(Error::TypeMismatch((format!("{function_pointer_type:?}"), format!("{:?}", TanukiType::FunctionPointer(FunctionPointerType {
+						return_type: TanukiType::Any.into(), parameter_types: Default::default()
+					})))).at(Some(self.start_line), Some(self.start_column), None)),
 				};
 				if parameter_types.len() != arguments.len() {
 					return Err(Error::ArgumentCountMismatch((arguments.len(), parameter_types.len())).at(Some(self.start_line), Some(self.start_column), None));
@@ -397,8 +365,8 @@ impl TanukiCompileTimeValue {
 				true  => CExpression::TrueConstant,
 				false => CExpression::FalseConstant,
 			}
-			TanukiCompileTimeValue::FunctionPointer(function_name, _module_path, return_type, parameter_types) => {
-				let t_type = TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone());
+			TanukiCompileTimeValue::FunctionPointer(FunctionPointer { name: function_name, module_path: _, return_type, parameter_types }) => {
+				let t_type = TanukiType::FunctionPointer(FunctionPointerType { return_type: return_type.clone(), parameter_types: parameter_types.clone() });
 				let c_expression = CExpression::TakeReference(CLValue::Variable(function_name.clone().into()).into());
 				let temp_name = format!("_tnk_temp_func_var_{function_temp_variable_count}");
 				*function_temp_variable_count += 1;
@@ -406,7 +374,7 @@ impl TanukiCompileTimeValue {
 				return Ok((Some(temp_name.into()), t_type))
 			}
 			TanukiCompileTimeValue::LinkedFunctionPointer(function_name, return_type, parameter_types) => {
-				let t_type = TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone());
+				let t_type = TanukiType::FunctionPointer(FunctionPointerType { return_type: return_type.clone(), parameter_types: parameter_types.clone() });
 				let c_expression = CExpression::TakeReference(CLValue::Variable(function_name.clone().into()).into());
 				let temp_name = format!("_tnk_temp_link_func_var_{function_temp_variable_count}");
 				*function_temp_variable_count += 1;
