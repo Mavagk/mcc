@@ -376,7 +376,8 @@ impl TanukiExpression {
 			}
 			TanukiExpressionVariant::InfixBinaryOperator(operator, lhs_expression, rhs_expression) => {
 				operator.const_compile_r_value(
-					lhs_expression, rhs_expression, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
+					lhs_expression, rhs_expression, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling,
+					global_variable_assigned_to_name
 				)?
 			}
 			TanukiExpressionVariant::InfixTernaryOperator(operator, lhs_expression, mhs_expression, rhs_expression) => {
@@ -895,7 +896,7 @@ impl TanukiInfixBinaryOperator {
 	pub fn const_compile_r_value(
 		&mut self, lhs_expression: &mut TanukiExpression, rhs_expression: &mut TanukiExpression,
 		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, this_module_path: &Path, this_function: Option<&TanukiFunction>, was_complication_done: &mut bool,
-		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, _result_type: &TanukiType, dependencies_need_const_compiling: &mut bool
+		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, _result_type: &TanukiType, dependencies_need_const_compiling: &mut bool, global_variable_assigned_to_name: Option<&str>
 	) -> Result<RValueConstComplicationResult, ErrorAt> {
 		Ok(match self {
 			Self::Addition | Self::Subtraction | Self::Multiplication | Self::Division | Self::Modulo | Self::Exponent |
@@ -908,12 +909,16 @@ impl TanukiInfixBinaryOperator {
 			Self::LessThan | Self::LessThanOrEqualTo | Self::GreaterThan | Self::GreaterThanOrEqualTo | Self::ThreeWayCompare |
 			Self::Equality | Self::Inequality | Self::ReferenceEquality | Self::ReferenceInequality | Self::Minimum | Self::Maximum |
 			Self::ShortCircuitingNullCoalescing | Self::NonShortCircuitingNullCoalescing | Self::ExclusiveRange | Self::InclusiveRange | Self::Append => {
+				let global_variable_assigned_to_name = match *self == Self::NonShortCircuitOr {
+					true => global_variable_assigned_to_name,
+					false => None,
+				};
 				let (lhs_operand, rhs_operand) = (
 					lhs_expression.const_compile_r_value(
-						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
+						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, global_variable_assigned_to_name
 					)?,
 					rhs_expression.const_compile_r_value(
-						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
+						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, global_variable_assigned_to_name
 					)?
 				);
 				let (lhs_operand_value, rhs_operand_value) = match (lhs_operand.result_value, rhs_operand.result_value){

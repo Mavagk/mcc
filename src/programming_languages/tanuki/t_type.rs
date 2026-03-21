@@ -18,7 +18,9 @@ pub enum TanukiType {
 	Bool,
 	Pointer(Box<TanukiType>),
 	FunctionPointer(Box<TanukiType>, Box<[TanukiType]>),
+	FunctionPointerEnum(Box<[(Box<TanukiType>, Box<[TanukiType]>)]>),
 	Struct { ordered_members: Box<[TanukiType]>, named_members: HashMap<Box<str>, TanukiType> },
+	TypeEnum(Box<[TanukiType]>),
 }
 
 impl TanukiType {
@@ -41,20 +43,22 @@ impl TanukiType {
 impl AstNode for TanukiType {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::CompileTimeInt        => write!(f, "Compile Time Integer"),
-			Self::CompileTimeFloat      => write!(f, "Compile Time Float"),
-			Self::CompileTimeChar       => write!(f, "Compile Time Char"),
-			Self::CompileTimeString     => write!(f, "Compile Time String"),
-			Self::Void                  => write!(f, "Void"),
-			Self::U(bit_width)     => write!(f, "U{bit_width}"),
-			Self::I(bit_width)     => write!(f, "I{bit_width}"),
-			Self::F(bit_width)     => write!(f, "F{bit_width}"),
-			Self::Bool                  => write!(f, "Bool"),
-			Self::Any                   => write!(f, "Any"),
-			Self::Type                  => write!(f, "Type"),
-			Self::Pointer(_)            => write!(f, "Pointer"),
-			Self::FunctionPointer(_, _) => write!(f, "Function Pointer"),
-			Self::Struct { .. }         => write!(f, "Struct"),
+			Self::CompileTimeInt         => write!(f, "Compile Time Integer"),
+			Self::CompileTimeFloat       => write!(f, "Compile Time Float"),
+			Self::CompileTimeChar        => write!(f, "Compile Time Char"),
+			Self::CompileTimeString      => write!(f, "Compile Time String"),
+			Self::Void                   => write!(f, "Void"),
+			Self::U(bit_width)      => write!(f, "U{bit_width}"),
+			Self::I(bit_width)      => write!(f, "I{bit_width}"),
+			Self::F(bit_width)      => write!(f, "F{bit_width}"),
+			Self::Bool                   => write!(f, "Bool"),
+			Self::Any                    => write!(f, "Any"),
+			Self::Type                   => write!(f, "Type"),
+			Self::Pointer(_)             => write!(f, "Pointer"),
+			Self::FunctionPointer(_, _)  => write!(f, "Function Pointer"),
+			Self::FunctionPointerEnum(_) => write!(f, "Function Pointer Enum"),
+			Self::Struct { .. }          => write!(f, "Struct"),
+			Self::TypeEnum(_)            => write!(f, "Type Enum"),
 		}
 	}
 
@@ -63,9 +67,18 @@ impl AstNode for TanukiType {
 			Self::CompileTimeInt | Self::CompileTimeFloat | Self::CompileTimeChar | Self::CompileTimeString | Self::Void | Self::U(_) | Self::I(_) | Self::F(_) |
 			Self::Any | Self::Type | Self::Bool => Ok(()),
 			Self::FunctionPointer(return_type, parameter_types) => {
-				return_type.print(level, f)?;
 				for parameter_type in parameter_types.iter() {
 					parameter_type.print(level, f)?;
+				}
+				return_type.print(level, f)
+			},
+			Self::FunctionPointerEnum(types) => {
+				for (return_type, parameter_types) in types.iter() {
+					for parameter_type in parameter_types.iter() {
+						parameter_type.print(level, f)?;
+					}
+					return_type.print(level, f)?;
+					writeln!(f)?;
 				}
 				Ok(())
 			},
@@ -76,6 +89,12 @@ impl AstNode for TanukiType {
 				}
 				for (_named_member_name, named_member) in named_members.iter() {
 					named_member.print(level, f)?;
+				}
+				Ok(())
+			}
+			Self::TypeEnum(types) => {
+				for t_type in types.iter() {
+					t_type.print(level, f)?;
 				}
 				Ok(())
 			}

@@ -21,6 +21,7 @@ pub enum TanukiCompileTimeValue {
 	F(u8, f64),
 	Bool(bool),
 	FunctionPointer(Box<str>, Box<Path>, Box<TanukiType>, Box<[TanukiType]>),
+	FunctionPointerEnum(Box<[(Box<str>, Box<Path>, Box<TanukiType>, Box<[TanukiType]>)]>),
 	LinkedFunctionPointer(Box<str>, Box<TanukiType>, Box<[TanukiType]>),
 	Struct { ordered_members: Box<[TanukiCompileTimeValue]>, named_members: HashMap<Box<str>, TanukiCompileTimeValue> },
 }
@@ -40,6 +41,9 @@ impl TanukiCompileTimeValue {
 			Self::Bool(_)                                                                                      => TanukiType::Bool,
 			Self::Type(_)                                                                                      => TanukiType::Type,
 			Self::FunctionPointer(_, _, return_type, parameter_types)    => TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone()),
+			Self::FunctionPointerEnum(functions)                             => TanukiType::FunctionPointerEnum(
+				functions.iter().map(|(_, _, return_type, parameter_types)| (return_type.clone(), parameter_types.clone())).collect()
+			),
 			Self::LinkedFunctionPointer(_, return_type, parameter_types) => TanukiType::FunctionPointer(return_type.clone(), parameter_types.clone()),
 			Self::Struct { ordered_members, named_members }        => TanukiType::Struct {
 				ordered_members: ordered_members.iter().map(|value| value.get_type()).collect(),
@@ -157,6 +161,7 @@ impl AstNode for TanukiCompileTimeValue {
 			Self::Bool(value)                                              => write!(f, "Bool {value}"),
 			Self::Type(_)                                                         => write!(f, "Type"),
 			Self::FunctionPointer(name, module_path, _, _) => write!(f, "Function Pointer {name} of {module_path:?}"),
+			Self::FunctionPointerEnum(_)                                          => write!(f, "Functions"),
 			Self::LinkedFunctionPointer(name, _, _)                    => write!(f, "Linked Function Pointer {name}"),
 			Self::Struct { .. }                                                   => write!(f, "Struct"),
 		}
@@ -164,16 +169,26 @@ impl AstNode for TanukiCompileTimeValue {
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::CompileTimeInt(_) | Self::CompileTimeFloat(_)/* | Self::CompileTimeBool(_)*/ | Self::CompileTimeChar(_) | Self::CompileTimeString(_) |
+			Self::CompileTimeInt(_) | Self::CompileTimeFloat(_) | Self::CompileTimeChar(_) | Self::CompileTimeString(_) |
 			Self::Void | Self::U(_, _) | Self::I(_, _) | Self::F(_, _) | Self::Bool(_) => Ok(()),
 			Self::Type(type_t) => type_t.print(level, f),
 			Self::FunctionPointer(_, _, return_type, parameter_types) | Self::LinkedFunctionPointer(_, return_type, parameter_types) => {
-				return_type.print(level, f)?;
 				for parameter_type in parameter_types.iter() {
 					parameter_type.print(level, f)?;
 				}
+				return_type.print(level, f)?;
 				Ok(())
 			},
+			Self::FunctionPointerEnum(functions) => {
+				for (_, _, return_type, parameter_types) in functions.iter() {
+					for parameter_type in parameter_types.iter() {
+						parameter_type.print(level, f)?;
+					}
+					return_type.print(level, f)?;
+					writeln!(f)?;
+				}
+				Ok(())
+			}
 			Self::Struct { ordered_members, named_members } => {
 				for ordered_member in ordered_members.iter() {
 					ordered_member.print(level, f)?;
