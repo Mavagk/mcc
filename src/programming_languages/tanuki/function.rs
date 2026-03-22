@@ -1,6 +1,6 @@
-use std::{fmt::{self, Formatter}, num::NonZeroUsize};
+use std::{collections::HashMap, fmt::{self, Formatter}, num::NonZeroUsize};
 
-use crate::{programming_languages::tanuki::expression::TanukiExpression, traits::ast_node::AstNode};
+use crate::{programming_languages::tanuki::{expression::TanukiExpression, t_type::TanukiType}, traits::ast_node::AstNode};
 
 /// A Tanuki function.
 pub struct TanukiFunction {
@@ -8,6 +8,7 @@ pub struct TanukiFunction {
 	pub parameters: Box<[Option<TanukiFunctionParameter>]>,
 	pub return_type: Option<TanukiExpression>,
 	pub body: Option<TanukiExpression>,
+	pub bodies_for_concrete_types: Option<HashMap<(Box<[TanukiType]>, Box<TanukiType>),TanukiExpression>>,
 	pub start_line: NonZeroUsize,
 	pub start_column: NonZeroUsize,
 	pub end_line: NonZeroUsize,

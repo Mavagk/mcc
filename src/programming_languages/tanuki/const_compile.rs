@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashMap, hash::{DefaultHasher, Hash, Hasher}, iter::once, mem::take, path::Path};
+use std::{any::Any, collections::{BTreeMap, HashMap}, hash::{DefaultHasher, Hash, Hasher}, iter::once, mem::take, path::Path};
 
 use num::{BigInt, FromPrimitive, One, Signed, ToPrimitive, Zero};
 
@@ -132,6 +132,20 @@ impl TanukiFunction {
 			)?;
 			self.body = Some(body);
 		}
+		// Const-compile the concrete type function bodies
+		let mut bodies_for_concrete_types = take(&mut self.bodies_for_concrete_types).unwrap();
+		for ((parameter_types, return_type), body) in bodies_for_concrete_types.iter_mut() {
+			let mut local_variables = Vec::new();
+			local_variables.push(HashMap::new());
+			for (x, parameter) in self.parameters.iter().enumerate() {
+				let parameter = parameter.as_ref().unwrap();
+				local_variables.last_mut().unwrap().insert(parameter.name.clone(), (parameter_types[x].clone(), None));
+			}
+			body.const_compile_r_value(
+				main, modules, this_module, module_path, Some(self), was_complication_done, &mut local_variables, &return_type, dependencies_need_const_compiling, None
+			)?;
+		}
+		self.bodies_for_concrete_types = Some(bodies_for_concrete_types);
 		// Return
 		Ok(())
 	}
@@ -231,6 +245,7 @@ impl TanukiExpression {
 					name: mangled_function_name.clone(), parameters: new_parameters.into_boxed_slice(),
 					return_type: take(return_type).map(|return_type| *return_type),
 					body: Some(take(body_expression)), start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column,
+					bodies_for_concrete_types: Some(HashMap::new()),
 				}));
 				*self = TanukiExpression {
 					variant: TanukiExpressionVariant::Function { name: mangled_function_name, module_path: main.module_being_processed.clone() },
@@ -427,7 +442,7 @@ impl TanukiExpression {
 				let mut ordered_members = Vec::new();
 				let mut named_members = HashMap::new();
 				let mut ordered_member_types = Vec::new();
-				let mut named_member_types = HashMap::new();
+				let mut named_member_types = BTreeMap::new();
 				let mut are_all_values_known = true;
 				let mut are_all_types_known = true;
 				for (return_expression_name, return_expression) in return_expressions.iter_mut() {
@@ -626,7 +641,8 @@ impl TanukiExpression {
 				}
 				this_module.functions.push(Some(TanukiFunction {
 					name: name.clone(), parameters: parameters.into(), return_type: return_type.clone().map(|return_type| *return_type).into(),
-					body: None, start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column
+					body: None, start_line: self.start_line, start_column: self.start_column, end_line: self.end_line, end_column: self.end_column,
+					bodies_for_concrete_types: Some(HashMap::new()),
 				}));
 				// Convert to constant
 				let return_type = match &return_type {

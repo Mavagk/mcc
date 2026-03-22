@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::{self, Debug, Formatter}, path::Path, u64};
+use std::{collections::{BTreeMap, HashMap}, fmt::{self, Debug, Formatter}, path::Path, u64};
 
 use num::{BigInt, Signed};
 
@@ -10,7 +10,6 @@ pub enum TanukiCompileTimeValue {
 	// Values that can only exist an compile time
 	CompileTimeInt(BigInt),
 	CompileTimeFloat(f64),
-	//CompileTimeBool(bool),
 	CompileTimeChar(char),
 	CompileTimeString(Box<str>),
 	Type(TanukiType),
@@ -22,6 +21,7 @@ pub enum TanukiCompileTimeValue {
 	Bool(bool),
 	FunctionPointer(FunctionPointer),
 	FunctionPointerEnum(Box<[FunctionPointer]>),
+	ConcreteFunctionPointer(FunctionPointer),
 	LinkedFunctionPointer(Box<str>, Box<TanukiType>, Box<[TanukiType]>),
 	Struct { ordered_members: Box<[TanukiCompileTimeValue]>, named_members: HashMap<Box<str>, TanukiCompileTimeValue> },
 }
@@ -42,6 +42,8 @@ impl TanukiCompileTimeValue {
 			Self::Type(_)              => TanukiType::Type,
 			Self::FunctionPointer(FunctionPointer { name: _, module_path: _, return_type, parameter_types }) =>
 				TanukiType::FunctionPointer(FunctionPointerType { return_type: return_type.clone(), parameter_types: parameter_types.clone() }),
+			Self::ConcreteFunctionPointer(FunctionPointer { name: _, module_path: _, return_type, parameter_types }) =>
+				TanukiType::ConcreteFunctionPointer(FunctionPointerType { return_type: return_type.clone(), parameter_types: parameter_types.clone() }),
 			Self::FunctionPointerEnum(functions) => TanukiType::FunctionPointerEnum(
 				functions.iter()
 					.map(|FunctionPointer { name: _, module_path: _, return_type, parameter_types }| FunctionPointerType {
@@ -135,7 +137,7 @@ impl TanukiCompileTimeValue {
 						_ => unreachable!(),
 					});
 				}
-				let mut new_named_members = HashMap::new();
+				let mut new_named_members = BTreeMap::new();
 				for named_member in named_members.iter() {
 					new_named_members.insert(named_member.0.clone(), match named_member.1.clone().cast_to(&TanukiType::Type, can_be_lossy)? {
 						TanukiCompileTimeValue::Type(type_t) => type_t,
@@ -168,6 +170,7 @@ impl AstNode for TanukiCompileTimeValue {
 			Self::Type(_)                                      => write!(f, "Type"),
 			Self::FunctionPointer(_)                           => write!(f, "Function Pointer"),
 			Self::FunctionPointerEnum(_)                       => write!(f, "Function Pointer Enum"),
+			Self::ConcreteFunctionPointer(_)                   => write!(f, "Concrete Function Pointer"),
 			Self::LinkedFunctionPointer(name, _, _) => write!(f, "Linked Function Pointer {name}"),
 			Self::Struct { .. }                                => write!(f, "Struct"),
 		}
@@ -178,7 +181,7 @@ impl AstNode for TanukiCompileTimeValue {
 			Self::CompileTimeInt(_) | Self::CompileTimeFloat(_) | Self::CompileTimeChar(_) | Self::CompileTimeString(_) |
 			Self::Void | Self::U(_, _) | Self::I(_, _) | Self::F(_, _) | Self::Bool(_) => Ok(()),
 			Self::Type(type_t) => type_t.print(level, f),
-			Self::FunctionPointer(function_pointer) => function_pointer.print(level, f),
+			Self::FunctionPointer(function_pointer) | Self::ConcreteFunctionPointer(function_pointer) => function_pointer.print(level, f),
 			Self::LinkedFunctionPointer(_, return_type, parameter_types) => {
 				for parameter_type in parameter_types.iter() {
 					parameter_type.print(level, f)?;

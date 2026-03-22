@@ -1,8 +1,8 @@
-use std::{collections::HashMap, fmt::{self, Debug, Formatter}};
+use std::{collections::BTreeMap, fmt::{self, Debug, Formatter}};
 
 use crate::{error::Error, traits::ast_node::AstNode};
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 /// A type of a Tanuki value.
 pub enum TanukiType {
 	CompileTimeInt,
@@ -19,7 +19,8 @@ pub enum TanukiType {
 	Pointer(Box<TanukiType>),
 	FunctionPointer(FunctionPointerType),
 	FunctionPointerEnum(Box<[FunctionPointerType]>),
-	Struct { ordered_members: Box<[TanukiType]>, named_members: HashMap<Box<str>, TanukiType> },
+	ConcreteFunctionPointer(FunctionPointerType),
+	Struct { ordered_members: Box<[TanukiType]>, named_members: BTreeMap<Box<str>, TanukiType> },
 	TypeEnum(Box<[TanukiType]>),
 }
 
@@ -38,27 +39,44 @@ impl TanukiType {
 			_ => return Err(Error::NotYetImplemented(format!("Casting value {self:?} to type {type_to:?}"))),
 		})
 	}
+
+	/// Returns if the type is concrete, that is, it is not a generic type such as @any.
+	pub fn is_concrete(&self) -> bool {
+		match self {
+			Self::CompileTimeChar | Self::CompileTimeFloat | Self::CompileTimeInt | Self::CompileTimeString | Self::Type | Self::TypeEnum(_) |
+			Self::U(_) | Self::F(_) | Self::I(_) | Self::Bool | Self::Void | Self::ConcreteFunctionPointer(_) => true,
+			Self::Any => false,
+			Self::FunctionPointer(types) =>
+				types.parameter_types.iter().all(|parameter_type| parameter_type.is_concrete()) && types.return_type.is_concrete(),
+			Self::FunctionPointerEnum(types) =>
+				types.iter().all(|types| types.parameter_types.iter().all(|parameter_type| parameter_type.is_concrete()) && types.return_type.is_concrete()),
+			Self::Pointer(pointee_type) => pointee_type.is_concrete(),
+			Self::Struct { ordered_members, named_members } =>
+				ordered_members.iter().all(|t_type| t_type.is_concrete()) && named_members.iter().all(|(_, t_type)| t_type.is_concrete()),
+		}
+	}
 }
 
 impl AstNode for TanukiType {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::CompileTimeInt         => write!(f, "Compile Time Integer"),
-			Self::CompileTimeFloat       => write!(f, "Compile Time Float"),
-			Self::CompileTimeChar        => write!(f, "Compile Time Char"),
-			Self::CompileTimeString      => write!(f, "Compile Time String"),
-			Self::Void                   => write!(f, "Void"),
-			Self::U(bit_width)      => write!(f, "U{bit_width}"),
-			Self::I(bit_width)      => write!(f, "I{bit_width}"),
-			Self::F(bit_width)      => write!(f, "F{bit_width}"),
-			Self::Bool                   => write!(f, "Bool"),
-			Self::Any                    => write!(f, "Any"),
-			Self::Type                   => write!(f, "Type"),
-			Self::Pointer(_)             => write!(f, "Pointer"),
-			Self::FunctionPointer(_)     => write!(f, "Function Pointer"),
-			Self::FunctionPointerEnum(_) => write!(f, "Function Pointer Enum"),
-			Self::Struct { .. }          => write!(f, "Struct"),
-			Self::TypeEnum(_)            => write!(f, "Type Enum"),
+			Self::CompileTimeInt             => write!(f, "Compile Time Integer"),
+			Self::CompileTimeFloat           => write!(f, "Compile Time Float"),
+			Self::CompileTimeChar            => write!(f, "Compile Time Char"),
+			Self::CompileTimeString          => write!(f, "Compile Time String"),
+			Self::Void                       => write!(f, "Void"),
+			Self::U(bit_width)          => write!(f, "U{bit_width}"),
+			Self::I(bit_width)          => write!(f, "I{bit_width}"),
+			Self::F(bit_width)          => write!(f, "F{bit_width}"),
+			Self::Bool                       => write!(f, "Bool"),
+			Self::Any                        => write!(f, "Any"),
+			Self::Type                       => write!(f, "Type"),
+			Self::Pointer(_)                 => write!(f, "Pointer"),
+			Self::FunctionPointer(_)         => write!(f, "Function Pointer"),
+			Self::FunctionPointerEnum(_)     => write!(f, "Function Pointer Enum"),
+			Self::ConcreteFunctionPointer(_) => write!(f, "Concrete Function Pointer"),
+			Self::Struct { .. }              => write!(f, "Struct"),
+			Self::TypeEnum(_)                => write!(f, "Type Enum"),
 		}
 	}
 
@@ -66,7 +84,7 @@ impl AstNode for TanukiType {
 		match self {
 			Self::CompileTimeInt | Self::CompileTimeFloat | Self::CompileTimeChar | Self::CompileTimeString | Self::Void | Self::U(_) | Self::I(_) | Self::F(_) |
 			Self::Any | Self::Type | Self::Bool => Ok(()),
-			Self::FunctionPointer(function_pointer_type) => function_pointer_type.print(level, f),
+			Self::FunctionPointer(function_pointer_type) | Self::ConcreteFunctionPointer(function_pointer_type) => function_pointer_type.print(level, f),
 			Self::FunctionPointerEnum(function_pointer_types) => {
 				for function_pointer_type in function_pointer_types.iter() {
 					function_pointer_type.print(level, f)?;
@@ -99,7 +117,7 @@ impl Debug for TanukiType {
 	}
 }
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct FunctionPointerType {
 	pub return_type: Box<TanukiType>,
 	pub parameter_types: Box<[TanukiType]>,
