@@ -149,7 +149,7 @@ fn main() {
 			let mut module = take(&mut parsed_modules[x].2).unwrap();
 			//let global_items_to_const_compile_for_this_module = &mut global_items_to_const_compile[x];
 			//match module.const_compile(&mut main_struct, &mut global_items_const_compiled, global_items_to_const_compile_for_this_module, (&parsed_modules).as_slice(), &path) {
-			match module.const_compile(&mut main_struct, (&parsed_modules).as_slice(), &path, &mut was_complication_done) {
+			match module.const_compile(&mut main_struct, (&mut parsed_modules).as_mut_slice(), &path, &mut was_complication_done) {
 				Ok(_) => {},//is_all_const_compiled |= is_module_all_const_compiled,
 				Err(mut error) => {
 					if error.file.is_none() {

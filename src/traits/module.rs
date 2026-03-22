@@ -9,7 +9,7 @@ pub trait Module: Debug + AstNode + Any {
 	/// Source to source compiles the module to a C module. Returns `Ok(None)` if this is not supported.
 	fn to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], is_entrypoint: bool) -> Result<Option<CModule>, ErrorAt>;
 
-	fn const_compile(&mut self, _main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], _module_path: &Path, _was_complication_done: &mut bool) -> Result<(), ErrorAt> {
+	fn const_compile(&mut self, _main: &mut Main, _modules: &mut [(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], _module_path: &Path, _was_complication_done: &mut bool) -> Result<(), ErrorAt> {
 		Ok(())
 	}
 }

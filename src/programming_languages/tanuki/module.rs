@@ -20,7 +20,7 @@ impl Module for TanukiModule {
 		Ok(Some(self.compile_to_c_module(main, modules)?))
 	}
 
-	fn const_compile(&mut self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], module_path: &Path, was_complication_done: &mut bool) -> Result<(), ErrorAt> {
+	fn const_compile(&mut self, main: &mut Main, modules: &mut [(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], module_path: &Path, was_complication_done: &mut bool) -> Result<(), ErrorAt> {
 		self.const_compile_globals(main, modules, module_path, was_complication_done)
 	}
 }

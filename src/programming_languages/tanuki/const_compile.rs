@@ -6,7 +6,7 @@ use crate::{Main, error::{Error, ErrorAt}, programming_languages::tanuki::{compi
 
 impl TanukiModule {
 	/// Const-compiles a Tanuki module. Will set `was_complication_done` to `true` if any compilation was done. This function must be repeatedly called until `was_complication_done` is not set to `true`.
-	pub fn const_compile_globals(&mut self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], module_path: &Path, was_complication_done: &mut bool) -> Result<(), ErrorAt> {
+	pub fn const_compile_globals(&mut self, main: &mut Main, modules: &mut [(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], module_path: &Path, was_complication_done: &mut bool) -> Result<(), ErrorAt> {
 		// Const-compile globals that we can
 		for x in 0..self.global_constants.len() {
 			let global_constant = &mut self.global_constants[x];
@@ -54,7 +54,7 @@ impl TanukiGlobalConstant {
 	/// Will set `dependencies_need_const_compiling` to `true` if another variable this depends on has not fully been compiled.
 	/// This function must be repeatedly called until `was_complication_done` is not set to `true`.
 	pub fn const_compile(
-		&mut self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, module_path: &Path,
+		&mut self, main: &mut Main, modules: &mut [(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, module_path: &Path,
 		was_complication_done: &mut bool, dependencies_need_const_compiling: &mut bool,
 	) -> Result<(), ErrorAt> {
 		if let Some(t_type) = &mut self.t_type {
@@ -82,7 +82,7 @@ impl TanukiFunction {
 	/// Will set `dependencies_need_const_compiling` to `true` if a variable this depends on has not fully been compiled.
 	/// This function must be repeatedly called until `was_complication_done` is not set to `true`.
 	pub fn const_compile(
-		&mut self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, module_path: &Path,
+		&mut self, main: &mut Main, modules: &mut [(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, module_path: &Path,
 		was_complication_done: &mut bool, dependencies_need_const_compiling: &mut bool,
 	) -> Result<(), ErrorAt> {
 		let mut local_variables = Vec::new();
@@ -157,7 +157,7 @@ impl TanukiExpression {
 	/// This function must be repeatedly called until `was_complication_done` is not set to `true`.
 	/// If this expression has been compiled to a constant value, it will return it.
 	pub fn const_compile_r_value(
-		&mut self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, this_module_path: &Path, this_function: Option<&TanukiFunction>,
+		&mut self, main: &mut Main, modules: &mut [(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, this_module_path: &Path, this_function: Option<&TanukiFunction>,
 		was_complication_done: &mut bool,
 		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, result_type: &TanukiType, dependencies_need_const_compiling: &mut bool, global_variable_assigned_to_name: Option<&str>,
 	) -> Result<RValueConstComplicationResult, ErrorAt> {
@@ -510,19 +510,58 @@ impl TanukiExpression {
 			}
 			// For function calls, const-compile the function pointer and the arguments
 			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
+				// Const-compile arguments
+				let mut argument_types = Vec::new();
+				let mut is_concrete = result_type.is_concrete();
+				for argument in arguments.iter_mut() {
+					let argument_result = argument.const_compile_r_value(
+						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables,
+						&TanukiType::Any, dependencies_need_const_compiling, None
+					)?;
+					if *dependencies_need_const_compiling {
+						return Ok(RValueConstComplicationResult::default());
+					}
+					match argument_result.result_type {
+						Some(result_type) => {
+							is_concrete &= result_type.is_concrete();
+							argument_types.push(result_type);
+						},
+						None => is_concrete = false,
+					}
+				}
+				// Const-compile body
 				function_pointer.const_compile_r_value(
 					main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
 				)?;
 				if *dependencies_need_const_compiling {
 					return Ok(RValueConstComplicationResult::default());
 				}
-				for argument in arguments.iter_mut() {
-					argument.const_compile_r_value(
-						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
-					)?;
-					if *dependencies_need_const_compiling {
-						return Ok(RValueConstComplicationResult::default());
+				// If the function pointer is non-concrete but the arguments are
+				if is_concrete && matches!(function_pointer.variant, TanukiExpressionVariant::Constant(TanukiCompileTimeValue::FunctionPointer(_))) {
+					// Get function pointer constant
+					let function_pointer_constant = match &function_pointer.variant {
+						TanukiExpressionVariant::Constant(TanukiCompileTimeValue::FunctionPointer(function_pointer)) => function_pointer,
+						_ => unreachable!(),
+					};
+					// Get the module of the function
+					let mut module = None;
+					let mut module_mangled_name = None;
+					for (x_module_path, _, x_module, x_mangled_name) in modules.iter_mut() {
+						if &*function_pointer_constant.module_path == &**x_module_path {
+							module = x_module.as_mut();
+							module_mangled_name = Some(&**x_mangled_name);
+							break;
+						}
 					}
+					let module_mangled_name = module_mangled_name.unwrap();
+					let module: &mut TanukiModule = match module {
+						Some(module) => (module as &mut dyn Any).downcast_mut().unwrap(),
+						None => this_module,
+					};
+					// Get the function
+					
+					// TODO
+					function_pointer.variant = TanukiExpressionVariant::Constant(TanukiCompileTimeValue::ConcreteFunctionPointer(function_pointer_constant.clone()));
 				}
 				// TODO: Return type and evaluate const function
 				RValueConstComplicationResult::default()
@@ -726,7 +765,7 @@ impl TanukiExpression {
 	/// This function must be repeatedly called until `was_complication_done` is not set to `true`.
 	/// Returns the l-value if it could be const-compiled.
 	pub fn const_compile_l_value(
-		&mut self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, module_path: &Path, this_function: Option<&TanukiFunction>,
+		&mut self, main: &mut Main, modules: &mut [(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, module_path: &Path, this_function: Option<&TanukiFunction>,
 		was_complication_done: &mut bool,
 		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, result_type: &TanukiType, dependencies_need_const_compiling: &mut bool,
 	) -> Result<(Option<CompileTimeLValue>, TanukiType), ErrorAt> {
@@ -803,7 +842,7 @@ impl TanukiPrefixUnaryOperator {
 	/// If this expression has been compiled to a constant value, it will return it.
 	pub fn const_compile_r_value(
 		&mut self, operand_expression: &mut TanukiExpression,
-		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, this_module_path: &Path, this_function: Option<&TanukiFunction>, was_complication_done: &mut bool,
+		main: &mut Main, modules: &mut [(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, this_module_path: &Path, this_function: Option<&TanukiFunction>, was_complication_done: &mut bool,
 		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, _result_type: &TanukiType, dependencies_need_const_compiling: &mut bool
 	) -> Result<RValueConstComplicationResult, ErrorAt> {
 		match self {
@@ -855,7 +894,7 @@ impl TanukiPostfixUnaryOperator {
 	/// If this expression has been compiled to a constant value, it will return it.
 	pub fn const_compile_r_value(
 		&mut self, operand_expression: &mut TanukiExpression,
-		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, this_module_path: &Path, this_function: Option<&TanukiFunction>, was_complication_done: &mut bool,
+		main: &mut Main, modules: &mut [(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, this_module_path: &Path, this_function: Option<&TanukiFunction>, was_complication_done: &mut bool,
 		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, _result_type: &TanukiType, dependencies_need_const_compiling: &mut bool
 	) -> Result<RValueConstComplicationResult, ErrorAt> {
 		match self {
@@ -912,7 +951,7 @@ impl TanukiInfixBinaryOperator {
 	/// If this expression has been compiled to a constant value, it will return it.
 	pub fn const_compile_r_value(
 		&mut self, lhs_expression: &mut TanukiExpression, rhs_expression: &mut TanukiExpression,
-		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, this_module_path: &Path, this_function: Option<&TanukiFunction>, was_complication_done: &mut bool,
+		main: &mut Main, modules: &mut [(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, this_module_path: &Path, this_function: Option<&TanukiFunction>, was_complication_done: &mut bool,
 		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, _result_type: &TanukiType, dependencies_need_const_compiling: &mut bool, global_variable_assigned_to_name: Option<&str>
 	) -> Result<RValueConstComplicationResult, ErrorAt> {
 		Ok(match self {
@@ -1063,7 +1102,7 @@ impl TanukiInfixTernaryOperator {
 	/// If this expression has been compiled to a constant value, it will return it.
 	pub fn const_compile_r_value(
 		&mut self, lhs_expression: &mut TanukiExpression, mhs_expression: &mut TanukiExpression, rhs_expression: &mut TanukiExpression,
-		main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, this_module_path: &Path, this_function: Option<&TanukiFunction>, was_complication_done: &mut bool,
+		main: &mut Main, modules: &mut [(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, this_module_path: &Path, this_function: Option<&TanukiFunction>, was_complication_done: &mut bool,
 		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, Option<TanukiCompileTimeValue>)>>, _result_type: &TanukiType, dependencies_need_const_compiling: &mut bool
 	) -> Result<RValueConstComplicationResult, ErrorAt> {
 		match self {
