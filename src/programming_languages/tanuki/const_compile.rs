@@ -165,9 +165,57 @@ impl TanukiExpression {
 		let Self { variant, start_line, start_column, .. } = self;
 		// Try to const-compile depending on the expression variant
 		let mut expression_result: RValueConstComplicationResult = match variant {
+			//
+			TanukiExpressionVariant::Constant(TanukiCompileTimeValue::FunctionPointer(function_pointer)) => 'a: {
+				let is_concrete = function_pointer.return_type.is_concrete() && function_pointer.parameter_types.iter().all(|parameter_type| parameter_type.is_concrete());
+				if !is_concrete {
+					break 'a RValueConstComplicationResult { result_value: Some(TanukiCompileTimeValue::FunctionPointer(function_pointer.clone())), result_type: None, is_pure: true }
+				}
+				// Get the module of the function
+				let mut module = None;
+				for (x_module_path, _, x_module, _x_mangled_name) in modules.iter_mut() {
+					if &*function_pointer.module_path == &**x_module_path {
+						module = x_module.as_mut();
+						break;
+					}
+				}
+				let module: &mut TanukiModule = match module {
+					Some(module) => {
+						let module = &mut **module;
+						(module as &mut dyn Any).downcast_mut().unwrap()
+					},
+					None => this_module,
+				};
+				// Get the function
+				let mut function = None;
+				for function_x in module.functions.iter_mut() {
+					if function_x.is_none() {
+						continue;
+					}
+					if function_x.as_ref().unwrap().name == function_pointer.name {
+						function = Some(function_x.as_mut().unwrap());
+					}
+				}
+				let function = match function {
+					Some(function) => function,
+					None => this_function.as_mut().unwrap(),
+				};
+				// Push the concrete body
+				//let parameter_types: Box<[TanukiType]> = function_pointer.parameter_types;
+				let types = (function_pointer.parameter_types.clone(), function_pointer.return_type.clone().into());
+				if !function.bodies_for_concrete_types.as_ref().unwrap().contains_key(&types) {
+					function.bodies_for_concrete_types.as_mut().unwrap().insert(types, function.body.clone().unwrap());
+				}
+				// Convert to concrete function pointer
+				//function_pointer.variant = TanukiExpressionVariant::Constant(TanukiCompileTimeValue::ConcreteFunctionPointer(FunctionPointer {
+				//	name: function_pointer_constant.name.clone(), module_path: function_pointer_constant.module_path.clone(), return_type: result_type.clone().into(), parameter_types: parameter_types.clone().into()
+				//}));
+				*was_complication_done = true;
+				//RValueConstComplicationResult { result_value: Some(value.clone()), result_type: None, is_pure: true }
+				RValueConstComplicationResult { result_value: Some(TanukiCompileTimeValue::ConcreteFunctionPointer(function_pointer.clone())), result_type: None, is_pure: true }
+			}
 			// Do nothing to already const-compiled values
 			TanukiExpressionVariant::Constant(value) => RValueConstComplicationResult { result_value: Some(value.clone()), result_type: None, is_pure: true },
-			//TanukiExpressionVariant::Constant(value) => Some(value.clone()),
 			// Function pointer expressions get converted to a function pointer constant if the parameter and return types of the function have been const-compiled
 			TanukiExpressionVariant::Function { name: target_function_name, module_path: target_module_path } => 'a: {
 				for (module_path, _, module, _mangled_name) in modules.iter() {
@@ -545,15 +593,12 @@ impl TanukiExpression {
 					};
 					// Get the module of the function
 					let mut module = None;
-					//let mut module_mangled_name = None;
 					for (x_module_path, _, x_module, _x_mangled_name) in modules.iter_mut() {
 						if &*function_pointer_constant.module_path == &**x_module_path {
 							module = x_module.as_mut();
-							//module_mangled_name = Some(&**x_mangled_name);
 							break;
 						}
 					}
-					//let module_mangled_name = module_mangled_name.unwrap();
 					let module: &mut TanukiModule = match module {
 						Some(module) => {
 							let module = &mut **module;

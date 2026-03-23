@@ -25,7 +25,7 @@ impl TanukiModule {
 				let global_constant = global_constant.as_ref().unwrap();
 				if &global_constant.name == entrypoint_name {
 					let (name, _module_path, return_type, parameter_types) = match &global_constant.value_expression.variant {
-						TanukiExpressionVariant::Constant(TanukiCompileTimeValue::FunctionPointer(FunctionPointer { name, module_path, return_type, parameter_types })) =>
+						TanukiExpressionVariant::Constant(TanukiCompileTimeValue::ConcreteFunctionPointer(FunctionPointer { name, module_path, return_type, parameter_types })) =>
 							(name, module_path, &**return_type, parameter_types),
 						_ => return Err(Error::EntrypointOnNonFunction.at(Some(global_constant.start_line), Some(global_constant.start_column), None)),
 					};
@@ -41,11 +41,15 @@ impl TanukiModule {
 							)
 						);
 					}
+					// Get name
+					let mut hasher = DefaultHasher::new();
+					(parameter_types, return_type).hash(&mut hasher);
+					let concrete_type_function_name = format!("{}_{}", name, hasher.finish());
 					match main.os {
 						Os::Unix => {
 							let mut c_compound_statement = CCompoundStatement::new();
 							c_compound_statement.push_statement(CStatement::VariableDeclaration(
-								CType::U8, "result".into(), Some(CInitializer::Expression(CExpression::FunctionCall(name.clone().into(), Default::default())).into())
+								CType::U8, "result".into(), Some(CInitializer::Expression(CExpression::FunctionCall(concrete_type_function_name.clone().into(), Default::default())).into())
 							));
 							c_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("exit".into(), [CLValue::Variable("result".into()).into()].into())).into());
 							c_module.push_element(CModuleElement::FunctionDefinition { return_type: CType::Void, name: "_start".into(), parameters: Default::default(), body: Box::new(c_compound_statement) });
@@ -53,7 +57,7 @@ impl TanukiModule {
 						Os::Windows => {
 							let mut c_compound_statement = CCompoundStatement::new();
 							c_compound_statement.push_statement(CStatement::VariableDeclaration(
-								CType::U8, "result".into(), Some(CInitializer::Expression(CExpression::FunctionCall(name.clone().into(), Default::default())).into())
+								CType::U8, "result".into(), Some(CInitializer::Expression(CExpression::FunctionCall(concrete_type_function_name.clone().into(), Default::default())).into())
 							));
 							c_compound_statement.push_statement(CStatement::Expression(CExpression::FunctionCall("exit".into(), [CLValue::Variable("result".into()).into()].into())).into());
 							c_module.push_element(CModuleElement::FunctionDefinition { return_type: CType::Void, name: "WinMain".into(), parameters: Default::default(), body: Box::new(c_compound_statement) });
@@ -109,10 +113,10 @@ impl TanukiFunction {
 				return Err(Error::TypeMismatch((format!("{returned_type:?}"), format!("{return_type:?}"))).at(Some(body.start_line), Some(body.start_column), None));
 			}
 			// Pack into struct
-			let c_function = CModuleElement::FunctionDefinition {
-				return_type: return_type.compile_to_c(main, Some(self.start_line), Some(self.start_column))?, name: self.name.clone(), parameters: c_parameters.into(), body: Box::new(c_compound_statement)
-			};
-			insert_into.push_element(c_function);
+			//let c_function = CModuleElement::FunctionDefinition {
+			//	return_type: return_type.compile_to_c(main, Some(self.start_line), Some(self.start_column))?, name: self.name.clone(), parameters: c_parameters.into(), body: Box::new(c_compound_statement)
+			//};
+			//insert_into.push_element(c_function);
 		}
 		// Else it is a function definition
 		else {
@@ -403,9 +407,20 @@ impl TanukiCompileTimeValue {
 				true  => CExpression::TrueConstant,
 				false => CExpression::FalseConstant,
 			}
-			TanukiCompileTimeValue::FunctionPointer(FunctionPointer { name: function_name, module_path: _, return_type, parameter_types }) => {
+			//TanukiCompileTimeValue::FunctionPointer(FunctionPointer { name: function_name, module_path: _, return_type, parameter_types }) => {
+			//	let t_type = TanukiType::FunctionPointer(FunctionPointerType { return_type: return_type.clone(), parameter_types: parameter_types.clone() });
+			//	let c_expression = CExpression::TakeReference(CLValue::Variable(function_name.clone().into()).into());
+			//	let temp_name = format!("_tnk_temp_func_var_{function_temp_variable_count}");
+			//	*function_temp_variable_count += 1;
+			//	insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c(main, line, column)?, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+			//	return Ok((Some(temp_name.into()), t_type))
+			//}
+			TanukiCompileTimeValue::ConcreteFunctionPointer(FunctionPointer { name: function_name, module_path: _, return_type, parameter_types }) => {
+				let mut hasher = DefaultHasher::new();
+				(parameter_types, return_type).hash(&mut hasher);
+				let concrete_type_function_name = format!("{}_{}", function_name, hasher.finish());
 				let t_type = TanukiType::FunctionPointer(FunctionPointerType { return_type: return_type.clone(), parameter_types: parameter_types.clone() });
-				let c_expression = CExpression::TakeReference(CLValue::Variable(function_name.clone().into()).into());
+				let c_expression = CExpression::TakeReference(CLValue::Variable(concrete_type_function_name.clone().into()).into());
 				let temp_name = format!("_tnk_temp_func_var_{function_temp_variable_count}");
 				*function_temp_variable_count += 1;
 				insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c(main, line, column)?, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
