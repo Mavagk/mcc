@@ -154,6 +154,28 @@ impl TanukiFunction {
 		// Return
 		Ok(())
 	}
+
+	/// Const-compiles a Tanuki function. Will set `was_complication_done` to `true` if any compilation was done.
+	/// Will set `dependencies_need_const_compiling` to `true` if a variable this depends on has not fully been compiled.
+	/// This function must be repeatedly called until `was_complication_done` is not set to `true`.
+	pub fn const_evaluate(
+		&mut self, main: &mut Main, modules: &mut [(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, this_module_path: &Path,
+		was_complication_done: &mut bool, result_type: &TanukiType, dependencies_need_const_compiling: &mut bool, arguments: Box<[RValueConstComplicationResult]>,
+		function_concrete_type: (Box<[TanukiType]>, Box<TanukiType>)
+	) -> Result<RValueConstComplicationResult, ErrorAt> {
+		// Clone the concrete function body
+		let mut concrete_function_body = self.bodies_for_concrete_types.as_ref().unwrap()[&function_concrete_type].clone();
+		// Create the local scope
+		let mut local_variables = Vec::new();
+		local_variables.push(HashMap::new());
+		for (x, x_parameter) in self.parameters.iter().enumerate() {
+			local_variables.last_mut().unwrap().insert(x_parameter.as_ref().unwrap().name.clone(), (function_concrete_type.0[x].clone(), arguments[x].clone()));
+		}
+		// Const-compile function body
+		concrete_function_body.const_compile_r_value(
+			main, modules, this_module, this_module_path, &mut Some(self), was_complication_done, &mut local_variables, result_type, dependencies_need_const_compiling, None
+		)
+	}
 }
 
 impl TanukiExpression {
@@ -563,7 +585,7 @@ impl TanukiExpression {
 				}
 			}
 			// For function calls, const-compile the function pointer and the arguments
-			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
+			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => 'a: {
 				// Const-compile arguments
 				let mut argument_types = Vec::new();
 				let mut result_type = result_type.clone();
@@ -642,16 +664,91 @@ impl TanukiExpression {
 						None => this_function.as_mut().unwrap(),
 					};
 					// Push the concrete body
-					let argument_types: Box<[TanukiType]> = argument_types.into_boxed_slice();
+					let argument_types: Box<[TanukiType]> = argument_types.clone().into_boxed_slice();
 					let types = (argument_types.clone(), result_type.clone().into());
 					if !function.bodies_for_concrete_types.as_ref().unwrap().contains_key(&types) {
-						function.bodies_for_concrete_types.as_mut().unwrap().insert(types, function.body.clone().unwrap());
+						function.bodies_for_concrete_types.as_mut().unwrap().insert(types.clone(), function.body.clone().unwrap());
 					}
 					// Convert to concrete function pointer
 					function_pointer.variant = TanukiExpressionVariant::Constant(TanukiCompileTimeValue::ConcreteFunctionPointer(FunctionPointer {
 						name: function_pointer_constant.name.clone(), module_path: function_pointer_constant.module_path.clone(), return_type: result_type.clone().into(), parameter_types: argument_types.clone().into()
 					}));
 					*was_complication_done = true;
+				}
+				// Try to const-evaluate
+				if is_concrete && matches!(function_pointer.variant, TanukiExpressionVariant::Constant(TanukiCompileTimeValue::ConcreteFunctionPointer(_))) {
+					// Const-evaluate arguments
+					let mut argument_results = Vec::new();
+					for (x, argument) in arguments.iter_mut().enumerate() {
+						argument_results.push(argument.const_compile_r_value(
+							main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &argument_types[x],
+							dependencies_need_const_compiling, global_variable_assigned_to_name
+						)?.clone());
+					}
+					// Get function pointer constant
+					let function_pointer_constant = match &function_pointer.variant {
+						TanukiExpressionVariant::Constant(TanukiCompileTimeValue::ConcreteFunctionPointer(function_pointer)) => function_pointer,
+						_ => unreachable!(),
+					};
+					// Get the module of the function
+					let mut module = None;
+					for (x_module_path, _, x_module, _x_mangled_name) in modules.iter_mut() {
+						if &*function_pointer_constant.module_path == &**x_module_path {
+							module = x_module.as_mut();
+							break;
+						}
+					}
+					let module: &mut TanukiModule = match module {
+						Some(module) => {
+							let module = &mut **module;
+							(module as &mut dyn Any).downcast_mut().unwrap()
+						},
+						None => this_module,
+					};
+					// Get/take the function
+					let mut function_taken = None;
+					let mut function_index = None;
+					for (x, function_x) in module.functions.iter_mut().enumerate() {
+						if function_x.is_some() && function_x.as_ref().unwrap().name == function_pointer_constant.name {
+							function_taken = take(function_x);
+							function_index = Some(x);
+						}
+					}
+					let function_taken_ref = match function_taken.is_none() {
+						false => function_taken.as_mut().unwrap(),
+						true => this_function.as_mut().unwrap(),
+					};
+					// Const-evaluate the function
+					let argument_types: Box<[TanukiType]> = argument_types.into_boxed_slice();
+					let types = (argument_types.clone(), result_type.clone().into());
+					let function_result = function_taken_ref.const_evaluate(
+						main, modules, this_module, this_module_path, was_complication_done, &result_type, dependencies_need_const_compiling, argument_results.into(), types
+					)?;
+					// Get the module of the function
+					let mut module = None;
+					for (x_module_path, _, x_module, _x_mangled_name) in modules.iter_mut() {
+						if &*function_pointer_constant.module_path == &**x_module_path {
+							module = x_module.as_mut();
+							break;
+						}
+					}
+					let module: &mut TanukiModule = match module {
+						Some(module) => {
+							let module = &mut **module;
+							(module as &mut dyn Any).downcast_mut().unwrap()
+						},
+						None => this_module,
+					};
+					// Put the function back in the module
+					if let Some(function_index) = function_index {
+						module.functions[function_index] = function_taken;
+					}
+					// Break no value if other dependencies need compiling
+					if *dependencies_need_const_compiling {
+						break 'a RValueConstComplicationResult::default();
+					}
+					// Else break the value returned by the function
+					break 'a function_result;
 				}
 				// TODO: Return type and evaluate const function
 				RValueConstComplicationResult::default()

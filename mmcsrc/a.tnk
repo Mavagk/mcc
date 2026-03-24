@@ -13,7 +13,7 @@ WriteConsoleW = @import_std("win/console.tnk");
 
 U8Ptr = *@u(8);
 
-U = (bit_width; @type) @u(bit_width);
+U = (@int bit_width; @type) @u(bit_width);
 
 U8 = U(8);
 
