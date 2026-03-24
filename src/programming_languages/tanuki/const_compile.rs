@@ -172,9 +172,11 @@ impl TanukiFunction {
 			local_variables.last_mut().unwrap().insert(x_parameter.as_ref().unwrap().name.clone(), (function_concrete_type.0[x].clone(), arguments[x].clone()));
 		}
 		// Const-compile function body
-		concrete_function_body.const_compile_r_value(
+		let mut result = concrete_function_body.const_compile_r_value(
 			main, modules, this_module, this_module_path, &mut Some(self), was_complication_done, &mut local_variables, result_type, dependencies_need_const_compiling, None
-		)
+		)?;
+		result.is_pure &= arguments.iter().all(|argument| argument.is_pure);
+		Ok(result)
 	}
 }
 
