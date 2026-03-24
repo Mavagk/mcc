@@ -43,7 +43,7 @@ impl TanukiType {
 	/// Returns if the type is concrete, that is, it is not a generic type such as @any.
 	pub fn is_concrete(&self) -> bool {
 		match self {
-			Self::CompileTimeChar | Self::CompileTimeFloat | Self::CompileTimeInt | Self::CompileTimeString | Self::Type | Self::TypeEnum(_) |
+			Self::CompileTimeChar | Self::CompileTimeFloat | Self::CompileTimeInt | Self::CompileTimeString | Self::Type |
 			Self::U(_) | Self::F(_) | Self::I(_) | Self::Bool | Self::Void | Self::ConcreteFunctionPointer(_) => true,
 			Self::Any => false,
 			Self::FunctionPointer(types) =>
@@ -53,6 +53,20 @@ impl TanukiType {
 			Self::Pointer(pointee_type) => pointee_type.is_concrete(),
 			Self::Struct { ordered_members, named_members } =>
 				ordered_members.iter().all(|t_type| t_type.is_concrete()) && named_members.iter().all(|(_, t_type)| t_type.is_concrete()),
+			Self::TypeEnum(types) => types.iter().all(|t_type| t_type.is_concrete()),
+		}
+	}
+
+	/// Returns if the type can exist at runtime.
+	pub fn can_exist_at_compile_time(&self) -> bool {
+		match self {
+			Self::U(_) | Self::F(_) | Self::I(_) | Self::Bool | Self::Void => true,
+			Self::Any | Self::CompileTimeChar | Self::CompileTimeFloat | Self::CompileTimeInt | Self::CompileTimeString | Self::Type | Self::FunctionPointer(_) | Self::FunctionPointerEnum(_) => false,
+			Self::ConcreteFunctionPointer(types) => types.parameter_types.iter().all(|parameter_type| parameter_type.can_exist_at_compile_time()),
+			Self::Pointer(pointee_type) => pointee_type.can_exist_at_compile_time(),
+			Self::Struct { ordered_members, named_members } =>
+				ordered_members.iter().all(|t_type| t_type.can_exist_at_compile_time()) && named_members.iter().all(|(_, t_type)| t_type.can_exist_at_compile_time()),
+			Self::TypeEnum(types) => types.iter().all(|t_type| t_type.can_exist_at_compile_time()),
 		}
 	}
 }

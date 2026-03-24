@@ -12,8 +12,7 @@ impl TanukiModule {
 			let global_constant = &mut self.global_constants[x];
 			let mut global_constant_removed = take(global_constant).unwrap();
 			global_constant_removed.const_compile(main, modules, self, module_path, was_complication_done, &mut false)?;
-			let global_constant = &mut self.global_constants[x];
-			*global_constant = Some(global_constant_removed);
+			self.global_constants[x] = Some(global_constant_removed);
 		}
 		// Const-compile functions that we can
 		for x in 0..self.functions.len() {
@@ -90,9 +89,15 @@ impl TanukiFunction {
 		// Const-compile each parameter
 		for x in 0..self.parameters.len() {
 			if let Some(mut t_type_parameter) = take(&mut self.parameters[x]) {
-				let t_type = t_type_parameter.t_type.as_mut().unwrap().const_compile_r_value(
-					main, modules, this_module, module_path, &mut Some(self), was_complication_done, &mut local_variables, &TanukiType::Type, dependencies_need_const_compiling, None
-				)?.result_value;
+				//let t_type = t_type_parameter.t_type.as_mut().unwrap().const_compile_r_value(
+				//	main, modules, this_module, module_path, &mut Some(self), was_complication_done, &mut local_variables, &TanukiType::Type, dependencies_need_const_compiling, None
+				//)?.result_value;
+				let t_type = match t_type_parameter.t_type.as_mut() {
+					Some(t_type) => t_type.const_compile_r_value(
+						main, modules, this_module, module_path, &mut Some(self), was_complication_done, &mut local_variables, &TanukiType::Type, dependencies_need_const_compiling, None
+					)?.result_value,
+					None => Some(TanukiCompileTimeValue::Type(TanukiType::Any)),
+				};
 				self.parameters[x] = Some(t_type_parameter);
 				if *dependencies_need_const_compiling {
 					return Ok(());
@@ -206,10 +211,6 @@ impl TanukiExpression {
 				if !function.bodies_for_concrete_types.as_ref().unwrap().contains_key(&types) {
 					function.bodies_for_concrete_types.as_mut().unwrap().insert(types, function.body.clone().unwrap());
 				}
-				// Convert to concrete function pointer
-				//function_pointer.variant = TanukiExpressionVariant::Constant(TanukiCompileTimeValue::ConcreteFunctionPointer(FunctionPointer {
-				//	name: function_pointer_constant.name.clone(), module_path: function_pointer_constant.module_path.clone(), return_type: result_type.clone().into(), parameter_types: parameter_types.clone().into()
-				//}));
 				*was_complication_done = true;
 				//RValueConstComplicationResult { result_value: Some(value.clone()), result_type: None, is_pure: true }
 				RValueConstComplicationResult { result_value: Some(TanukiCompileTimeValue::ConcreteFunctionPointer(function_pointer.clone())), result_type: None, is_pure: true }
@@ -244,6 +245,7 @@ impl TanukiExpression {
 						}
 						let return_type = match &function.return_type {
 							Some(TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(value)), .. }) => value,
+							None => &TanukiType::Any,
 							_ => return Ok(RValueConstComplicationResult::default()),
 						};
 						let mut parameter_types = Vec::new();
@@ -251,6 +253,7 @@ impl TanukiExpression {
 							let parameter = parameter.as_ref().unwrap();
 							match &parameter.t_type {
 								Some(TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(value)), .. }) => parameter_types.push(value.clone()),
+								None => parameter_types.push(TanukiType::Any),
 								_ => return Ok(RValueConstComplicationResult::default()),
 							};
 						}
@@ -560,8 +563,15 @@ impl TanukiExpression {
 			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
 				// Const-compile arguments
 				let mut argument_types = Vec::new();
+				let mut result_type = result_type.clone();
+				if !result_type.is_concrete() {
+					match &function_pointer.variant {
+						TanukiExpressionVariant::Constant(TanukiCompileTimeValue::FunctionPointer(types)) => result_type = types.return_type.as_ref().clone(),
+						_ => {},
+					}
+				}
 				let mut is_concrete = result_type.is_concrete();
-				for argument in arguments.iter_mut() {
+				for (x, argument) in arguments.iter_mut().enumerate() {
 					let argument_result = argument.const_compile_r_value(
 						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables,
 						&TanukiType::Any, dependencies_need_const_compiling, None
@@ -569,13 +579,21 @@ impl TanukiExpression {
 					if *dependencies_need_const_compiling {
 						return Ok(RValueConstComplicationResult::default());
 					}
-					match argument_result.result_type {
-						Some(result_type) => {
-							is_concrete &= result_type.is_concrete();
-							argument_types.push(result_type);
-						},
-						None => is_concrete = false,
+					let mut result_type = match argument_result.result_type {
+						Some(result_type) => result_type,
+						None => TanukiType::Any,
+					};
+					if !result_type.is_concrete() {
+						match &function_pointer.variant {
+							TanukiExpressionVariant::Constant(TanukiCompileTimeValue::FunctionPointer(types)) => match types.parameter_types.get(x) {
+								Some(parameter_type) => result_type = parameter_type.clone(),
+								None => {},
+							}
+							_ => {},
+						}
 					}
+					is_concrete &= result_type.is_concrete();
+					argument_types.push(result_type);
 				}
 				// Const-compile pointer
 				function_pointer.const_compile_r_value(

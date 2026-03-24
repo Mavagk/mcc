@@ -29,22 +29,22 @@ impl TanukiModule {
 							(name, module_path, &**return_type, parameter_types),
 						_ => return Err(Error::EntrypointOnNonFunction.at(Some(global_constant.start_line), Some(global_constant.start_column), None)),
 					};
+					// Check the parameter and return types
 					if return_type != &TanukiType::U(8) {
 						return Err(Error::Unimplemented(
 							"Non-@u(8) return type".into()).at(Some(global_constant.value_expression.start_line), Some(global_constant.value_expression.start_column), None
 						));
 					}
 					if parameter_types.len() != 0 {
-						return Err(
-							Error::Unimplemented(
-								"Entrypoint with parameters".into()).at(Some(global_constant.value_expression.start_line), Some(global_constant.value_expression.start_column), None
-							)
-						);
+						return Err(Error::Unimplemented(
+							"Entrypoint with parameters".into()).at(Some(global_constant.value_expression.start_line), Some(global_constant.value_expression.start_column), None
+						));
 					}
 					// Get name
 					let mut hasher = DefaultHasher::new();
 					(parameter_types, return_type).hash(&mut hasher);
 					let concrete_type_function_name = format!("{}_{}", name, hasher.finish());
+					// Create entrypoint wrapper function
 					match main.os {
 						Os::Unix => {
 							let mut c_compound_statement = CCompoundStatement::new();
@@ -74,58 +74,41 @@ impl TanukiModule {
 impl TanukiFunction {
 	/// Compiles the Tanuki module to a C module
 	pub fn compile_to_c(&self, main: &mut Main, insert_into: &mut CModule, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)]) -> Result<(), ErrorAt> {
-		// Get return type
-		let return_type = match &self.return_type {
-			Some(return_type) => match return_type {
-				TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(return_type)), .. } => return_type,
-				_ => unreachable!(),
-			}
-			None => &TanukiType::Void,
-		};
-		// Compile parameters
-		let mut local_variables = Vec::new();
-		local_variables.push(HashMap::new());
-		let mut c_parameters = Vec::new();
-		for parameter in self.parameters.iter() {
-			let parameter = parameter.as_ref().unwrap();
-			let t_type = match &parameter.t_type {
-				Some(TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(t_type)), .. }) => t_type,
-				Some(_) => unreachable!(),
-				None => return Err(Error::ExpectedType.at(Some(parameter.start_line), Some(parameter.start_column), None)),
+		// If this is a function definition
+		if self.body.is_none() {
+			// Get return type
+			let return_type = match &self.return_type {
+				Some(return_type) => match return_type {
+					TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(return_type)), .. } => return_type,
+					_ => unreachable!(),
+				}
+				None => &TanukiType::Void,
 			};
-			local_variables.last_mut().unwrap().insert(parameter.name.clone(), t_type.clone());
-			let c_type = t_type.compile_to_c(main, Some(parameter.start_line), Some(parameter.start_column))?;
-			c_parameters.push(CFunctionParameter::new(c_type, parameter.name.clone()));
-		}
-		// If this is a function definition, compile the body
-		if let Some(body) = &self.body {
-			// Compile body
-			let mut function_temp_variable_count = 0;
-			let mut c_compound_statement = CCompoundStatement::new();
-			let (body_result_value_name, returned_type) = body.compile_r_value_to_c(
-				main, modules, &mut c_compound_statement, &mut function_temp_variable_count, &mut local_variables
-			)?;
-			// Return body value if it is not a void value
-			if let Some(body_result_value_name) = body_result_value_name {
-				c_compound_statement.push_statement(CStatement::Return(Some(CLValue::Variable(body_result_value_name).into())));
+			// Compile parameters
+			let mut local_variables = Vec::new();
+			local_variables.push(HashMap::new());
+			let mut c_parameters = Vec::new();
+			for parameter in self.parameters.iter() {
+				let parameter = parameter.as_ref().unwrap();
+				let t_type = match &parameter.t_type {
+					Some(TanukiExpression { variant: TanukiExpressionVariant::Constant(TanukiCompileTimeValue::Type(t_type)), .. }) => t_type,
+					Some(_) => unreachable!(),
+					None => return Err(Error::ExpectedType.at(Some(parameter.start_line), Some(parameter.start_column), None)),
+				};
+				local_variables.last_mut().unwrap().insert(parameter.name.clone(), t_type.clone());
+				let c_type = t_type.compile_to_c(main, Some(parameter.start_line), Some(parameter.start_column))?;
+				c_parameters.push(CFunctionParameter::new(c_type, parameter.name.clone()));
 			}
-			if return_type != &returned_type {
-				return Err(Error::TypeMismatch((format!("{returned_type:?}"), format!("{return_type:?}"))).at(Some(body.start_line), Some(body.start_column), None));
-			}
-			// Pack into struct
-			//let c_function = CModuleElement::FunctionDefinition {
-			//	return_type: return_type.compile_to_c(main, Some(self.start_line), Some(self.start_column))?, name: self.name.clone(), parameters: c_parameters.into(), body: Box::new(c_compound_statement)
-			//};
-			//insert_into.push_element(c_function);
-		}
-		// Else it is a function definition
-		else {
 			insert_into.push_element(CModuleElement::FunctionDeclaration {
 				return_type: return_type.compile_to_c(main, Some(self.start_line), Some(self.start_column))?, name: self.name.clone(), parameters: c_parameters.into()
 			});
 		}
 		// Compile concrete type function bodies
 		for ((parameter_types, return_type), body_for_concrete_type) in self.bodies_for_concrete_types.as_ref().unwrap().iter() {
+			// Do not compile the concrete function body if cannot exist at run time
+			if parameter_types.iter().any(|parameter_type| !parameter_type.can_exist_at_compile_time()) || !return_type.can_exist_at_compile_time() {
+				continue;
+			}
 			// Get name
 			let mut hasher = DefaultHasher::new();
 			(parameter_types, return_type).hash(&mut hasher);
