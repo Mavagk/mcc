@@ -1,0 +1,2 @@
+U = (bit_width; @type) @u(bit_width);
+I = (bit_width; @type) @i(bit_width);

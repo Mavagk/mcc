@@ -1301,7 +1301,7 @@ impl TanukiInfixTernaryOperator {
 	) -> Result<RValueConstComplicationResult, ErrorAt> {
 		match self {
 			Self::NonShortCircuitingConditional | Self::ShortCircuitingConditional => {
-				let (lhs_operand, mhs_operand, rhs_operand) = (
+				let (lhs_operand_result, mhs_operand_result, rhs_operand_result) = (
 					lhs_expression.const_compile_r_value(
 						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
 					)?,
@@ -1312,11 +1312,30 @@ impl TanukiInfixTernaryOperator {
 						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
 					)?
 				);
-				let (lhs_operand_result, mhs_operand_result, rhs_operand_result) = match (lhs_operand.result_value, mhs_operand.result_value, rhs_operand.result_value) {
-					(Some(lhs_operand), Some(mhs_operand), Some(rhs_operand)) => (lhs_operand, mhs_operand, rhs_operand),
-					_ => return Ok(RValueConstComplicationResult::default()),
-				};
 				Ok(match (self, lhs_operand_result, mhs_operand_result, rhs_operand_result) {
+					(
+						Self::ShortCircuitingConditional, RValueConstComplicationResult { result_value: Some(TanukiCompileTimeValue::Bool(condition)), result_type: _, is_pure },
+						mhs_operand_result, rhs_operand_result
+					) => {
+						let mut result = match condition {
+							true => mhs_operand_result,
+							false => rhs_operand_result,
+						};
+						result.is_pure &= is_pure;
+						result
+					}
+					(
+						Self::NonShortCircuitingConditional, RValueConstComplicationResult { result_value: Some(TanukiCompileTimeValue::Bool(condition)), result_type: _, mut is_pure },
+						mhs_operand_result, rhs_operand_result
+					) => {
+						is_pure &= mhs_operand_result.is_pure & rhs_operand_result.is_pure;
+						let mut result = match condition {
+							true => mhs_operand_result,
+							false => rhs_operand_result,
+						};
+						result.is_pure = is_pure;
+						result
+					}
 					_ => RValueConstComplicationResult::default()
 				})
 			}

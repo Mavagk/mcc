@@ -1,0 +1,17 @@
+IS_WINDOWS = @import("os/os.tnk");
+HANDLE = @import("win/types.tnk");
+LPDWORD = @import("win/types.tnk");
+LPVOID = @import("win/types.tnk");
+
+AsciiChar = @import("char.tnk");
+
+@type WriteBuffer = { .write_handle = IS_WINDOWS? HANDLE: @void };
+
+write = (write_buffer: WriteBuffer, char AsciiChar) {
+	IS_WINDOWS? {
+		WriteConsoleA(write_buffer.write_handle, &char.ascii_value, 1, @transmute(0, LPDWORD), @transmute(0, LPVOID))
+	}
+	: {
+		@void // TODO: Unix
+	}
+};

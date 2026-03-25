@@ -10,6 +10,7 @@ LPDWORD = @import("types.tnk");
 HANDLE = @import("types.tnk");
 
 @export WriteConsoleW = @link_if("kernel32", HANDLE, *VOID, DWORD, LPDWORD, LPVOID, BOOL, IS_WINDOWS);
+@export WriteConsoleA = @link_if("kernel32", HANDLE, *VOID, DWORD, LPDWORD, LPVOID, BOOL, IS_WINDOWS);
 @export GetStdHandle = @link_if("kernel32", DWORD, HANDLE, IS_WINDOWS);
 
 STD_INPUT_HANDLE = DWORD {0xFFFFFFFF - 10};//{-%10};
