@@ -1,2 +1,2 @@
-@type AsciiChar = { .ascii_value = @u(8) };
-@type UnicodeChar = { .unicode_value = @u(32) };
+@export @type AsciiChar = { .ascii_value = @u(8) };
+@export @type UnicodeChar = { .unicode_value = @u(32) };
