@@ -621,7 +621,8 @@ impl TanukiInfixBinaryOperator {
 		})
 	}
 
-	pub const PRECEDENCE_LEVELS: &'static[&'static[Self]; 19] = &[
+	pub const PRECEDENCE_LEVELS: &'static[&'static[Self]; 20] = &[
+		&[Self::MemberAccess],
 		&[Self::As, Self::SaturatingAs, Self::WrappingAs, Self::TryAs],
 		&[Self::Exponent, Self::SaturatingExponent, Self::WrappingExponent, Self::TryExponent],
 		&[

@@ -40,6 +40,8 @@ AsciiChar = @import_std("char.tnk");
 //L = { @int, .a = @u(8) };
 //LT = @type L;
 
+T = @true?? 2: 3;
+
 //fnK = (@int a) 5;
 
 //fnA = (; @u(8)) 50 + 60;

@@ -356,7 +356,7 @@ impl TanukiExpression {
 							if let Some(global_constant) = global_constant && global_constant.name == *name {
 								match &global_constant.value_expression.variant {
 									TanukiExpressionVariant::Constant(value) => {
-										*was_complication_done = true;
+										//*was_complication_done = true;
 										break 'a RValueConstComplicationResult { result_value: Some(value.clone()), result_type: None, is_pure: true };
 										//break 'a Some(value.clone())
 									},
@@ -475,9 +475,75 @@ impl TanukiExpression {
 				)?
 			}
 			TanukiExpressionVariant::InfixTernaryOperator(operator, lhs_expression, mhs_expression, rhs_expression) => {
-				operator.const_compile_r_value(
-					lhs_expression, mhs_expression, rhs_expression, main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling
-				)?
+				match operator {
+					TanukiInfixTernaryOperator::NonShortCircuitingConditional | TanukiInfixTernaryOperator::ShortCircuitingConditional => {
+						let lhs_operand_result = lhs_expression.const_compile_r_value(
+							main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
+						)?;
+						if *dependencies_need_const_compiling {
+							return Ok(RValueConstComplicationResult::default());
+						};
+						let mhs_operand_result = mhs_expression.const_compile_r_value(
+							main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling, global_variable_assigned_to_name
+						)?;
+						let rhs_operand_result = rhs_expression.const_compile_r_value(
+							main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, result_type, dependencies_need_const_compiling, global_variable_assigned_to_name
+						)?;
+						match (operator, lhs_operand_result, mhs_operand_result, rhs_operand_result) {
+							(
+								TanukiInfixTernaryOperator::ShortCircuitingConditional, RValueConstComplicationResult { result_value: Some(TanukiCompileTimeValue::Bool(condition)), is_pure, .. },
+								mhs_operand_result, rhs_operand_result
+							) => match (condition, is_pure) {
+								(true, true) => {
+									*self = take(mhs_expression);
+									*was_complication_done = true;
+									mhs_operand_result
+								},
+								(false, true) => {
+									*self = take(rhs_expression);
+									*was_complication_done = true;
+									rhs_operand_result
+								},
+								(true, false) => {
+									let mut result = mhs_operand_result;
+									result.is_pure = false;
+									result
+								},
+								(false, false) => {
+									let mut result = rhs_operand_result;
+									result.is_pure = false;
+									result
+								},
+							}
+							(
+								TanukiInfixTernaryOperator::NonShortCircuitingConditional, RValueConstComplicationResult { result_value: Some(TanukiCompileTimeValue::Bool(condition)), is_pure, .. },
+								mhs_operand_result, rhs_operand_result
+							) => match (condition, is_pure && mhs_operand_result.is_pure && rhs_operand_result.is_pure) {
+								(true, true) => {
+									*self = take(mhs_expression);
+									*was_complication_done = true;
+									mhs_operand_result
+								},
+								(false, true) => {
+									*self = take(rhs_expression);
+									*was_complication_done = true;
+									rhs_operand_result
+								},
+								(true, false) => {
+									let mut result = mhs_operand_result;
+									result.is_pure = false;
+									result
+								},
+								(false, false) => {
+									let mut result = rhs_operand_result;
+									result.is_pure = false;
+									result
+								},
+							}
+							_ => RValueConstComplicationResult::default()
+						}
+					}
+				}
 			}
 			// For assignments, const-compile the l and r-values
 			TanukiExpressionVariant::Assignment(l_value, r_value) => {
@@ -1285,61 +1351,6 @@ impl TanukiInfixBinaryOperator {
 			Self::MemberAccess | Self::As | Self::SaturatingAs | Self::WrappingAs | Self::TryAs | Self::Pipe => RValueConstComplicationResult::default(),
 			Self::None => unreachable!(),
 		})
-	}
-}
-
-impl TanukiInfixTernaryOperator {
-	/// Const-compiles a Tanuki infix ternary operator as an r-value. Will set `was_complication_done` to `true` if any compilation was done.
-	/// Will set `dependencies_need_const_compiling` to `true` if a variable this depends on has not fully been compiled.
-	/// This function must be repeatedly called until `was_complication_done` is not set to `true`.
-	/// If this expression has been compiled to a constant value, it will return it.
-	pub fn const_compile_r_value(
-		&mut self, lhs_expression: &mut TanukiExpression, mhs_expression: &mut TanukiExpression, rhs_expression: &mut TanukiExpression,
-		main: &mut Main, modules: &mut [(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], this_module: &mut TanukiModule, this_module_path: &Path, this_function: &mut Option<&mut TanukiFunction>,
-		was_complication_done: &mut bool,
-		local_variables: &mut Vec<HashMap<Box<str>, (TanukiType, RValueConstComplicationResult)>>, _result_type: &TanukiType, dependencies_need_const_compiling: &mut bool
-	) -> Result<RValueConstComplicationResult, ErrorAt> {
-		match self {
-			Self::NonShortCircuitingConditional | Self::ShortCircuitingConditional => {
-				let (lhs_operand_result, mhs_operand_result, rhs_operand_result) = (
-					lhs_expression.const_compile_r_value(
-						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
-					)?,
-					mhs_expression.const_compile_r_value(
-						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
-					)?,
-					rhs_expression.const_compile_r_value(
-						main, modules, this_module, this_module_path, this_function, was_complication_done, local_variables, &TanukiType::Any, dependencies_need_const_compiling, None
-					)?
-				);
-				Ok(match (self, lhs_operand_result, mhs_operand_result, rhs_operand_result) {
-					(
-						Self::ShortCircuitingConditional, RValueConstComplicationResult { result_value: Some(TanukiCompileTimeValue::Bool(condition)), result_type: _, is_pure },
-						mhs_operand_result, rhs_operand_result
-					) => {
-						let mut result = match condition {
-							true => mhs_operand_result,
-							false => rhs_operand_result,
-						};
-						result.is_pure &= is_pure;
-						result
-					}
-					(
-						Self::NonShortCircuitingConditional, RValueConstComplicationResult { result_value: Some(TanukiCompileTimeValue::Bool(condition)), result_type: _, mut is_pure },
-						mhs_operand_result, rhs_operand_result
-					) => {
-						is_pure &= mhs_operand_result.is_pure & rhs_operand_result.is_pure;
-						let mut result = match condition {
-							true => mhs_operand_result,
-							false => rhs_operand_result,
-						};
-						result.is_pure = is_pure;
-						result
-					}
-					_ => RValueConstComplicationResult::default()
-				})
-			}
-		}
 	}
 }
 
