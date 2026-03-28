@@ -7,7 +7,7 @@ WriteConsoleA = @import("win/console.tnk");
 
 AsciiChar = @import("char.tnk");
 
-@export @type WriteBuffer = { .write_handle = IS_WINDOWS? HANDLE: @void };
+@export @type WriteBuffer = { .write_handle = IS_WINDOWS?? HANDLE: @void };
 
 //@export write = (WriteBuffer write_buffer, AsciiChar char; @void) IS_WINDOWS?? {
 @export write = (write_buffer, char) IS_WINDOWS?? {
