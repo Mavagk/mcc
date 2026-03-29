@@ -11,6 +11,8 @@ impl TanukiModule {
 		c_module.push_element(CModuleElement::AngleIncludeInHeader("stdlib.h".into()));
 		c_module.push_element(CModuleElement::AngleIncludeInHeader("stddef.h".into()));
 		c_module.push_element(CModuleElement::AngleIncludeInHeader("stdbool.h".into()));
+		// Declare types used
+		// TODO
 		// Add imports of other file headers
 		for mangled_module_name in self.mangled_module_names_to_include_in_c.iter() {
 			c_module.push_element(CModuleElement::DoubleQuotesIncludeInHeader(format!("{mangled_module_name}.h").into()));
@@ -106,7 +108,7 @@ impl TanukiFunction {
 		// Compile concrete type function bodies
 		for ((parameter_types, return_type), body_for_concrete_type) in self.bodies_for_concrete_types.as_ref().unwrap().iter() {
 			// Do not compile the concrete function body if cannot exist at run time
-			if parameter_types.iter().any(|parameter_type| !parameter_type.can_exist_at_compile_time()) || !return_type.can_exist_at_compile_time() {
+			if parameter_types.iter().any(|parameter_type| !parameter_type.can_exist_at_run_time()) || !return_type.can_exist_at_run_time() {
 				continue;
 			}
 			// Get name

@@ -43,7 +43,7 @@ impl TanukiModule {
 		}
 		Ok(Self {
 			parsed_expressions: expressions.into_boxed_slice(), functions: Vec::new(), global_constants: Vec::new(),
-			entrypoint: None, mangled_module_names_to_include_in_c: HashSet::new()
+			entrypoint: None, mangled_module_names_to_include_in_c: HashSet::new(), runtime_types_used: HashSet::new(),
 		})
 	}
 }

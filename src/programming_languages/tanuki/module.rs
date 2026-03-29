@@ -1,12 +1,14 @@
 use std::{collections::HashSet, fmt::{self, Debug, Formatter}, num::NonZeroUsize, path::Path};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::{c::module::CModule, tanuki::{expression::TanukiExpression, function::TanukiFunction, global_constant::TanukiGlobalConstant}}, traits::{ast_node::AstNode, module::Module}};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::{c::module::CModule, tanuki::{expression::TanukiExpression, function::TanukiFunction, global_constant::TanukiGlobalConstant, t_type::TanukiType}}, traits::{ast_node::AstNode, module::Module}};
 
 /// A Tanuki module that has been parsed from a single file.
 pub struct TanukiModule {
 	pub parsed_expressions: Box<[TanukiExpression]>,
 	pub functions: Vec<Option<TanukiFunction>>,
 	pub global_constants: Vec<Option<TanukiGlobalConstant>>,
+	/// A list of types used that can exist at runtime.
+	pub runtime_types_used: HashSet<TanukiType>,
 	pub entrypoint: Option<Box<str>>,
 	pub mangled_module_names_to_include_in_c: HashSet<Box<str>>,
 }
@@ -35,13 +37,16 @@ impl AstNode for TanukiModule {
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
+		for run_time_type_used in &self.runtime_types_used {
+			run_time_type_used.print(level, f)?;
+		}
 		for expression in &self.parsed_expressions {
 			expression.print(level, f)?;
 		}
-		for function in self.functions.iter() {
+		for function in &self.functions {
 			function.as_ref().unwrap().print(level, f)?;
 		}
-		for global_constant in self.global_constants.iter() {
+		for global_constant in &self.global_constants {
 			global_constant.as_ref().unwrap().print(level, f)?;
 		}
 		Ok(())

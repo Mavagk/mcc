@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::{self, Debug, Formatter}};
+use std::{collections::BTreeMap, fmt::{self, Debug, Formatter}, hash::{DefaultHasher, Hash, Hasher}};
 
 use crate::{error::Error, traits::ast_node::AstNode};
 
@@ -51,22 +51,51 @@ impl TanukiType {
 			Self::FunctionPointerEnum(types) =>
 				types.iter().all(|types| types.parameter_types.iter().all(|parameter_type| parameter_type.is_concrete()) && types.return_type.is_concrete()),
 			Self::Pointer(pointee_type) => pointee_type.is_concrete(),
-			Self::Struct { ordered_members, named_members } =>
+			Self::Struct { ordered_members, named_members, .. } =>
 				ordered_members.iter().all(|t_type| t_type.is_concrete()) && named_members.iter().all(|(_, t_type)| t_type.is_concrete()),
 			Self::TypeEnum(types) => types.iter().all(|t_type| t_type.is_concrete()),
 		}
 	}
 
-	/// Returns if the type can exist at runtime.
-	pub fn can_exist_at_compile_time(&self) -> bool {
+	/// Returns if the type can exist at run time.
+	pub fn can_exist_at_run_time(&self) -> bool {
 		match self {
 			Self::U(_) | Self::F(_) | Self::I(_) | Self::Bool | Self::Void => true,
 			Self::Any | Self::CompileTimeChar | Self::CompileTimeFloat | Self::CompileTimeInt | Self::CompileTimeString | Self::Type | Self::FunctionPointer(_) | Self::FunctionPointerEnum(_) => false,
-			Self::ConcreteFunctionPointer(types) => types.parameter_types.iter().all(|parameter_type| parameter_type.can_exist_at_compile_time()),
-			Self::Pointer(pointee_type) => pointee_type.can_exist_at_compile_time(),
-			Self::Struct { ordered_members, named_members } =>
-				ordered_members.iter().all(|t_type| t_type.can_exist_at_compile_time()) && named_members.iter().all(|(_, t_type)| t_type.can_exist_at_compile_time()),
-			Self::TypeEnum(types) => types.iter().all(|t_type| t_type.can_exist_at_compile_time()),
+			Self::ConcreteFunctionPointer(types) => types.parameter_types.iter().all(|parameter_type| parameter_type.can_exist_at_run_time()),
+			Self::Pointer(pointee_type) => pointee_type.can_exist_at_run_time(),
+			Self::Struct { ordered_members, named_members, .. } =>
+				ordered_members.iter().all(|t_type| t_type.can_exist_at_run_time()) && named_members.iter().all(|(_, t_type)| t_type.can_exist_at_run_time()),
+			Self::TypeEnum(types) => types.iter().all(|t_type| t_type.can_exist_at_run_time()),
+		}
+	}
+
+	pub fn get_c_name(&self) -> Box<str> {
+		match self {
+			Self::U(bit_width) => format!("u{bit_width}").into(),
+			Self::I(bit_width) => format!("i{bit_width}").into(),
+			Self::F(bit_width) => format!("f{bit_width}").into(),
+			Self::Bool => "bool".into(),
+			Self::Void => "void".into(),
+			Self::Pointer(pointee_type) => format!("p_{}", pointee_type.get_c_name()).into(),
+			Self::Struct { ordered_members, named_members } => {
+				let mut hash = DefaultHasher::new();
+				ordered_members.hash(&mut hash);
+				named_members.hash(&mut hash);
+				format!("struct_{}", hash.finish()).into()
+			},
+			Self::TypeEnum(types) => {
+				let mut hash = DefaultHasher::new();
+				types.hash(&mut hash);
+				format!("enum_{}", hash.finish()).into()
+			},
+			Self::ConcreteFunctionPointer(types) => {
+				let mut hash = DefaultHasher::new();
+				types.parameter_types.hash(&mut hash);
+				types.return_type.hash(&mut hash);
+				format!("fnp_{}", hash.finish()).into()
+			},
+			Self::Any | Self::CompileTimeChar | Self::CompileTimeFloat | Self::CompileTimeInt | Self::CompileTimeString | Self::Type | Self::FunctionPointer(_) | Self::FunctionPointerEnum(_) => unreachable!(),
 		}
 	}
 }
@@ -106,7 +135,7 @@ impl AstNode for TanukiType {
 				Ok(())
 			},
 			Self::Pointer(pointee_type) => pointee_type.print(level, f),
-			Self::Struct { ordered_members, named_members } => {
+			Self::Struct { ordered_members, named_members, .. } => {
 				for ordered_member in ordered_members.iter() {
 					ordered_member.print(level, f)?;
 				}

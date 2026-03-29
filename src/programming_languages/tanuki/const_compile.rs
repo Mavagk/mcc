@@ -989,6 +989,14 @@ impl TanukiExpression {
 			expression_result.result_type = Some(
 				expression_result.result_type.unwrap().cast_to(result_type).map_err(|err: Error| err.at(Some(self.start_line), Some(self.start_column), None))?
 			);
+			// Insert return type into list if it can exist at run time
+			if let Some(TanukiCompileTimeValue::Type(result_type)) = &expression_result.result_value && result_type.can_exist_at_run_time() {
+				this_module.runtime_types_used.insert(result_type.clone());
+			}
+			if let Some(result_type) = &expression_result.result_type && result_type.can_exist_at_run_time() {
+				this_module.runtime_types_used.insert(result_type.clone());
+			}
+			// Return
 			return Ok(expression_result);
 		}
 		expression_result.result_value = Some(
@@ -1000,19 +1008,15 @@ impl TanukiExpression {
 			self.variant = TanukiExpressionVariant::Constant(expression_result.result_value.as_ref().unwrap().clone());
 			*was_complication_done = true;
 		}
-		//let const_compiled_value = match expression_result {
-		//	Some(const_compiled_value) => Some(
-		//		const_compiled_value.cast_to(result_type, false).map_err(|err| err.at(Some(self.start_line), Some(self.start_column), None))?
-		//	),
-		//	None => None,
-		//};
-		//// If complication was done, replace this with the compiled constant
-		//if let Some(const_compiled_value) = &const_compiled_value {
-		//	self.variant = TanukiExpressionVariant::Constant(const_compiled_value.clone());
-		//}
+		// Insert return type into list if it can exist at run time
+		if let Some(TanukiCompileTimeValue::Type(result_type)) = &expression_result.result_value && result_type.can_exist_at_run_time() {
+			this_module.runtime_types_used.insert(result_type.clone());
+		}
+		if let Some(result_type) = &expression_result.result_type && result_type.can_exist_at_run_time() {
+			this_module.runtime_types_used.insert(result_type.clone());
+		}
 		// Return
 		Ok(expression_result)
-		//Ok(RValueConstComplicationResult { return_value: const_compiled_value, is_pure: false, ..Default::default() })
 	}
 
 	/// Const-compiles a Tanuki expression as an l-value. Will set `was_complication_done` to `true` if any compilation was done.
