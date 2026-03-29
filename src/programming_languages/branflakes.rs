@@ -1,6 +1,6 @@
 use std::{fmt::{self, Debug, Formatter}, io::{self, Write}, num::NonZeroUsize, path::Path};
 
-use crate::{Main, error::{Error, ErrorAt}, programming_languages::c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage, statement::Statement, token::Token, virtual_machine::VirtualMachine}};
+use crate::{Main, error::{Error, ErrorAt}, programming_languages::c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CTypeAndName, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, source_file_reader::SourceFileReader, token_reader::TokenReader, traits::{ast_node::AstNode, module::Module, programming_language::ProgrammingLanguage, statement::Statement, token::Token, virtual_machine::VirtualMachine}};
 
 #[derive(Debug)]
 pub struct Branflakes;
@@ -428,9 +428,9 @@ impl Module for BranflakesModule {
 
 		c_module.push_element(CModuleElement::FunctionDefinition {
 			return_type: CType::Void, name: "expand_memory".into(), parameters: [
-				CFunctionParameter::new(CType::PointerTo(CType::PointerTo(CType::U8.into()).into()), "memory_buffer".into()),
-				CFunctionParameter::new(CType::PointerTo(CType::USize.into()), "memory_buffer_size".into()),
-				CFunctionParameter::new(CType::USize, "resize_to_at_least".into())
+				CTypeAndName::new(CType::PointerTo(CType::PointerTo(CType::U8.into()).into()), "memory_buffer".into()),
+				CTypeAndName::new(CType::PointerTo(CType::USize.into()), "memory_buffer_size".into()),
+				CTypeAndName::new(CType::USize, "resize_to_at_least".into())
 			].into(), body: expand_memory_function_body.into()
 		});
 		// Create main function body

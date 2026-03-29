@@ -8,9 +8,45 @@ pub struct TanukiModule {
 	pub functions: Vec<Option<TanukiFunction>>,
 	pub global_constants: Vec<Option<TanukiGlobalConstant>>,
 	/// A list of types used that can exist at runtime.
-	pub runtime_types_used: HashSet<TanukiType>,
+	pub run_time_types_used: HashSet<TanukiType>,
+	pub run_time_types_used_list: Vec<TanukiType>,
 	pub entrypoint: Option<Box<str>>,
 	pub mangled_module_names_to_include_in_c: HashSet<Box<str>>,
+}
+
+impl TanukiModule {
+	pub fn add_run_time_type(&mut self, t_type: &TanukiType) {
+		if self.run_time_types_used.insert(t_type.clone()) {
+			match t_type {
+				TanukiType::ConcreteFunctionPointer(types) => {
+					for parameter_type in &types.parameter_types {
+						self.add_run_time_type(parameter_type);
+					}
+					self.add_run_time_type(&types.return_type);
+				}
+				TanukiType::Struct { ordered_members, named_members } => {
+					for parameter_type in ordered_members {
+						self.add_run_time_type(parameter_type);
+					}
+					for parameter_type in named_members {
+						self.add_run_time_type(parameter_type.1);
+					}
+				}
+				TanukiType::Pointer(pointee_type) => {
+					self.add_run_time_type(pointee_type);
+				}
+				TanukiType::TypeEnum(types) => {
+					for t_type in types {
+						self.add_run_time_type(t_type);
+					}
+				}
+				TanukiType::Bool | TanukiType::U(_) | TanukiType::I(_) | TanukiType::F(_) | TanukiType::Void => {},
+				TanukiType::CompileTimeChar | TanukiType::CompileTimeFloat | TanukiType::CompileTimeInt | TanukiType::CompileTimeString | TanukiType::Any | TanukiType::Type |
+				TanukiType::FunctionPointer(_) | TanukiType::FunctionPointerEnum(_) => unreachable!(),
+			}
+			self.run_time_types_used_list.push(t_type.clone());
+		}
+	}
 }
 
 impl Module for TanukiModule {
@@ -37,7 +73,7 @@ impl AstNode for TanukiModule {
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
-		for run_time_type_used in &self.runtime_types_used {
+		for run_time_type_used in &self.run_time_types_used_list {
 			run_time_type_used.print(level, f)?;
 		}
 		for expression in &self.parsed_expressions {

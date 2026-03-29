@@ -1,6 +1,6 @@
 use std::{fmt::{self, Formatter}, fs::File, io::{BufWriter, Write}};
 
-use crate::{error::{Error, ErrorAt}, traits::ast_node::AstNode};
+use crate::{error::{Error, ErrorAt}, programming_languages::c::module_element::CTypeAndName, traits::ast_node::AstNode};
 
 #[derive(Debug)]
 pub enum CType {
@@ -18,25 +18,29 @@ pub enum CType {
 	I64,
 	PointerTo(Box<CType>),
 	FunctionPointer(Box<CType>, Box<[CType]>),
+	Struct(Box<[CTypeAndName]>),
+	NamedType(Box<str>),
 }
 
 impl AstNode for CType {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::Void                   => write!(f, "Void"),
-			Self::Int                    => write!(f, "Int"),
-			Self::Bool                   => write!(f, "Bool"),
-			Self::U8                     => write!(f, "U8"),
-			Self::U16                    => write!(f, "U16"),
-			Self::U32                    => write!(f, "U32"),
-			Self::U64                    => write!(f, "U64"),
-			Self::USize                  => write!(f, "USize"),
-			Self::I8                     => write!(f, "I8"),
-			Self::I16                    => write!(f, "I16"),
-			Self::I32                    => write!(f, "I32"),
-			Self::I64                    => write!(f, "I64"),
-			CType::PointerTo(_)          => write!(f, "Pointer To"),
-			CType::FunctionPointer(_, _) => write!(f, "Function Pointer"),
+			Self::Void                        => write!(f, "Void"),
+			Self::Int                         => write!(f, "Int"),
+			Self::Bool                        => write!(f, "Bool"),
+			Self::U8                          => write!(f, "U8"),
+			Self::U16                         => write!(f, "U16"),
+			Self::U32                         => write!(f, "U32"),
+			Self::U64                         => write!(f, "U64"),
+			Self::USize                       => write!(f, "USize"),
+			Self::I8                          => write!(f, "I8"),
+			Self::I16                         => write!(f, "I16"),
+			Self::I32                         => write!(f, "I32"),
+			Self::I64                         => write!(f, "I64"),
+			Self::PointerTo(_)               => write!(f, "Pointer To"),
+			Self::FunctionPointer(_, _)      => write!(f, "Function Pointer"),
+			Self::Struct(_)                  => write!(f, "Struct"),
+			Self::NamedType(name) => write!(f, "Named \"{name}\""),
 		}
 	}
 
@@ -55,6 +59,13 @@ impl AstNode for CType {
 				}
 				Ok(())
 			}
+			Self::Struct(members) => {
+				for member in members {
+					member.print(level, f)?;
+				}
+				Ok(())
+			}
+			Self::NamedType(_) => Ok(()),
 		}
 	}
 
@@ -102,6 +113,26 @@ impl AstNode for CType {
 				}
 				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
+			Self::Struct(members) => {
+				writer.write_all(b"struct {").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				if !members.is_empty() {
+					writer.write_all(b"\n").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				}
+				for member in members {
+					for _ in 0..indentation_level + 1 {
+						writer.write_all(b"\t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					}
+					member.write_to_file(writer, indentation_level)?;
+				}
+				if !members.is_empty() {
+					for _ in 0..indentation_level {
+						writer.write_all(b"\t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					}
+				}
+				writer.write_all(b"}").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				Ok(())
+			}
+			Self::NamedType(name) => writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None)),
 		}
 	}
 }
@@ -109,7 +140,7 @@ impl AstNode for CType {
 impl CType {
 	pub fn write_to_file_with_name(&self, writer: &mut BufWriter<File>, indentation_level: usize, name: &str) -> Result<(), ErrorAt> {
 		match self {
-			Self::Void | Self::Int | Self::Bool | Self::U8 | Self::U16 | Self::U32 | Self::U64 | Self::USize | Self::I8 | Self::I16 | Self::I32 | Self::I64 => {
+			Self::Void | Self::Int | Self::Bool | Self::U8 | Self::U16 | Self::U32 | Self::U64 | Self::USize | Self::I8 | Self::I16 | Self::I32 | Self::I64 | Self::NamedType(_) => {
 				self.write_to_file(writer, indentation_level)?;
 				writer.write_all(b" ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
@@ -153,6 +184,26 @@ impl CType {
 					is_first_parameter = false;
 				}
 				writer.write_all(b")").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
+			Self::Struct(members) => {
+				writer.write_all(b"struct {").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				if !members.is_empty() {
+					writer.write_all(b"\n").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				}
+				for member in members {
+					for _ in 0..indentation_level + 1 {
+						writer.write_all(b"\t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					}
+					member.write_to_file(writer, indentation_level)?;
+					writer.write_all(b";\n").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				}
+				if !members.is_empty() {
+					for _ in 0..indentation_level {
+						writer.write_all(b"\t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					}
+				}
+				writer.write_all(b"} ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
 		}
 	}

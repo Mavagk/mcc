@@ -4,12 +4,13 @@ use crate::{error::{Error, ErrorAt}, programming_languages::c::{statement::CComp
 
 #[derive(Debug)]
 pub enum CModuleElement {
-	FunctionDefinition { return_type: CType, name: Box<str>, parameters: Box<[CFunctionParameter]>, body: Box<CCompoundStatement> },
-	FunctionDeclaration { return_type: CType, name: Box<str>, parameters: Box<[CFunctionParameter]> },
+	FunctionDefinition { return_type: CType, name: Box<str>, parameters: Box<[CTypeAndName]>, body: Box<CCompoundStatement> },
+	FunctionDeclaration { return_type: CType, name: Box<str>, parameters: Box<[CTypeAndName]> },
 	AngleIncludeInHeader(Box<str>),
 	DoubleQuotesIncludeInHeader(Box<str>),
 	AngleIncludeInMain(Box<str>),
 	DoubleQuotesIncludeInMain(Box<str>),
+	GuardedTypedef(Box<str>, Box<CType>)
 }
 
 impl ModuleElement for CModuleElement {
@@ -25,6 +26,7 @@ impl AstNode for CModuleElement {
 			Self::DoubleQuotesIncludeInHeader(name) => write!(f, "Include \"{name}\" in Header"),
 			Self::AngleIncludeInMain(name) => write!(f, "Include <{name}> in Main"),
 			Self::DoubleQuotesIncludeInMain(name) => write!(f, "Include \"{name}\" in Main"),
+			Self::GuardedTypedef(name, _) => write!(f, "Typedef \"{name}\""),
 		}
 	}
 
@@ -47,6 +49,7 @@ impl AstNode for CModuleElement {
 				}
 				Ok(())
 			}
+			Self::GuardedTypedef(_, c_type) => c_type.print(level, f),
 			Self::AngleIncludeInHeader(_) | Self::DoubleQuotesIncludeInHeader(_) | Self::AngleIncludeInMain(_) | Self::DoubleQuotesIncludeInMain(_) => Ok(()),
 		}
 	}
@@ -79,7 +82,7 @@ impl AstNode for CModuleElement {
 				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				writer.write_all(b"\"").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
-			Self::FunctionDeclaration { .. } | Self::AngleIncludeInHeader(..) | Self::DoubleQuotesIncludeInHeader(..) => Ok(())
+			Self::FunctionDeclaration { .. } | Self::AngleIncludeInHeader(..) | Self::DoubleQuotesIncludeInHeader(..) | Self::GuardedTypedef(_, _) => Ok(()),
 		}
 	}
 
@@ -110,26 +113,32 @@ impl AstNode for CModuleElement {
 				writer.write_all(name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
 				writer.write_all(b"\"").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
 			}
+			Self::GuardedTypedef(name, c_type) => {
+				let guard_name = format!("_tnk_typedef_guard_{name}");
+				writer.write_all(format!("#ifndef {guard_name}\n#define {guard_name}\ntypedef ").as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				c_type.write_to_file_with_name(writer, indentation_level, name)?;
+				writer.write_all(b";\n#endif").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
 			Self::AngleIncludeInMain(..) | Self::DoubleQuotesIncludeInMain(..) => Ok(())
 		}
 	}
 }
 
 #[derive(Debug)]
-pub struct CFunctionParameter {
+pub struct CTypeAndName {
 	param_type: CType,
 	name: Box<str>,
 }
 
-impl CFunctionParameter {
+impl CTypeAndName {
 	pub fn new(param_type: CType, name: Box<str>) -> Self {
 		Self { param_type, name }
 	}
 }
 
-impl AstNode for CFunctionParameter {
+impl AstNode for CTypeAndName {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		write!(f, "Function Parameter \"{}\"", self.name)
+		write!(f, "Function Type & Name \"{}\"", self.name)
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {

@@ -52,7 +52,7 @@ impl TanukiCompileTimeValue {
 					.collect()
 			),
 			Self::LinkedFunctionPointer(_, return_type, parameter_types) =>
-				TanukiType::FunctionPointer(FunctionPointerType { return_type: return_type.clone(), parameter_types: parameter_types.clone() }),
+				TanukiType::ConcreteFunctionPointer(FunctionPointerType { return_type: return_type.clone(), parameter_types: parameter_types.clone() }),
 			Self::Struct { ordered_members, named_members }        => TanukiType::Struct {
 				ordered_members: ordered_members.iter().map(|value| value.get_type()).collect(),
 				named_members: named_members.iter().map(|(name, value)| (name.clone(), value.get_type())).collect(),

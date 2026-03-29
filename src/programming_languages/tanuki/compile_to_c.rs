@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hash::{DefaultHasher, Hash, Hasher}, num::NonZeroUsize, path::Path};
 
-use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CFunctionParameter, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::{FunctionPointer, TanukiCompileTimeValue}, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::{FunctionPointerType, TanukiType}, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}}, traits::module::Module};
+use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CTypeAndName, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::{FunctionPointer, TanukiCompileTimeValue}, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::{FunctionPointerType, TanukiType}, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}}, traits::module::Module};
 
 impl TanukiModule {
 	pub fn compile_to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)]) -> Result<CModule, ErrorAt> {
@@ -12,7 +12,9 @@ impl TanukiModule {
 		c_module.push_element(CModuleElement::AngleIncludeInHeader("stddef.h".into()));
 		c_module.push_element(CModuleElement::AngleIncludeInHeader("stdbool.h".into()));
 		// Declare types used
-		// TODO
+		for t_type in &self.run_time_types_used_list {
+			c_module.push_element(CModuleElement::GuardedTypedef(format!("_tnk_{}", t_type.get_c_name()?).into(), t_type.compile_to_c(main, None, None)?.into()));
+		}
 		// Add imports of other file headers
 		for mangled_module_name in self.mangled_module_names_to_include_in_c.iter() {
 			c_module.push_element(CModuleElement::DoubleQuotesIncludeInHeader(format!("{mangled_module_name}.h").into()));
@@ -98,11 +100,11 @@ impl TanukiFunction {
 					None => return Err(Error::ExpectedType.at(Some(parameter.start_line), Some(parameter.start_column), None)),
 				};
 				local_variables.last_mut().unwrap().insert(parameter.name.clone(), t_type.clone());
-				let c_type = t_type.compile_to_c(main, Some(parameter.start_line), Some(parameter.start_column))?;
-				c_parameters.push(CFunctionParameter::new(c_type, parameter.name.clone()));
+				let c_type = t_type.compile_to_c_named()?;
+				c_parameters.push(CTypeAndName::new(c_type, parameter.name.clone()));
 			}
 			insert_into.push_element(CModuleElement::FunctionDeclaration {
-				return_type: return_type.compile_to_c(main, Some(self.start_line), Some(self.start_column))?, name: self.name.clone(), parameters: c_parameters.into()
+				return_type: return_type.compile_to_c_named()?, name: self.name.clone(), parameters: c_parameters.into()
 			});
 		}
 		// Compile concrete type function bodies
@@ -122,8 +124,8 @@ impl TanukiFunction {
 			for (x, parameter) in self.parameters.iter().enumerate() {
 				let parameter = parameter.as_ref().unwrap();
 				local_variables.last_mut().unwrap().insert(parameter.name.clone(), parameter_types[x].clone());
-				let c_type = parameter_types[x].compile_to_c(main, Some(parameter.start_line), Some(parameter.start_column))?;
-				c_parameters.push(CFunctionParameter::new(c_type, parameter.name.clone()));
+				let c_type = parameter_types[x].compile_to_c_named()?;
+				c_parameters.push(CTypeAndName::new(c_type, parameter.name.clone()));
 			}
 			// Compile body
 			let mut function_temp_variable_count = 0;
@@ -140,7 +142,7 @@ impl TanukiFunction {
 			}
 			// Pack into struct
 			let c_function = CModuleElement::FunctionDefinition {
-				return_type: return_type.compile_to_c(main, Some(self.start_line), Some(self.start_column))?,
+				return_type: return_type.compile_to_c_named()?,
 				name: concrete_type_function_name.into(), parameters: c_parameters.into(), body: Box::new(c_compound_statement)
 			};
 			insert_into.push_element(c_function);
@@ -151,7 +153,7 @@ impl TanukiFunction {
 
 impl TanukiType {
 	/// Compiles a Tanuki type to a C Type
-	pub fn compile_to_c(&self, main: &mut Main, line: Option<NonZeroUsize>, column: Option<NonZeroUsize>) -> Result<CType, ErrorAt> {
+	pub fn compile_to_c(&self, _main: &mut Main, line: Option<NonZeroUsize>, column: Option<NonZeroUsize>) -> Result<CType, ErrorAt> {
 		Ok(match self {
 			Self::Void => CType::Void,
 			Self::U(bit_width) => match bit_width {
@@ -171,16 +173,38 @@ impl TanukiType {
 			Self::FunctionPointer(FunctionPointerType { return_type, parameter_types }) => {
 				let mut c_parameter_types = Vec::new();
 				for parameter_type in parameter_types.iter() {
-					c_parameter_types.push(parameter_type.compile_to_c(main, line, column)?);
+					c_parameter_types.push(parameter_type.compile_to_c_named()?);
 				}
-				CType::FunctionPointer(return_type.compile_to_c(main, line, column)?.into(), c_parameter_types.into())
+				CType::FunctionPointer(return_type.compile_to_c_named()?.into(), c_parameter_types.into())
 			}
 			Self::Bool => CType::Bool,
-			Self::Pointer(pointee_type) => CType::PointerTo(pointee_type.compile_to_c(main, line, column)?.into()),
+			Self::Pointer(pointee_type) => CType::PointerTo(pointee_type.compile_to_c_named()?.into()),
 			Self::Any | Self::CompileTimeChar | Self::CompileTimeFloat | Self::CompileTimeInt | Self::CompileTimeString | Self::Type =>
 				return Err(Error::TypeCannotExistAtRunTime.at(line, column, None)),
+			Self::Struct { ordered_members, named_members } => {
+				let mut members = Vec::new();
+				for (x, ordered_member) in ordered_members.iter().enumerate() {
+					members.push(CTypeAndName::new(ordered_member.compile_to_c_named()?, format!("_tnk_{x}").into()));
+				}
+				for (name, named_member) in named_members {
+					members.push(CTypeAndName::new(named_member.compile_to_c_named()?, format!("_tnk_{name}").into()));
+				}
+				CType::Struct(members.into())
+			}
+			Self::ConcreteFunctionPointer(types) => {
+				let mut c_parameter_types = Vec::new();
+				for parameter_type in types.parameter_types.iter() {
+					c_parameter_types.push(parameter_type.compile_to_c_named()?);
+				}
+				CType::FunctionPointer(types.return_type.compile_to_c_named()?.into(), c_parameter_types.into())
+			}
 			_ => return Err(Error::Unimplemented(format!("Compiling value {self:?}")).at(line, column, None)),
 		})
+	}
+
+	/// Compiles a Tanuki type to a C Type
+	pub fn compile_to_c_named(&self) -> Result<CType, ErrorAt> {
+		Ok(CType::NamedType(format!("_tnk_{}", self.get_c_name()?).into()))
 	}
 }
 
@@ -252,7 +276,7 @@ impl TanukiExpression {
 						return_variable_name = Some(name.clone().into());
 						// Assign the block result to the temp variable
 						insert_into.push_statement(
-							CStatement::VariableDeclaration(return_type.compile_to_c(main, Some(return_expression.start_line), Some(return_expression.start_column))?, name.clone().into(), None)
+							CStatement::VariableDeclaration(return_type.compile_to_c_named()?, name.clone().into(), None)
 						);
 						c_compound_statement.push_statement(CExpression::Assignment(
 							CLValue::Variable(name.clone().into()).into(),
@@ -299,7 +323,7 @@ impl TanukiExpression {
 				*function_temp_variable_count += 1;
 				let c_expression = CExpression::FunctionPointerCall(CLValue::Variable(function_pointer_result_variable.unwrap().into()).into(), argument_results.into());
 				insert_into.push_statement(
-					CStatement::VariableDeclaration(return_type.compile_to_c(main, Some(self.start_line), Some(self.start_column))?, name.clone().into(), Some(CInitializer::Expression(c_expression).into()))
+					CStatement::VariableDeclaration(return_type.compile_to_c_named()?, name.clone().into(), Some(CInitializer::Expression(c_expression).into()))
 				);
 				Ok((Some(name.into()), *return_type))
 			}
@@ -326,7 +350,7 @@ impl TanukiExpression {
 				*function_temp_variable_count += 1;
 				insert_into.push_statement(
 					CStatement::VariableDeclaration(
-						transmute_to_type.compile_to_c(main, Some(self.start_line), Some(self.start_column))?, name.clone().into(),
+						transmute_to_type.compile_to_c_named()?, name.clone().into(),
 						Some(CInitializer::Expression(CLValue::Variable(to_transmute_result_name.unwrap().into()).into()).into()),
 					)
 				);
@@ -356,18 +380,18 @@ impl TanukiExpression {
 						let temp_var_name = format!("_tnk_temp_l_var_var_{function_temp_variable_count}");
 						*function_temp_variable_count += 1;
 						insert_into.push_statement(CStatement::VariableDeclaration(
-							CType::PointerTo(t_type.compile_to_c(main, Some(self.start_line), Some(self.start_column))?.into()).into(),
+							CType::PointerTo(t_type.compile_to_c_named()?.into()).into(),
 							temp_var_name.clone().into(), Some(CInitializer::Expression(CExpression::TakeReference(CLValue::Variable(name.clone().into()).into())).into())
 						));
 						break 'a Ok((Some(temp_var_name.into()), local_variable_type.clone()));
 					}
 				}
 				local_variables.iter_mut().last().unwrap().insert(name.clone(), t_type.clone());
-				insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c(main, Some(self.start_line), Some(self.start_column))?.into(), name.clone(), None));
+				insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c_named()?.into(), name.clone(), None));
 				let temp_var_name = format!("_tnk_temp_l_var_var_{function_temp_variable_count}");
 				*function_temp_variable_count += 1;
 				insert_into.push_statement(CStatement::VariableDeclaration(
-					CType::PointerTo(t_type.compile_to_c(main, Some(self.start_line), Some(self.start_column))?.into()).into(),
+					CType::PointerTo(t_type.compile_to_c_named()?.into()).into(),
 					temp_var_name.clone().into(), Some(CInitializer::Expression(CExpression::TakeReference(CLValue::Variable(name.clone().into()).into())).into())
 				));
 				Ok((Some(temp_var_name.into()), t_type.clone()))
@@ -408,7 +432,7 @@ impl TanukiCompileTimeValue {
 				let c_expression = CExpression::TakeReference(CLValue::Variable(concrete_type_function_name.clone().into()).into());
 				let temp_name = format!("_tnk_temp_func_var_{function_temp_variable_count}");
 				*function_temp_variable_count += 1;
-				insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c(main, line, column)?, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+				insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c_named()?, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
 				return Ok((Some(temp_name.into()), t_type))
 			}
 			TanukiCompileTimeValue::LinkedFunctionPointer(function_name, return_type, parameter_types) => {
@@ -416,13 +440,13 @@ impl TanukiCompileTimeValue {
 				let c_expression = CExpression::TakeReference(CLValue::Variable(function_name.clone().into()).into());
 				let temp_name = format!("_tnk_temp_link_func_var_{function_temp_variable_count}");
 				*function_temp_variable_count += 1;
-				insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c(main, line, column)?, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+				insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c_named()?, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
 				return Ok((Some(temp_name.into()), t_type))
 			}
 			_ => return Err(Error::NotYetImplemented(format!("{self:?} value")).at(line, column, None)),
 		};
 		let t_type = self.get_type();
-		let c_type = t_type.compile_to_c(main, line, column)?;
+		let c_type = t_type.compile_to_c_named()?;
 		let name = format!("_tnk_temp_var_{function_temp_variable_count}");
 		*function_temp_variable_count += 1;
 		insert_into.push_statement(CStatement::VariableDeclaration(c_type, name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
@@ -462,7 +486,7 @@ impl TanukiPrefixUnaryOperator {
 						*function_temp_variable_count += 1;
 						let c_expression = CExpression::Negate(CLValue::Variable(operand_result_variable.unwrap()).into());
 						insert_into.push_statement(CStatement::VariableDeclaration(
-							operand_type.compile_to_c(main, Some(operand.start_line), Some(operand.start_column))?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
+							operand_type.compile_to_c_named()?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
 						));
 						Ok((Some(name.into()), operand_type))
 					}
@@ -477,7 +501,7 @@ impl TanukiPrefixUnaryOperator {
 						*function_temp_variable_count += 1;
 						let c_expression = CExpression::BitwiseNot(CLValue::Variable(operand_result_variable.unwrap()).into());
 						insert_into.push_statement(CStatement::VariableDeclaration(
-							operand_type.compile_to_c(main, Some(operand.start_line), Some(operand.start_column))?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
+							operand_type.compile_to_c_named()?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
 						));
 						Ok((Some(name.into()), operand_type))
 					}
@@ -522,7 +546,7 @@ impl TanukiInfixBinaryOperator {
 						*function_temp_variable_count += 1;
 						let c_expression = CExpression::Add(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
 						insert_into.push_statement(CStatement::VariableDeclaration(
-							lhs_type.compile_to_c(main, Some(start_line), Some(start_column))?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
+							lhs_type.compile_to_c_named()?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
 						));
 						Ok((Some(name.into()), lhs_type))
 					}
@@ -532,7 +556,7 @@ impl TanukiInfixBinaryOperator {
 						*function_temp_variable_count += 1;
 						let c_expression = CExpression::Subtract(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
 						insert_into.push_statement(CStatement::VariableDeclaration(
-							lhs_type.compile_to_c(main, Some(start_line), Some(start_column))?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
+							lhs_type.compile_to_c_named()?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
 						));
 						Ok((Some(name.into()), lhs_type))
 					}
@@ -542,7 +566,7 @@ impl TanukiInfixBinaryOperator {
 						*function_temp_variable_count += 1;
 						let c_expression = CExpression::Multiply(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
 						insert_into.push_statement(CStatement::VariableDeclaration(
-							lhs_type.compile_to_c(main, Some(start_line), Some(start_column))?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
+							lhs_type.compile_to_c_named()?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
 						));
 						Ok((Some(name.into()), lhs_type))
 					}
@@ -552,7 +576,7 @@ impl TanukiInfixBinaryOperator {
 						*function_temp_variable_count += 1;
 						let c_expression = CExpression::BitwiseAnd(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
 						insert_into.push_statement(CStatement::VariableDeclaration(
-							lhs_type.compile_to_c(main, Some(start_line), Some(start_column))?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
+							lhs_type.compile_to_c_named()?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
 						));
 						Ok((Some(name.into()), lhs_type))
 					}
@@ -561,7 +585,7 @@ impl TanukiInfixBinaryOperator {
 						*function_temp_variable_count += 1;
 						let c_expression = CExpression::BitwiseOr(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
 						insert_into.push_statement(CStatement::VariableDeclaration(
-							lhs_type.compile_to_c(main, Some(start_line), Some(start_column))?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
+							lhs_type.compile_to_c_named()?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
 						));
 						Ok((Some(name.into()), lhs_type))
 					}
@@ -570,7 +594,7 @@ impl TanukiInfixBinaryOperator {
 						*function_temp_variable_count += 1;
 						let c_expression = CExpression::BitwiseXor(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into());
 						insert_into.push_statement(CStatement::VariableDeclaration(
-							lhs_type.compile_to_c(main, Some(start_line), Some(start_column))?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
+							lhs_type.compile_to_c_named()?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
 						));
 						Ok((Some(name.into()), lhs_type))
 					}
@@ -579,7 +603,7 @@ impl TanukiInfixBinaryOperator {
 						*function_temp_variable_count += 1;
 						let c_expression = CExpression::BitwiseNot(CExpression::BitwiseAnd(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into()).into());
 						insert_into.push_statement(CStatement::VariableDeclaration(
-							lhs_type.compile_to_c(main, Some(start_line), Some(start_column))?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
+							lhs_type.compile_to_c_named()?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
 						));
 						Ok((Some(name.into()), lhs_type))
 					}
@@ -588,7 +612,7 @@ impl TanukiInfixBinaryOperator {
 						*function_temp_variable_count += 1;
 						let c_expression = CExpression::BitwiseNot(CExpression::BitwiseOr(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into()).into());
 						insert_into.push_statement(CStatement::VariableDeclaration(
-							lhs_type.compile_to_c(main, Some(start_line), Some(start_column))?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
+							lhs_type.compile_to_c_named()?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
 						));
 						Ok((Some(name.into()), lhs_type))
 					}
@@ -597,7 +621,7 @@ impl TanukiInfixBinaryOperator {
 						*function_temp_variable_count += 1;
 						let c_expression = CExpression::BitwiseNot(CExpression::BitwiseXor(CLValue::Variable(lhs_result_variable.unwrap()).into(), CLValue::Variable(rhs_result_variable.unwrap()).into()).into());
 						insert_into.push_statement(CStatement::VariableDeclaration(
-							lhs_type.compile_to_c(main, Some(start_line), Some(start_column))?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
+							lhs_type.compile_to_c_named()?, name.clone().into(), Some(CInitializer::Expression(c_expression).into())
 						));
 						Ok((Some(name.into()), lhs_type))
 					}

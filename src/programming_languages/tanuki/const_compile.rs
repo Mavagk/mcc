@@ -991,10 +991,10 @@ impl TanukiExpression {
 			);
 			// Insert return type into list if it can exist at run time
 			if let Some(TanukiCompileTimeValue::Type(result_type)) = &expression_result.result_value && result_type.can_exist_at_run_time() {
-				this_module.runtime_types_used.insert(result_type.clone());
+				this_module.add_run_time_type(result_type);
 			}
 			if let Some(result_type) = &expression_result.result_type && result_type.can_exist_at_run_time() {
-				this_module.runtime_types_used.insert(result_type.clone());
+				this_module.add_run_time_type(result_type);
 			}
 			// Return
 			return Ok(expression_result);
@@ -1010,10 +1010,10 @@ impl TanukiExpression {
 		}
 		// Insert return type into list if it can exist at run time
 		if let Some(TanukiCompileTimeValue::Type(result_type)) = &expression_result.result_value && result_type.can_exist_at_run_time() {
-			this_module.runtime_types_used.insert(result_type.clone());
+			this_module.add_run_time_type(result_type);
 		}
 		if let Some(result_type) = &expression_result.result_type && result_type.can_exist_at_run_time() {
-			this_module.runtime_types_used.insert(result_type.clone());
+			this_module.add_run_time_type(result_type);
 		}
 		// Return
 		Ok(expression_result)
