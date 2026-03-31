@@ -1,6 +1,6 @@
 use std::{fmt::{self, Formatter}, fs::File, io::{BufWriter, Write}};
 
-use crate::{error::{Error, ErrorAt}, programming_languages::c::{expression::CExpression, types::CType}, traits::{ast_node::AstNode, statement::Statement}};
+use crate::{error::{Error, ErrorAt}, programming_languages::c::{expression::CExpression, module_element::CTypeAndName, types::CType}, traits::{ast_node::AstNode, statement::Statement}};
 
 #[derive(Debug)]
 pub enum CStatement {
@@ -165,25 +165,78 @@ impl AstNode for CCompoundStatement {
 
 #[derive(Debug)]
 pub enum CInitializer {
-	Expression(CExpression)
+	Expression(CExpression),
+	StructInitializer(Box<[CStructFieldInitializer]>),
 }
 
 impl AstNode for CInitializer {
 	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::Expression(_) => write!(f, "Expression"),
+			Self::StructInitializer(_) => write!(f, "Struct Initializer"),
 		}
 	}
 
 	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::Expression(expression) => expression.print(level, f),
+			Self::StructInitializer(fields) => {
+				for field in fields {
+					field.print(level, f)?;
+				}
+				Ok(())
+			}
 		}
 	}
 
 	fn write_to_file(&self, writer: &mut BufWriter<File>, indentation_level: usize) -> Result<(), ErrorAt> {
 		match self {
-			Self::Expression(expression) => expression.write_to_file(writer, indentation_level)
+			Self::Expression(expression) => expression.write_to_file(writer, indentation_level),
+			Self::StructInitializer(fields) => {
+				writer.write_all(b"{").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+				let mut is_first = true;
+				for field in fields {
+					if !is_first {
+						writer.write_all(b",").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					}
+					writer.write_all(b"\n").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					for _ in 0..indentation_level + 1 {
+						writer.write_all(b"\t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					}
+					field.write_to_file(writer, indentation_level + 1)?;
+					is_first = false;
+				}
+				if !fields.is_empty() {
+					writer.write_all(b"\n").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					for _ in 0..indentation_level {
+						writer.write_all(b"\t").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+					}
+				}
+				writer.write_all(b"}").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))
+			}
 		}
+	}
+}
+
+#[derive(Debug)]
+pub struct CStructFieldInitializer {
+	pub name: Box<str>,
+	pub initializer: CInitializer,
+}
+
+impl AstNode for CStructFieldInitializer {
+	fn print_name(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		write!(f, "C Struct Field Initializer {}", self.name)
+	}
+
+	fn print_sub_nodes(&self, level: usize, f: &mut Formatter<'_>) -> fmt::Result {
+		self.initializer.print(level, f)
+	}
+
+	fn write_to_file(&self, writer: &mut BufWriter<File>, indentation_level: usize) -> Result<(), ErrorAt> {
+		writer.write_all(b".").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+		writer.write_all(self.name.as_bytes()).map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+		writer.write_all(b" = ").map_err(|err| Error::UnableToWriteToFile(err.to_string()).at(None, None, None))?;
+		self.initializer.write_to_file(writer, indentation_level)
 	}
 }

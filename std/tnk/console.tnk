@@ -4,14 +4,20 @@ LPDWORD = @import("win/types.tnk");
 LPVOID = @import("win/types.tnk");
 
 WriteConsoleA = @import("win/console.tnk");
+GetStdHandle = @import("win/console.tnk");
+STD_OUTPUT_HANDLE = @import("win/console.tnk");
 
 AsciiChar = @import("char.tnk");
 
 @export @type WriteBuffer = { .write_handle = IS_WINDOWS?? HANDLE: @void };
 
 //@export write = (WriteBuffer write_buffer, AsciiChar char; @void) IS_WINDOWS?? {
-@export write = (write_buffer, char) IS_WINDOWS?? {
-	//@void // TODO
+@export write = (WriteBuffer write_buffer, AsciiChar char) IS_WINDOWS?? {
 	WriteConsoleA(write_buffer.write_handle, &char.ascii_value, 1, @transmute(0, LPDWORD), @transmute(0, LPVOID));
 	@void
 } : @void; // TODO: Unix;
+
+//@export getStandardOutput = (; WriteBuffer) IS_WINDOWS?? {
+//	HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+//	WriteBuffer { .write_handle = handle }
+//} : WriteBuffer { .write_handle = @void }; // TODO: Unix;

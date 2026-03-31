@@ -150,7 +150,10 @@ impl TanukiCompileTimeValue {
 			}),
 			// No cast should happen if we are casting a value to it's own type or @any.
 			(type_from, type_to, _) if &type_from == type_to => Ok(self),
-			_ => return Err(Error::NotYetImplemented(format!("Casting value {self:?} to type {type_to:?}"))),
+			(_type_from, type_to, _) => {
+				//println!("{type_from:?} {type_to:?}");
+				return Err(Error::NotYetImplemented(format!("Casting value {self:?} to type {type_to:?}")))
+			},
 		}
 	}
 }

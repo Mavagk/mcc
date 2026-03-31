@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hash::{DefaultHasher, Hash, Hasher}, num::NonZeroUsize, path::Path};
 
-use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CTypeAndName, CModuleElement}, statement::{CCompoundStatement, CInitializer, CStatement}, types::CType}, tanuki::{compile_time_value::{FunctionPointer, TanukiCompileTimeValue}, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::{FunctionPointerType, TanukiType}, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}}, traits::module::Module};
+use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CModuleElement, CTypeAndName}, statement::{CCompoundStatement, CInitializer, CStatement, CStructFieldInitializer}, types::CType}, tanuki::{compile_time_value::{FunctionPointer, TanukiCompileTimeValue}, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::{FunctionPointerType, TanukiType}, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}}, traits::module::Module};
 
 impl TanukiModule {
 	pub fn compile_to_c_module(&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)]) -> Result<CModule, ErrorAt> {
@@ -184,10 +184,10 @@ impl TanukiType {
 			Self::Struct { ordered_members, named_members } => {
 				let mut members = Vec::new();
 				for (x, ordered_member) in ordered_members.iter().enumerate() {
-					members.push(CTypeAndName::new(ordered_member.compile_to_c_named()?, format!("_tnk_{x}").into()));
+					members.push(CTypeAndName::new(ordered_member.compile_to_c_named()?, format!("_tnk_o_{x}").into()));
 				}
 				for (name, named_member) in named_members {
-					members.push(CTypeAndName::new(named_member.compile_to_c_named()?, format!("_tnk_{name}").into()));
+					members.push(CTypeAndName::new(named_member.compile_to_c_named()?, format!("_tnk_n_{name}").into()));
 				}
 				CType::Struct(members.into())
 			}
@@ -405,7 +405,7 @@ impl TanukiCompileTimeValue {
 	/// Converts a Tanuki compile time value into a C constant.
 	/// Returns a (name, type) tuple where type is the results type and name is a `Some` variant if the result is non-void type and is the name of a C variable that contains the result.
 	pub fn compile_to_c(
-		&self, main: &mut Main, _modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize,
+		&self, main: &mut Main, modules: &[(Box<Path>, bool, Option<Box<dyn Module>>, Box<str>)], insert_into: &mut CCompoundStatement, function_temp_variable_count: &mut usize,
 		line: Option<NonZeroUsize>, column: Option<NonZeroUsize>
 	) -> Result<(Option<Box<str>>, TanukiType), ErrorAt> {
 		let c_expression = match self {
@@ -441,6 +441,22 @@ impl TanukiCompileTimeValue {
 				let temp_name = format!("_tnk_temp_link_func_var_{function_temp_variable_count}");
 				*function_temp_variable_count += 1;
 				insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c_named()?, temp_name.clone().into(), Some(CInitializer::Expression(c_expression).into())));
+				return Ok((Some(temp_name.into()), t_type))
+			}
+			TanukiCompileTimeValue::Struct { ordered_members, named_members } => {
+				let t_type = self.get_type();
+				let mut members = Vec::new();
+				for (x, ordered_member) in ordered_members.iter().enumerate() {
+					let value = ordered_member.compile_to_c(main, modules, insert_into, function_temp_variable_count, line, column)?;
+					members.push(CStructFieldInitializer { name: format!("_tnk_o_{x}").into(), initializer: CInitializer::Expression(CLValue::Variable(value.0.unwrap().into()).into()) });
+				}
+				for (name, named_member) in named_members {
+					let value = named_member.compile_to_c(main, modules, insert_into, function_temp_variable_count, line, column)?;
+					members.push(CStructFieldInitializer { name: format!("_tnk_n_{name}").into(), initializer: CInitializer::Expression(CLValue::Variable(value.0.unwrap().into()).into()) });
+				}
+				let temp_name = format!("_tnk_temp_link_func_var_{function_temp_variable_count}");
+				*function_temp_variable_count += 1;
+				insert_into.push_statement(CStatement::VariableDeclaration(t_type.compile_to_c_named()?, temp_name.clone().into(), Some(CInitializer::StructInitializer(members.into()).into())));
 				return Ok((Some(temp_name.into()), t_type))
 			}
 			_ => return Err(Error::NotYetImplemented(format!("{self:?} value")).at(line, column, None)),

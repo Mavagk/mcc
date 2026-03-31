@@ -32,11 +32,32 @@ impl TanukiType {
 			(TanukiType::Struct { ordered_members, named_members }, TanukiType::Type) => TanukiType::Struct {
 				ordered_members: ordered_members.clone(), named_members: named_members.clone()
 			},
+			(TanukiType::Struct { ordered_members, named_members }, TanukiType::Struct { ordered_members: ordered_members_to, named_members: named_members_to }) => {
+				let mut result_ordered_members = Vec::new();
+				if ordered_members.len() != ordered_members_to.len() {
+					return Err(Error::NotYetImplemented(format!("Casting value {self:?} to type {type_to:?}")));
+				}
+				for (ordered_member, ordered_member_to) in ordered_members.iter().zip(ordered_members.iter()) {
+					result_ordered_members.push(ordered_member.cast_to(ordered_member_to)?);
+				}
+				let mut result_named_members = BTreeMap::new();
+				for (name, named_member) in named_members.iter() {
+					let named_member_to = match named_members_to.get(name) {
+						None => return Err(Error::NotYetImplemented(format!("Casting value {self:?} to type {type_to:?}"))),
+						Some(named_member_to) => named_member_to,
+					};
+					result_named_members.insert(name.clone(), named_member.cast_to(named_member_to)?);
+				}
+				TanukiType::Struct { ordered_members: result_ordered_members.into(), named_members: result_named_members }
+			}
 			(type_t, TanukiType::Any) => type_t.clone(),
 			(TanukiType::CompileTimeInt | TanukiType::U(_) | TanukiType::I(_), TanukiType::CompileTimeInt | TanukiType::U(_) | TanukiType::I(_)) => type_to.clone(),
 			(TanukiType::Any, type_t) => type_t.clone(),
 			(cast_from, cast_to) if cast_from == cast_to => cast_from.clone(),
-			_ => return Err(Error::NotYetImplemented(format!("Casting value {self:?} to type {type_to:?}"))),
+			(_type_from, type_to) => {
+				//println!("{type_from:?} {type_to:?}");
+				return Err(Error::NotYetImplemented(format!("Casting value {self:?} to type {type_to:?}")))
+			}
 		})
 	}
 
@@ -95,7 +116,7 @@ impl TanukiType {
 				types.return_type.hash(&mut hash);
 				format!("fnp_{}", hash.finish()).into()
 			},
-			Self::Any | Self::CompileTimeChar | Self::CompileTimeFloat | Self::CompileTimeInt | Self::CompileTimeString | Self::Type | Self::FunctionPointer(_) | Self::FunctionPointerEnum(_) =>
+			Self::Any | Self::CompileTimeChar | Self::CompileTimeFloat | Self::CompileTimeInt | Self::CompileTimeString | Self::Type /*| Self::FunctionPointer(_)*/ | Self::FunctionPointerEnum(_) =>
 				{
 					println!("{:?}", self);
 					return Err(Error::TypeCannotExistAtRunTime.at(None, None, None))
@@ -160,7 +181,7 @@ impl AstNode for TanukiType {
 
 impl Debug for TanukiType {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		self.print_name(f)
+		self.print(0, f)
 	}
 }
 
