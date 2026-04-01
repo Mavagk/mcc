@@ -17,7 +17,7 @@ AsciiChar = @import("char.tnk");
 	@void
 } : @void; // TODO: Unix;
 
-//@export getStandardOutput = (; WriteBuffer) IS_WINDOWS?? {
-//	HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-//	WriteBuffer { .write_handle = handle }
-//} : WriteBuffer { .write_handle = @void }; // TODO: Unix;
+@export getStandardOutput = (; WriteBuffer) IS_WINDOWS?? {
+	HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+	{ .write_handle = handle }
+} : WriteBuffer { .write_handle = @void }; // TODO: Unix;

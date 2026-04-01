@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::{DefaultHasher, Hash, Hasher}, num::NonZeroUsize, path::Path};
+use std::{collections::{BTreeMap, HashMap}, hash::{DefaultHasher, Hash, Hasher}, num::NonZeroUsize, path::Path};
 
 use crate::{Main, Os, error::{Error, ErrorAt}, programming_languages::{c::{expression::CExpression, l_value::CLValue, module::CModule, module_element::{CModuleElement, CTypeAndName}, statement::{CCompoundStatement, CInitializer, CStatement, CStructFieldInitializer}, types::CType}, tanuki::{compile_time_value::{FunctionPointer, TanukiCompileTimeValue}, expression::{TanukiExpression, TanukiExpressionVariant}, function::TanukiFunction, module::TanukiModule, t_type::{FunctionPointerType, TanukiType}, token::{TanukiInfixBinaryOperator, TanukiInfixTernaryOperator, TanukiNullaryOperator, TanukiPostfixUnaryOperator, TanukiPrefixUnaryOperator}}}, traits::module::Module};
 
@@ -252,10 +252,10 @@ impl TanukiExpression {
 				return Err(Error::UnableToConstCompile.at(Some(self.start_line), Some(self.start_column), None));
 			}
 			// Blocks
-			TanukiExpressionVariant::Block { sub_expressions, return_expressions } => {
+			TanukiExpressionVariant::Block { sub_expressions, return_expressions } => 'a: {
 				//let sub_expressions_len = sub_expressions.len();
-				let mut return_variable_name = None;
-				let mut return_type = TanukiType::Void;
+				//let mut return_variable_name = None;
+				//let mut return_type = TanukiType::Void;
 				// Push a local variable scope level
 				local_variables.push(HashMap::new());
 				// Create c compound statement
@@ -265,34 +265,86 @@ impl TanukiExpression {
 					sub_expression.compile_r_value_to_c(main, modules, &mut c_compound_statement, function_temp_variable_count, local_variables)?;
 				}
 				let return_expressions_len = return_expressions.len();
-				for (_x, (return_expression_name, return_expression)) in return_expressions.iter().enumerate() {
-					let return_expression_result = return_expression.compile_r_value_to_c(main, modules, &mut c_compound_statement, function_temp_variable_count, local_variables)?;
-					// If this is the block's sub-expression that yields it's result value and the value yielded is not void
-					if let Some(return_expression_result_variable_name) = return_expression_result.0 && return_expressions_len == 1 && return_expression_name.is_none() {
+				//
+				if return_expressions_len == 0 {
+					break 'a Ok((None, TanukiType::Void))
+				}
+				// If this is the block's sub-expression that yields it's result value and the value yielded is not void
+				if return_expressions_len == 1 && return_expressions[0].0.is_none() {
+					let return_expression_result = return_expressions[0].1.compile_r_value_to_c(
+						main, modules, &mut c_compound_statement, function_temp_variable_count, local_variables
+					)?;
+					if let Some(return_expression_result_name) = return_expression_result.0 {
 						// Create the temp variable to assign the block result to
-						return_type = return_expression_result.1;
+						let return_type = return_expression_result.1;
 						let name = format!("_tnk_temp_block_var_{function_temp_variable_count}");
 						*function_temp_variable_count += 1;
-						return_variable_name = Some(name.clone().into());
+						let return_variable_name = Some(name.clone().into());
 						// Assign the block result to the temp variable
 						insert_into.push_statement(
 							CStatement::VariableDeclaration(return_type.compile_to_c_named()?, name.clone().into(), None)
 						);
 						c_compound_statement.push_statement(CExpression::Assignment(
 							CLValue::Variable(name.clone().into()).into(),
-							CLValue::Variable(return_expression_result_variable_name).into(),
+							CLValue::Variable(return_expression_result_name).into(),
 						).into());
-					}
-					else {
-						return Err(Error::NotYetImplemented("Blocks with struct return result".into()).at(Some(return_expression.start_line), Some(return_expression.start_column), None));
+						// Push compound statement
+						insert_into.push_statement(CStatement::CompoundStatement(c_compound_statement));
+						// Pop the local variable scope level
+						local_variables.pop();
+						// Return
+						break 'a Ok((return_variable_name, return_type))
 					}
 				}
+				// Else if the block has a struct return value
+				let mut ordered_expression_result_names = Vec::new();
+				let mut ordered_expression_result_types = Vec::new();
+				let mut named_expression_results_names = BTreeMap::new();
+				let mut named_expression_results_types = BTreeMap::new();
+				for (_x, (return_expression_name, return_expression)) in return_expressions.iter().enumerate() {
+					let return_expression_result = return_expression.compile_r_value_to_c(
+						main, modules, &mut c_compound_statement, function_temp_variable_count, local_variables
+					)?;
+					match return_expression_name {
+						None => {
+							ordered_expression_result_names.push(return_expression_result.0);
+							ordered_expression_result_types.push(return_expression_result.1);
+						}
+						Some(return_expression_name) => {
+							named_expression_results_names.insert(return_expression_name, return_expression_result.0);
+							named_expression_results_types.insert(return_expression_name.clone(), return_expression_result.1);
+						},
+					}
+					//return Err(Error::NotYetImplemented("Blocks with struct return result".into()).at(Some(return_expression.start_line), Some(return_expression.start_column), None));
+				}
+				//
+				let mut members = Vec::new();
+				for (x, ordered_expression_result_name) in ordered_expression_result_names.iter().enumerate() {
+					if ordered_expression_result_name.is_none() {
+						continue;
+					}
+					members.push(CStructFieldInitializer { name: format!("_tnk_o_{x}").into(), initializer: CInitializer::Expression(CLValue::Variable(ordered_expression_result_name.clone().unwrap().into()).into()) });
+				}
+				for (name, named_expression_result_name) in named_expression_results_names {
+					if named_expression_result_name.is_none() {
+						continue;
+					}
+					members.push(CStructFieldInitializer { name: format!("_tnk_n_{name}").into(), initializer: CInitializer::Expression(CLValue::Variable(named_expression_result_name.clone().unwrap().into()).into()) });
+				}
+				let return_type = TanukiType::Struct { ordered_members: ordered_expression_result_types.into(), named_members: named_expression_results_types };
 				// Push compound statement
+				let name = format!("_tnk_temp_block_var_{function_temp_variable_count}");
+				insert_into.push_statement(
+					CStatement::VariableDeclaration(return_type.compile_to_c_named()?, name.clone().into(), None)
+				);
+				let temp_name = format!("_tnk_temp_block_var_{function_temp_variable_count}");
+				*function_temp_variable_count += 1;
+				c_compound_statement.push_statement(CStatement::VariableDeclaration(return_type.compile_to_c_named()?, temp_name.clone().into(), Some(CInitializer::StructInitializer(members.into()).into())));
 				insert_into.push_statement(CStatement::CompoundStatement(c_compound_statement));
 				// Pop the local variable scope level
 				local_variables.pop();
 				// Return
-				Ok((return_variable_name, return_type))
+				Ok((Some(temp_name.into()), return_type))
 			}
 			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
 				let (function_pointer_result_variable, function_pointer_type) = function_pointer.compile_r_value_to_c(
