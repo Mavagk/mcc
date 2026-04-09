@@ -19,7 +19,7 @@ write = @import_std("console.tnk");
 AsciiChar = @import_std("char.tnk");
 
 @entrypoint simpleFn = (; @u(8)) {
-	//AsciiChar a = { .ascii_value = @u(8) 45 };
+	AsciiChar a = { .ascii_value = @u(8) 45 };
 	//{*@u(8)} a = @transmute(@u(8) 0, *@u(8));
 	//@bool b = @true;
 	//Beep(fnY(), @u(32) 1000);

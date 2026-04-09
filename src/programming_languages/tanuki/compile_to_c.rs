@@ -337,14 +337,16 @@ impl TanukiExpression {
 				insert_into.push_statement(
 					CStatement::VariableDeclaration(return_type.compile_to_c_named()?, name.clone().into(), None)
 				);
-				let temp_name = format!("_tnk_temp_block_var_{function_temp_variable_count}");
 				*function_temp_variable_count += 1;
-				c_compound_statement.push_statement(CStatement::VariableDeclaration(return_type.compile_to_c_named()?, temp_name.clone().into(), Some(CInitializer::StructInitializer(members.into()).into())));
+				let temp_name_1 = format!("_tnk_temp_block_var_{function_temp_variable_count}");
+				*function_temp_variable_count += 1;
+				c_compound_statement.push_statement(CStatement::VariableDeclaration(return_type.compile_to_c_named()?, temp_name_1.clone().into(), Some(CInitializer::StructInitializer(members.into()).into())));
+				c_compound_statement.push_statement(CExpression::Assignment(CLValue::Variable(name.clone().into()).into(), CLValue::Variable(temp_name_1.into()).into()).into());
 				insert_into.push_statement(CStatement::CompoundStatement(c_compound_statement));
 				// Pop the local variable scope level
 				local_variables.pop();
 				// Return
-				Ok((Some(temp_name.into()), return_type))
+				Ok((Some(name.into()), return_type))
 			}
 			TanukiExpressionVariant::FunctionCall { function_pointer, arguments } => {
 				let (function_pointer_result_variable, function_pointer_type) = function_pointer.compile_r_value_to_c(
